@@ -18,27 +18,29 @@ class Lapack
 public:
     // constants
 
-    static constexpr T ZERO   = T(0.0);
-    static constexpr T QURTR  = T(0.25);
-    static constexpr T HALF   = T(0.5);
-    static constexpr T ONE    = T(1.0);
-    static constexpr T TWO    = T(2.0);
-    static constexpr T HNDRD  = T(100.0);
+    static constexpr T ZERO  = T(0.0);
+    static constexpr T QURTR = T(0.25);
+    static constexpr T HALF  = T(0.5);
+    static constexpr T ONE   = T(1.0);
+    static constexpr T TWO   = T(2.0);
+    static constexpr T HNDRD = T(100.0);
 
     // LAPACK INSTALL (alphabetically)
 
     /* dlamch determines double precision machine parameters.
      * Parameters: cmach: cmach[0] Specifies the value to be returned by DLAMCH:
-     *                    'E' or 'e', DLAMCH : = eps: relative machine precision
-     *                    'S' or 's , DLAMCH := sfmin: safe minimum, such that 1 / sfmin does not overflow
-     *                    'B' or 'b', DLAMCH : = base: base of the machine (radix)
-     *                    'P' or 'p', DLAMCH : = eps*base
-     *                    'N' or 'n', DLAMCH : = t: number of(base) digits in the mantissa
-     *                    'R' or 'r', DLAMCH : = rnd: 1.0 when rounding occurs in addition, 0.0 otherwise
-     *                    'M' or 'm', DLAMCH : = emin: minimum exponent before(gradual) underflow
-     *                    'U' or 'u', DLAMCH : = rmin: underflow threshold - base^(emin - 1)
-     *                    'L' or 'l', DLAMCH : = emax: largest exponent before overflow
-     *                    'O' or 'o', DLAMCH : = rmax: overflow threshold - (base^emax)*(1 - eps)
+     *                    'E' or 'e', DLAMCH := eps: relative machine precision
+     *                    'S' or 's , DLAMCH := sfmin: safe minimum, such that 1 / sfmin does not
+     *                                                 overflow
+     *                    'B' or 'b', DLAMCH := base: base of the machine (radix)
+     *                    'P' or 'p', DLAMCH := eps*base
+     *                    'N' or 'n', DLAMCH := t: number of(base) digits in the mantissa
+     *                    'R' or 'r', DLAMCH := rnd: 1.0 when rounding occurs in addition, 0.0
+     *                                               otherwise
+     *                    'M' or 'm', DLAMCH := emin: minimum exponent before(gradual) underflow
+     *                    'U' or 'u', DLAMCH := rmin: underflow threshold - base^(emin - 1)
+     *                    'L' or 'l', DLAMCH := emax: largest exponent before overflow
+     *                    'O' or 'o', DLAMCH := rmax: overflow threshold - (base^emax)*(1 - eps)
      * Authors: Univ.of Tennessee
      *          Univ.of California Berkeley
      *          Univ.of Colorado Denver
@@ -48,10 +50,11 @@ public:
         T eps;
         // Assume rounding, not chopping.Always.
         T rnd = ONE;
-        if (ONE == rnd)
+        if (ONE==rnd)
         {
-            eps = std::numeric_limits<T>::epsilon() * T(0.5);
-        } else
+            eps = std::numeric_limits<T>::epsilon() * HALF;
+        }
+        else
         {
             eps = std::numeric_limits<T>::epsilon();
         }
@@ -63,11 +66,11 @@ public:
             case 'S':
                 sfmin = std::numeric_limits<T>::min();
                 small = ONE / std::numeric_limits<T>::max();
-                if (small > sfmin)
+                if (small>sfmin)
                 {
                     //Use SMALL plus a bit, to avoid the possibility of rounding
                     // causing overflow when computing  1 / sfmin.
-                    sfmin = small * (ONE + eps);
+                    sfmin = small * (ONE+eps);
                 }
                 return sfmin;
             case 'B':
@@ -87,7 +90,7 @@ public:
             case 'O':
                 return std::numeric_limits<T>::max();
             default:
-                return T(0.0);
+                return ZERO;
         }
     }
 
@@ -231,8 +234,8 @@ public:
         }
         if (info!=0)
         {
-           xerbla("DBDSQR", -info);
-           return;
+            xerbla("DBDSQR", -info);
+            return;
         }
         if (n==0)
         {
@@ -289,7 +292,7 @@ public:
             // Compute singular values to relative accuracy TOL (By setting TOL to be negative,
             // algorithm will compute singular values to absolute accuracy
             // abs(tol)*norm(input matrix))
-            T tolmul = std::pow(eps,MEIGTH);
+            T tolmul = std::pow(eps, MEIGTH);
             if (HNDRD<tolmul)
             {
                 tolmul = HNDRD;
@@ -412,7 +415,7 @@ public:
                     {
                         smin = abss;
                     }
-                    temp = abss>abse?abss:abse;
+                    temp = ((abss>abse) ? abss : abse);
                     if (temp>smax)
                     {
                         smax = temp;
@@ -445,15 +448,17 @@ public:
                     // Compute singular vectors, if desired
                     if (ncvt>0)
                     {
-                        drot(ncvt, &Vt[m-1/*ldvt*0*/], ldvt, &Vt[m/*+ldvt*0*/], ldvt, cosr, sinr);
+                        Blas<T>::drot(ncvt, &Vt[m-1/*ldvt*0*/], ldvt, &Vt[m/*+ldvt*0*/], ldvt,
+                                      cosr, sinr);
                     }
                     if (nru>0)
                     {
-                        drot(nru, &U[/*0+*/ldu*(m-1)], 1, &U[/*0+*/ldu*m], 1, cosl, sinl);
+                        Blas<T>::drot(nru, &U[/*0+*/ldu*(m-1)], 1, &U[/*0+*/ldu*m], 1, cosl, sinl);
                     }
                     if (ncc>0)
                     {
-                        drot(ncc, &C[m-1/*+ldc*0*/], ldc, &C[m/*+ldc*0*/], ldc, cosl, sinl);
+                        Blas<T>::drot(ncc, &C[m-1/*+ldc*0*/], ldc, &C[m/*+ldc*0*/], ldc, cosl,
+                                      sinl);
                     }
                     m -= 2;
                     continue;
@@ -462,7 +467,7 @@ public:
                 // (from larger end diagonal element towards smaller)
                 if (ll>oldm || m<oldll)
                 {
-                    if (std::fabs(d[ll])>=std::fabs(d[m])
+                    if (std::fabs(d[ll]) >= std::fabs(d[m]))
                     {
                         // Chase bulge from top (big end) to bottom (small end)
                         IDIR = 1;
@@ -478,7 +483,8 @@ public:
                 {
                     // Run convergence test in forward direction
                     // First apply standard test to bottom of matrix
-                    if (std::fabs(e[m-1])<=std::fabs(tol)*std::fabs(d[m]) || (tol<ZERO && std::fabs(e[m-1])<=thresh))
+                    if (std::fabs(e[m-1])<=std::fabs(tol)*std::fabs(d[m])
+                        || (tol<ZERO && std::fabs(e[m-1])<=thresh))
                     {
                         e[m-1] = ZERO;
                         continue;
@@ -491,7 +497,7 @@ public:
                         loopbreak2 = false;
                         for (lll=ll; lll<m; lll++)
                         {
-                            if (std::fabs(e[lll]<=tol*mu)
+                            if (std::fabs(e[lll]<=tol*mu))
                             {
                                 e[lll] = ZERO;
                                 loopbreak2 = true;
@@ -550,7 +556,7 @@ public:
                 // Compute shift. First, test if shifting would ruin relative accuracy,
                 // and if so set the shift to zero.
                 temp = HNDRTH*tol;
-                if (tol>=ZERO && n*tol*(sminl/smax)<=(eps>temp?eps:temp))
+                if (tol>=ZERO && n*tol*(sminl/smax)<=((eps>temp)?eps:temp))
                 {
                     // Use a zero shift to avoid loss of relative accuracy
                     shift = ZERO;
@@ -679,8 +685,8 @@ public:
                     {
                         // Chase bulge from top to bottom
                         // Save cosines and sines for later singular vector updates
-                        f = (std::fabs(d[ll])-shift)
-                            * ((T(ZERO<=d[ll])-T(ZERO>d[ll]))+shift/d[ll]);
+                        f = (std::fabs(d[ll]) - shift)
+                            * ((T(ZERO<=d[ll])-T(ZERO>d[ll])) + shift/d[ll]);
                         g = e[ll];
                         for (i=ll; i<m; i++)
                         {
@@ -748,7 +754,7 @@ public:
                             g      = sinr*d[i-1];
                             d[i-1] = cosr*d[i-1];
                             dlartg(f, g, cosl, sinl, r);
-                            d[i]   = r;
+                            d[i] = r;
                             f      = cosl*e[i-1] + sinl*d[i-1];
                             d[i-1] = cosl*d[i-1] - sinl*e[i-1];
                             if (i>ll+1)
@@ -810,7 +816,7 @@ public:
                 // Change sign of singular vectors, if desired
                 if (ncvt>0)
                 {
-                    dscal(ncvt, NEGONE, &Vt[i/*+lda*0*/], ldvt);
+                    Blas<T>::dscal(ncvt, NEGONE, &Vt[i/*+lda*0*/], ldvt);
                 }
             }
         }
@@ -837,26 +843,26 @@ public:
                 d[n-i-1] = smin;
                 if (ncvt>0)
                 {
-                    dswap(ncvt, &Vt[isub/*+ldvt*0*/], ldvt, &Vt[n-i-1/*+ldvt*0*/], ldvt);
+                    Blas<T>::dswap(ncvt, &Vt[isub/*+ldvt*0*/], ldvt, &Vt[n-i-1/*+ldvt*0*/], ldvt);
                 }
                 if (nru>0)
                 {
-                    dswap(nru, &U[/*0+*/ldu*isub], 1, &U[/*0+*/ldu*(n-i-1)], 1);
+                    Blas<T>::dswap(nru, &U[/*0+*/ldu*isub], 1, &U[/*0+*/ldu*(n-i-1)], 1);
                 }
                 if (ncc>0)
                 {
-                    dswap(ncc, &C[isub/*+ldc*0*/], ldc, &C[n-i-1/*+ldc*0*/], ldc);
+                    Blas<T>::dswap(ncc, &C[isub/*+ldc*0*/], ldc, &C[n-i-1/*+ldc*0*/], ldc);
                 }
             }
         }
     }
 
     /* dgebal balances a general real matrix A. This involves, first, permuting A by a similarity
-     * transformation to isolate eigenvalues in the first 0 to ilo-1 and last ihi+1 to N elements on
-     * the diagonal; and second, applying a diagonal similarity transformation to rows and columns ilo
-     * to ihi to make the rows and columns as close in norm as possible. Both steps are optional.
-     * Balancing may reduce the 1-norm of the matrix, and improve the accuracy of the computed
-     * eigenvalues and/or eigenvectors.
+     * transformation to isolate eigenvalues in the first 0 to ilo-1 and last ihi+1 to N elements
+     * on the diagonal; and second, applying a diagonal similarity transformation to rows and
+     * columns ilo to ihi to make the rows and columns as close in norm as possible. Both steps are
+     * optional. Balancing may reduce the 1-norm of the matrix, and improve the accuracy of the
+     * computed eigenvalues and/or eigenvectors.
      * Parameters: job: Specifies the operations to be performed on A:
      *                  'N': none: simply set ilo = 0, ihi = n-1, scale[i] = 1.0 for i = 0,...,n-1;
      *                  'P':  permute only;
@@ -870,16 +876,18 @@ public:
      *             lda: The leading dimension of the array A. lda >= max(1,n).
      *             ilo,
      *             ihi: ilo and ihi are set to integers such that on exit A[i,j] = 0 if i > j and
-     *                  j = 0,...,ilo-1 or i = ihi+1,...,n-1. If job = 'N' or 'S', ilo = 0 and ihi = n-1.
+     *                  j = 0,...,ilo-1 or i = ihi+1,...,n-1. If job=='N' or 'S', ilo==0 and
+     *                  ihi==n-1.
      *                  NOTE: zero-based indices!
      *             scale: an array of dimension (n)
-     *                    Details of the permutations and scaling factors applied to A. If P[j] is the
-     *                    index of the row and column interchanged with row and column j and D[j] is
-     *                    the scaling factor applied to row and column j, then
+     *                    Details of the permutations and scaling factors applied to A. If P[j] is
+     *                    the index of the row and column interchanged with row and column j and
+     *                    D[j] is the scaling factor applied to row and column j, then
      *                    scale[j] = P[j]    for j = 0,...,ilo-1
      *                             = D[j]    for j = ilo,...,ihi
      *                             = P[j]    for j = ihi+1,...,n-1.
-     *                    The order in which the interchanges are made is n-1 to ihi+1, then 0 to ilo-1.
+     *                    The order in which the interchanges are made is n-1 to ihi+1, then 0 to
+     *                    ilo-1.
      *             info: = 0:  successful exit.
      *                   < 0:  if info = -i, the i-th argument had an illegal value.
      * Authors: Univ.of Tennessee
@@ -903,9 +911,13 @@ public:
      *     Information about the permutations P and the diagonal matrix D is returned in the
      *     vector scale.
      *     This subroutine is based on the EISPACK routine BALANC.
-     *     Modified by Tzu-Yi Chen, Computer Science Division, University of California at Berkeley, USA */
-    static void dgebal(char const* job, int n, T* A, int lda, int& ilo, int& ihi, T* scale, int& info)
+     *     Modified by Tzu-Yi Chen, Computer Science Division, University of California at
+     *     Berkeley, USA                                                                         */
+    static void dgebal(char const* job, int n, T* A, int lda, int& ilo, int& ihi, T* scale,
+                       int& info)
     {
+        const T sclfac = TWO;
+        const T factor = T(0.95);
         // Test the input parameters
         info = 0;
         char upjob = toupper(job[0]);
@@ -917,7 +929,7 @@ public:
         {
             info = -2;
         }
-        else if (lda<(1>n?1:n))
+        else if (lda<1 || lda<n)
         {
             info = -4;
         }
@@ -961,8 +973,8 @@ public:
                     scale[m] = j+1;
                     if (j!=m)
                     {
-                        dswap(l+1, &A[/*0+*/lda*j], 1, &A[/*0+*/lda*m], 1);
-                        dswap(n-k, &A[j+lda*k], lda, &A[m+lda*k], lda);
+                        Blas<T>::dswap(l+1, &A[/*0+*/lda*j], 1, &A[/*0+*/lda*m], 1);
+                        Blas<T>::dswap(n-k, &A[j+lda*k], lda, &A[m+lda*k], lda);
                     }
                     if (iexc==1)
                     {
@@ -1051,14 +1063,12 @@ public:
         if (upjob!='P')
         {
             // Balance the submatrix in rows k to l.
-            T sclfac = TWO;
-            T factor = 0.95;
             T c, ca, f, g, r, ra, s, sfmax1, sfmax2, sfmin1, sfmin2;
             int ica, ira;
             // Iterative loop for norm reduction
             sfmin1 = dlamch("Safemin") / dlamch("Precision");
             sfmax1 = ONE / sfmin1;
-            sfmin2 = sfmin1*sclfac;
+            sfmin2 = sfmin1 * sclfac;
             sfmax2 = ONE / sfmin2;
             bool noconv = true;
             while (noconv)
@@ -1066,11 +1076,11 @@ public:
                 noconv = false;
                 for (i=k; i<=l; i++)
                 {
-                    c = dnrm2(l-k+1, &A[k+lda*i], 1);
-                    r = dnrm2(l-k+1, &A[i+lda*k], lda);
-                    ica = idamax(l+1, &A[/*0+*/lda*i], 1);
+                    c = Blas<T>::dnrm2(l-k+1, &A[k+lda*i], 1);
+                    r = Blas<T>::dnrm2(l-k+1, &A[i+lda*k], lda);
+                    ica = Blas<T>::idamax(l+1, &A[/*0+*/lda*i], 1);
                     ca = fabs(A[ica+lda*i]);
-                    ira = idamax(n-k, &A[i+lda*k], lda);
+                    ira = Blas<T>::idamax(n-k, &A[i+lda*k], lda);
                     ra = fabs(A[i+lda*(ira+k)]);
                     // Guard against zero c or R due to underflow.
                     if (c==0.0 || r==0.0)
@@ -1080,7 +1090,8 @@ public:
                     g = r / sclfac;
                     f = ONE;
                     s = c + r;
-                    while (c<g && f<sfmax2 && c<sfmax2 && ca<sfmax2 && r>sfmin2 && g>sfmin2 && ra>sfmin2)
+                    while (c<g && f<sfmax2 && c<sfmax2 && ca<sfmax2 && r>sfmin2 && g>sfmin2
+                           && ra>sfmin2)
                     {
                         if (std::isnan(c+f+ca+r+g+ra))
                         {
@@ -1097,7 +1108,8 @@ public:
                         ra /= sclfac;
                     }
                     g = c / sclfac;
-                    while (g>=r && r<sfmax2 && ra<sfmax2 && f>sfmin2 && c>sfmin2 && g>sfmin2 && ca>sfmin2)
+                    while (g>=r && r<sfmax2 && ra<sfmax2 && f>sfmin2 && c>sfmin2 && g>sfmin2
+                           && ca>sfmin2)
                     {
                         f /= sclfac;
                         c /= sclfac;
@@ -1128,8 +1140,8 @@ public:
                     g = ONE / f;
                     scale[i] *= f;
                     noconv = true;
-                    dscal(n-k, g, &A[i+lda*k], lda);
-                    dscal(l+1, f, &A[/*0+*/lda*i], 1);
+                    Blas<T>::dscal(n-k, g, &A[i+lda*k], lda);
+                    Blas<T>::dscal(l+1, f, &A[/*0+*/lda*i], 1);
                 }
             }
         }
@@ -1236,7 +1248,7 @@ public:
             for (i=0; i<n; i++)
             {
                 // Generate elementary reflector H[i] to annihilate A[i+1:m-1,i]
-                itemp = i+2<m?i+1:m-1;
+                itemp = ((i+2<m) ? i+1 : m-1);
                 ldai = lda*i;
                 ildai = i+ldai;
                 dlarfg(m-i, A[ildai], &A[itemp+ldai], 1, tauq[i]);
@@ -1251,7 +1263,7 @@ public:
                 if (i<n-1)
                 {
                     // Generate elementary reflector G(i) to annihilate A[i,i+2:n-1]
-                    itemp = i+3<n?i+2:n-1;
+                    itemp = ((i+3<n) ? i+2 : n-1);
                     dlarfg(n-1-i, A[ildai+lda], &A[i+lda*itemp], lda, taup[i]);
                     e[i] = A[ildai+lda];
                     A[ildai+lda] = ONE;
@@ -1272,7 +1284,7 @@ public:
             for (i=0; i<m; i++)
             {
                 // Generate elementary reflector G(i) to annihilate A[i,i+1:n-1]
-                itemp = i+2<n?i+1:n-1;
+                itemp = ((i+2<n) ? i+1 : n-1);
                 ldai = lda*i;
                 ildai = i+ldai;
                 dlarfg(n-i, A[ildai], &A[i+lda*itemp], lda, taup[i]);
@@ -1287,13 +1299,13 @@ public:
                 if (i<m-1)
                 {
                     // Generate elementary reflector H(i) to annihilate A[i+2:m-1,i]
-                    itemp = i+3<m?i+2:m-1;
+                    itemp = ((i+3<m) ? i+2 : m-1);
                     dlarfg(m-1-i, A[1+ildai], &A[itemp+ldai], 1, tauq[i]);
                     e[i] = A[1+ildai];
                     A[1+ildai] = ONE;
                     // Apply H(i) to A[i+1:m-1,i+1:n-1] from the left
                     dlarf("Left", m-1-i, n-1-i, &A[1+ildai], 1, tauq[i], &A[1+ildai+lda], lda,
-                          &work);
+                            &work);
                     A[1+ildai] = e[i];
                 }
                 else
@@ -1304,29 +1316,34 @@ public:
         }
     }
 
-    /* dgeqp3 computes a QR factorization with column pivoting of a matrix A: A*P = Q*R using Level 3 BLAS.
+    /* dgeqp3 computes a QR factorization with column pivoting of a matrix A: A*P = Q*R using
+     * Level 3 BLAS.
      * Parameters: m: The number of rows of the matrix A. m >= 0.
      *             n: The number of columns of the matrix A. n >= 0.
      *             A: an array, dimension(lda, n)
      *                On entry, the m-by-n matrix A.
-     *                On exit, the upper triangle of the array contains the min(m, n)-by-n upper trapezoidal matrix R;
-     *                the elements below the diagonal, together with the array tau,
-     *                represent the orthogonal matrix Q as a product of min(m, n) elementary reflectors.
+     *                On exit, the upper triangle of the array contains the min(m, n)-by-n upper
+     *                         trapezoidal matrix R;
+     *                the elements below the diagonal, together with the array tau, represent the
+     *                orthogonal matrix Q as a product of min(m, n) elementary reflectors.
      *             lda: The leading dimension of the array A. lda >= max(1, m).
      *             jpvt: an integer array, dimension(n)
-     *                   On entry, if jpvt[j]!= -1, the j-th column of A is permuted to the front of A*P(a leading column);
+     *                   On entry, if jpvt[j]!= -1, the j-th column of A is permuted to the front
+     *                                              of A*P(a leading column);
      *                             if jpvt[j] = -1, the j-th column of A is a free column.
-     *                   On exit,  if jpvt[j] = k,  then the j-th column of A*P was the the k-th column of A.
-     *                   Note: this array contains zero-based indices
+     *                   On exit,  if jpvt[j] = k,  then the j-th column of A*P was the the k-th
+     *                                              column of A.
+     *                   Note: this array contains zero-based indices!
      *             tau: an array, dimension(min(m, n))
      *                  The scalar factors of the elementary reflectors.
      *             work: an array, dimension(MAX(1, lwork))
      *                   On exit, if info = 0, work[0] returns the optimal lwork.
      *             lwork: The dimension of the array work. lwork >= 3 * n + 1.
-     *                    For optimal performance lwork >= 2 * n + (n + 1)*nb, where nb is the optimal blocksize.
-     *                    If lwork = -1, then a workspace query is assumed; the routine only calculates the
-     *                    optimal size of the work array, returns this value as the first entry of the work array,
-     *                    and no error message related to lwork is issued by xerbla.
+     *                    For optimal performance lwork >= 2*n+(n+1)*nb, where nb is the optimal
+     *                    blocksize. If lwork==-1, then a workspace query is assumed; the routine
+     *                    only calculates the optimal size of the work array, returns this value as
+     *                    the first entry of the work array, and no error message related to lwork
+     *                    is issued by xerbla.
      *             info: =0: successful exit.
      *                   <0: if info = -i, the i-th argument had an illegal value.
      * Authors: Univ.of Tennessee
@@ -1339,69 +1356,76 @@ public:
      *         Q = H(1) H(2) . ..H(k), where k = min(m, n).
      *     Each H(i) has the form
      *         H(i) = I - tau * v * v^T
-     *     where tau is a real scalar, and v is a real / complex vector with v[0:i-1] = 0 and v[i] = 1;
-     *     v[i+1:m-1] is stored on exit in A[i+1:m-1, i], and tau in tau[i].                                        */
-    static void dgeqp3(int m, int n, T* A, int lda, int* jpvt, T* tau, T* work, int lwork, int& info)
+     *     where tau is a real scalar, and v is a real/complex vector with v[0:i-1]==0 and v[i]==1;
+     *     v[i+1:m-1] is stored on exit in A[i+1:m-1, i], and tau in tau[i].                     */
+    static void dgeqp3(int m, int n, T* A, int lda, int* jpvt, T* tau, T* work, int lwork,
+                       int& info)
     {
         const int INB = 1, INBMIN = 2, IXOVER = 3;
         // Test input arguments
         info = 0;
         bool lquery = (lwork == -1);
-        if (m < 0)
+        if (m<0)
         {
             info = -1;
-        } else if (n < 0)
+        }
+        else if (n<0)
         {
             info = -2;
-        } else if (lda < (1 > m ? 1 : m))
+        }
+        else if (lda<1 || lda<m)
         {
             info = -4;
         }
         int iws = 0, minmn = 0, nb;
-        if (info == 0)
+        if (info==0)
         {
-            minmn = m < n ? m : n;
+            minmn = ((m<n) ? m : n);
             if (minmn == 0)
             {
                 iws = 1;
                 work[0] = 1;
-            } else
-            {
-                iws = 3 * n + 1;
-                nb = ilaenv(INB, "DGEQRF", " ", m, n, -1, -1);
-                work[0] = 2 * n + (n + 1) * nb;
             }
-            if ((lwork < iws) && !lquery)
+            else
+            {
+                iws = 3*n + 1;
+                nb = ilaenv(INB, "DGEQRF", " ", m, n, -1, -1);
+                work[0] = 2*n + (n+1)*nb;
+            }
+            if ((lwork<iws) && !lquery)
             {
                 info = -8;
             }
         }
-        if (info != 0)
+        if (info!=0)
         {
             xerbla("DGEQP3", -info);
             return;
-        } else if (lquery)
+        }
+        else if (lquery)
         {
             return;
         }
         // Move initial columns up front.
         int j;
         int nfxd = 1;
-        for (j = 0; j < n; j++)
+        for (j=0; j<n; j++)
         {
             if (jpvt[j] != -1)
             {
-                if (j != nfxd - 1)
+                if (j != nfxd-1)
                 {
-                    dswap(m, &A[/*0+*/lda * j], 1, &A[/*0+*/lda * (nfxd - 1)], 1);
-                    jpvt[j] = jpvt[nfxd - 1];
-                    jpvt[nfxd - 1] = j;
-                } else
+                    Blas<T>::dswap(m, &A[/*0+*/lda*j], 1, &A[/*0+*/lda*(nfxd-1)], 1);
+                    jpvt[j] = jpvt[nfxd-1];
+                    jpvt[nfxd-1] = j;
+                }
+                else
                 {
                     jpvt[j] = j;
                 }
                 nfxd++;
-            } else
+            }
+            else
             {
                 jpvt[j] = j;
             }
@@ -1409,21 +1433,21 @@ public:
         nfxd--;
         // Factorize fixed columns
         // Compute the QR factorization of fixed columns and update remaining columns.
-        if (nfxd > 0)
+        if (nfxd>0)
         {
-            int na = m < nfxd ? m : nfxd;
+            int na = ((m<nfxd) ? m : nfxd);
             // dgeqr2(m, na, A, lda, tau, work, info);
             dgeqrf(m, na, A, lda, tau, work, lwork, info);
             iws = iws > int(work[0]) ? iws : int(work[0]);
-            if (na < n)
+            if (na<n)
             {
-                // dorm2r("Left", "Transpose", m, n - na, na, A, lda, tau, &A[/*0+*/lda*na], lda, work, info);
-                dormqr("Left", "Transpose", m, n - na, na, A, lda, tau, &A[/*0+*/lda * na], lda, work, lwork, info);
+                dormqr("Left", "Transpose", m, n-na, na, A, lda, tau, &A[/*0+*/lda*na], lda, work,
+                       lwork, info);
                 iws = iws > int(work[0]) ? iws : int(work[0]);
             }
         }
         // Factorize free columns
-        if (nfxd < minmn)
+        if (nfxd<minmn)
         {
             int sm = m - nfxd;
             int sn = n - nfxd;
@@ -1432,25 +1456,25 @@ public:
             nb = ilaenv(INB, "DGEQRF", " ", sm, sn, -1, -1);
             int nbmin = 2;
             int nx = 0;
-            if ((nb > 1) && (nb < sminmn))
+            if ((nb>1) && (nb<sminmn))
             {
                 // Determine when to cross over from blocked to unblocked code.
                 nx = ilaenv(IXOVER, "DGEQRF", " ", sm, sn, -1, -1);
-                if (0 > nx)
+                if (0>nx)
                 {
                     nx = 0;
                 }
-                if (nx < sminmn)
+                if (nx<sminmn)
                 {
                     // Determine if workspace is large enough for blocked code.
-                    int minws = 2 * sn + (sn + 1) * nb;
-                    iws = iws > minws ? iws : minws;
-                    if (lwork < minws)
+                    int minws = 2*sn + (sn+1)*nb;
+                    iws = ((iws>minws) ? iws : minws);
+                    if (lwork<minws)
                     {
                         // Not enough workspace to use optimal nb: Reduce nb and determine the minimum value of nb.
-                        nb = (lwork - 2 * sn) / (sn + 1);
+                        nb = (lwork-2*sn) / (sn+1);
                         nbmin = ilaenv(INBMIN, "DGEQRF", " ", sm, sn, -1, -1);
-                        if (nbmin < 2)
+                        if (nbmin<2)
                         {
                             nbmin = 2;
                         }
@@ -1458,37 +1482,41 @@ public:
                 }
             }
             // Initialize partial column norms. The first n elements of work store the exact column norms.
-            for (j = nfxd; j < n; j++)
+            for (j=nfxd; j<n; j++)
             {
-                work[j] = dnrm2(sm, &A[nfxd + lda * j], 1);
-                work[n + j] = work[j];
+                work[j] = Blas<T>::dnrm2(sm, &A[nfxd+lda*j], 1);
+                work[n+j] = work[j];
             }
-            if ((nb >= nbmin) && (nb < sminmn) && (nx < sminmn))
+            if ((nb>=nbmin) && (nb<sminmn) && (nx<sminmn))
             {
                 // Use blocked code initially.
                 j = nfxd;
                 // Compute factorization: while loop.
                 int topbmn = minmn - nx;
                 int fjb, jb;
-                while (j < topbmn)
+                while (j<topbmn)
                 {
                     jb = topbmn - j;
-                    if (nb < jb)
+                    if (nb<jb)
                     {
                         jb = nb;
                     }
                     // Factorize jb columns among columns j:n-1.
-                    dlaqps(m, n - j, j, jb, fjb, &A[/*0+*/lda * j], lda, &jpvt[j], &tau[j], &work[j], &work[n + j], &work[2 * n], &work[2 * n + jb], n - j);
+                    dlaqps(m, n-j, j, jb, fjb, &A[lda*j], lda, &jpvt[j], &tau[j], &work[j],
+                           &work[n+j], &work[2*n], &work[2*n+jb], n-j);
                     j += fjb;
                 }
-            } else
+            }
+            else
             {
                 j = nfxd;
             }
             // Use unblocked code to factor the last or only block.
-            if (j < minmn)
+            if (j<minmn)
             {
-                dlaqp2(m, n - j, j, &A[/*0+*/lda * j], lda, &jpvt[j], &tau[j], &work[j], &work[n + j], &work[2 * n]);
+
+                dlaqp2(m, n-j, j, &A[lda*j], lda, &jpvt[j], &tau[j], &work[j], &work[n+j],
+                       &work[2*n]);
             }
         }
         work[0] = iws;
@@ -1500,8 +1528,9 @@ public:
      *             A: an array, dimension(lda, n)
      *                On entry, the m by n matrix A.
      *                On exit, the elements on and above the diagonal of the array contain the
-     *				  min(m, n) by n upper trapezoidal matrix R (R is upper triangular if m >= n);
-     *				  the elements below the diagonal, with the array tau, represent the orthogonal
+     *                         min(m, n) by n upper trapezoidal matrix R (R is upper triangular
+     *                         if m>=n);
+     *                the elements below the diagonal, with the array tau, represent the orthogonal
      *                matrix Q as a product of elementary reflectors(see Further Details).
      *             lda: The leading dimension of the array A. lda >= max(1, m).
      *             tau: an array, dimension(min(m, n))
@@ -1519,41 +1548,43 @@ public:
      *     Each H(i) has the form
      *         H(i) = I - tau * v * v^T
      *     where tau is a real scalar, and v is a real vector with v[0:i-1] = 0 and v[i] = 1;
-     *     v[i+1:m-1] is stored on exit in A[i+1:m-1,i], and tau in tau[i].						*/
+     *     v[i+1:m-1] is stored on exit in A[i+1:m-1,i], and tau in tau[i].			 */
     static void dgeqr2(int m, int n, T* A, int lda, T* tau, T* work, int& info)
     {
         int i, k, coli;
         T AII;
         // Test the input arguments
         info = 0;
-        if (m < 0)
+        if (m<0)
         {
             info = -1;
-        } else if (n < 0)
+        }
+        else if (n<0)
         {
             info = -2;
-        } else if (lda < (m > 1 ? m : 1))
+        }
+        else if (lda<m || lda<1)
         {
             info = -4;
         }
-        if (info != 0)
+        if (info!=0)
         {
             xerbla("DGEQR2", -info);
             return;
         }
-        k = (m < n ? m : n);
-        for (i = 0; i < k; i++)
+        k = ((m<n) ? m : n);
+        for (i=0; i<k; i++)
         {
             coli = lda*i;
             // Generate elementary reflector H[i] to annihilate A[i+1:m-1, i]
-            dlarfg(m - i, A[i + coli], &A[(((i + 1) < (m - 1)) ? (i + 1) : (m - 1)) + coli], 1, tau[i]);
-            if (i < (n - 1))
+            dlarfg(m-i, A[i+coli], &A[((i+1<m-1)?i+1:m-1)+coli], 1, tau[i]);
+            if (i<(n-1))
             {
                 // Apply H[i] to A[i:m-1, i+1:n-1] from the left
-                AII = A[i + coli];
-                A[i + coli] = ONE;
-                dlarf("Left", m - i, n - i - 1, &A[i + coli], 1, tau[i], &A[i + coli + lda], lda, work);
-                A[i + coli] = AII;
+                AII = A[i+coli];
+                A[i+coli] = ONE;
+                dlarf("Left", m-i, n-i-1, &A[i+coli], 1, tau[i], &A[i+coli+lda], lda, work);
+                A[i+coli] = AII;
             }
         }
     }
@@ -1600,31 +1631,35 @@ public:
         info = 0;
         int nb = ilaenv(1, "DGEQRF", " ", m, n, -1, -1);
         work[0] = n*nb;
-        bool lquery = (lwork == -1);
-        if (m < 0)
+        bool lquery = (lwork==-1);
+        if (m<0)
         {
             info = -1;
-        } else if (n < 0)
+        }
+        else if (n<0)
         {
             info = -2;
-        } else if (lda < (1 > m ? 1 : m))
+        }
+        else if (lda<1 || lda<m)
         {
             info = -4;
-        } else if (lwork < (1 > n ? 1 : n) && !lquery)
+        }
+        else if ((lwork<1 || lwork<n) && !lquery)
         {
             info = -7;
         }
-        if (info != 0)
+        if (info!=0)
         {
             xerbla("DGEQRF", -info);
             return;
-        } else if (lquery)
+        }
+        else if (lquery)
         {
             return;
         }
         // Quick return if possible
-        int k = (m < n ? m : n);
-        if (k == 0)
+        int k = ((m<n) ? m : n);
+        if (k==0)
         {
             work[0] = 1;
             return;
@@ -1633,25 +1668,25 @@ public:
         int nx = 0;
         int iws = n;
         int ldwork = 0;
-        if (nb > 1 && nb < k)
+        if (nb>1 && nb<k)
         {
             // Determine when to cross over from blocked to unblocked code.
             nx = ilaenv(3, "DGEQRF", " ", m, n, -1, -1);
-            if (nx < 0)
+            if (nx<0)
             {
                 nx = 0;
             }
-            if (nx < k)
+            if (nx<k)
             {
                 // Determine if workspace is large enough for blocked code.
                 ldwork = n;
                 iws = ldwork*nb;
-                if (lwork < iws)
+                if (lwork<iws)
                 {
                     //Not enough workspace to use optimal nb: reduce nb and determine the minimum value of nb.
                     nb = lwork / ldwork;
                     nbmin = ilaenv(2, "DGEQRF", " ", m, n, -1, -1);
-                    if (nbmin < 2)
+                    if (nbmin<2)
                     {
                         nbmin = 2;
                     }
@@ -1659,38 +1694,40 @@ public:
             }
         }
         int i, ib, iinfo, aind;
-        if (nb >= nbmin && nb < k && nx < k)
+        if (nb>=nbmin && nb<k && nx<k)
         {
             // Use blocked code initially
-            for (i = 0; i < (k - nx); i += nb)
+            for (i=0; i<(k-nx); i+=nb)
             {
                 ib = k - i;
-                if (ib > nb)
+                if (ib>nb)
                 {
                     ib = nb;
                 }
                 aind = i + lda*i;
                 // Compute the QR factorization of the current block
                 //     A[i:m-1, i:i+ib-1]
-                dgeqr2(m - i, ib, &A[aind], lda, &tau[i], work, iinfo);
-                if ((i + ib) < n)
+                dgeqr2(m-i, ib, &A[aind], lda, &tau[i], work, iinfo);
+                if ((i+ib)<n)
                 {
                     // Form the triangular factor of the block reflector
                     //     H = H(i) H(i + 1) . ..H(i + ib - 1)
-                    dlarft("Forward", "Columnwise", m - i, ib, &A[aind], lda, &tau[i], work, ldwork);
+                    dlarft("Forward", "Columnwise", m-i, ib, &A[aind], lda, &tau[i], work, ldwork);
                     // Apply H^T to A[i:m-1, i+ib:n-1] from the left
-                    dlarfb("Left", "Transpose", "Forward", "Columnwise", m - i, n - i - ib, ib,
-                            &A[aind], lda, work, ldwork, &A[aind + lda * ib], lda, &work[ib], ldwork);
+                    dlarfb("Left", "Transpose", "Forward", "Columnwise", m-i, n-i-ib, ib, &A[aind],
+                           lda, work, ldwork, &A[aind+lda*ib], lda, &work[ib], ldwork);
                 }
             }
-        } else
+        }
+        else
         {
             i = 0;
         }
         // Use unblocked code to factor the last or only block.
-        if (i < k)
+        if (i<k)
         {
-            dgeqr2(m - i, n - i, &A[i + lda * i], lda, &tau[i], work, iinfo);
+
+            dgeqr2(m-i, n-i, &A[i+lda*i], lda, &tau[i], work, iinfo);
         }
         work[0] = iws;
     }
@@ -1718,7 +1755,7 @@ public:
     {
         // If it looks like we're on a Cray, take the square root of small and large to avoid
         // overflow and underflow problems.
-        if (std::log10(large)>2000.0)
+        if (std::log10(large)>T(2000.0))
         {
             small = std::sqrt(small);
             large = std::sqrt(large);
@@ -1787,7 +1824,8 @@ public:
      * absolute value of any element of a general real rectangular matrix A.
      * Parameters: norm: Specifies the value to be returned in dlange as described above.
      *             m: The number of rows of the matrix A. m>=0. When m==0, dlange is set to zero.
-     *             n: The number of columns of the matrix A. n>=0. When n==0, dlange is set to zero.
+     *             n: The number of columns of the matrix A. n>=0.
+     *                When n==0, dlange is set to zero.
      *             A: an array, dimension (lda,n)
      *                The m by n matrix A.
      *             lda: The leading dimension of the array A. lda>=max(m,1).
@@ -1899,33 +1937,46 @@ public:
         T w, xabs, yabs, z;
         xabs = fabs(x);
         yabs = fabs(Y);
-        w = (xabs > yabs ? xabs : yabs);
-        z = (xabs < yabs ? xabs : yabs);
-        if (z == ZERO)
+        if (xabs>yabs)
+        {
+            w = xabs;
+            z = yabs;
+        }
+        else
+        {
+            w = yabs;
+            z = xabs;
+        }
+        if (z==ZERO)
         {
             return w;
-        } else
+        }
+        else
         {
-            return w * sqrt(ONE + (z / w)*(z / w));
+            return w * sqrt(ONE + (z/w)*(z/w));
         }
     }
 
     /* dlaqp2 computes a QR factorization with column pivoting of the block A[offset:m-1, 0:n-1].
      * The block A[0:offset-1, 0:n-1] is accordingly pivoted, but not factorized.
-     * Parameters: m: The number of rows of the matrix A. m >= 0.
-     *             n: The number of columns of the matrix A. n >= 0.
-     *             offset: The number of rows of the matrix A that must be pivoted but not factorized. offset >= 0.
+     * Parameters: m: The number of rows of the matrix A. m>=0.
+     *             n: The number of columns of the matrix A. n>=0.
+     *             offset: The number of rows of the matrix A that must be pivoted but not
+     *                     factorized. offset>=0.
      *             A: an array, dimension(lda, n)
      *                On entry, the m-by-n matrix A.
-     *                On exit, the upper triangle of block A[offset:m-1, 0:n-1] is the triangular factor obtained;
-     *                the elements in block A[offset:m-1, 0:n-1] below the diagonal, together with the array tau,
-     *                represent the orthogonal matrix Q as a product of elementary reflectors.
-     *                Block A[0:offset-1, 0:n-1] has been accordingly pivoted, but not factorized.
+     *                On exit, the upper triangle of block A[offset:m-1, 0:n-1] is the triangular
+     *                         factor obtained; the elements in block A[offset:m-1, 0:n-1] below
+     *                         the diagonal, together with the array tau, represent the orthogonal
+     *                         matrix Q as a product of elementary reflectors. Block
+     *                         A[0:offset-1,0:n-1] has been accordingly pivoted,but not factorized.
      *             lda: The leading dimension of the array A. lda >= max(1, m).
      *             jpvt: an integer array, dimension(n)
-     *                   On entry, if jpvt[i] != -1, the i-th column of A is permuted to the front of A*P (a leading column);
+     *                   On entry, if jpvt[i] != -1, the i-th column of A is permuted to the front
+     *                                               of A*P (a leading column);
      *                             if jpvt[i] == -1, the i-th column of A is a free column.
-     *                   On exit,  if jpvt[i] == k, then the i-th column of A*P was the k-th column of A.
+     *                   On exit,  if jpvt[i] == k, then the i-th column of A*P was the k-th column
+     *                                              of A.
      *                   Note: this array contains zero-based indices
      *             tau: an array, dimension(min(m, n))
      *                  The scalar factors of the elementary reflectors.
@@ -1937,23 +1988,24 @@ public:
      * Authors: Univ.of Tennessee
      *          Univ.of California Berkeley
      *          Univ.of Colorado Denver
-     *          NAG Ltd.                                                                                      */
-    static void dlaqp2(int m, int n, int offset, T* A, int lda, int* jpvt, T* tau, T* vn1, T* vn2, T* work)
+     *          NAG Ltd.                                                                         */
+    static void dlaqp2(int m, int n, int offset, T* A, int lda, int* jpvt, T* tau, T* vn1, T* vn2,
+            T* work)
     {
-        int mn = ((m - offset) < n ? (m - offset) : n);
+        int mn = ((m-offset<n) ? m-offset : n);
         T tol3z = sqrt(dlamch("Epsilon"));
         // Compute factorization.
         int i, itemp, j, offpi, pvt, acoli;
         T aii, temp, temp2;
-        for (i = 0; i < mn; i++)
+        for (i=0; i<mn; i++)
         {
             offpi = offset + i;
             // Determine ith pivot column and swap if necessary.
-            pvt = i + idamax(n - i, &vn1[i], 1);
+            pvt = i + Blas<T>::idamax(n-i, &vn1[i], 1);
             acoli = lda*i;
-            if (pvt != i)
+            if (pvt!=i)
             {
-                dswap(m, &A[/*0+*/lda * pvt], 1, &A[/*0+*/acoli], 1);
+                Blas<T>::dswap(m, &A[lda*pvt], 1, &A[acoli], 1);
                 itemp = jpvt[pvt];
                 jpvt[pvt] = jpvt[i];
                 jpvt[i] = itemp;
@@ -1961,44 +2013,48 @@ public:
                 vn2[pvt] = vn2[i];
             }
             // Generate elementary reflector H(i).
-            if (offpi < m - 1)
+            if (offpi<m-1)
             {
-                dlarfg(m - offpi, A[offpi + acoli], &A[offpi + 1 + acoli], 1, tau[i]);
-            } else
-            {
-                dlarfg(1, A[m - 1 + acoli], &A[m - 1 + acoli], 1, tau[i]);
+                dlarfg(m-offpi, A[offpi+acoli], &A[offpi+1+acoli], 1, tau[i]);
             }
-            if (i + 1 < n)
+            else
+            {
+                dlarfg(1, A[m-1+acoli], &A[m-1+acoli], 1, tau[i]);
+            }
+            if (i+1<n)
             {
                 // Apply H(i)^T to A[offset+i:m-1, i+1:n-1] from the left.
-                aii = A[offpi + acoli];
-                A[offpi + acoli] = ONE;
-                dlarf("Left", m - offpi, n - i - 1, &A[offpi + acoli], 1, tau[i], &A[offpi + acoli + lda], lda, work);
-                A[offpi + acoli] = aii;
+                aii = A[offpi+acoli];
+                A[offpi+acoli] = ONE;
+                dlarf("Left", m-offpi, n-i-1, &A[offpi+acoli], 1, tau[i], &A[offpi+acoli+lda], lda,
+                      work);
+                A[offpi+acoli] = aii;
             }
             // Update partial column norms.
-            for (j = i + 1; j < n; j++)
+            for (j=i+1; j<n; j++)
             {
-                if (vn1[j] != ZERO)
+                if (vn1[j]!=ZERO)
                 {
                     // NOTE: The following 6 lines follow from the analysis in Lapack Working Note 176.
-                    temp = fabs(A[offpi + lda * j]) / vn1[j];
+                    temp = fabs(A[offpi+lda*j]) / vn1[j];
                     temp = ONE - temp*temp;
-                    temp = (temp > ZERO ? temp : ZERO);
+                    temp = ((temp>ZERO) ? temp : ZERO);
                     temp2 = vn1[j] / vn2[j];
-                    temp2 = temp * temp2*temp2;
-                    if (temp2 <= tol3z)
+                    temp2 = temp * temp2 * temp2;
+                    if (temp2<=tol3z)
                     {
-                        if (offpi < m - 1)
+                        if (offpi<m-1)
                         {
-                            vn1[j] = dnrm2(m - offpi - 1, &A[offpi + 1 + lda * j], 1);
+                            vn1[j] = Blas<T>::dnrm2(m-offpi-1, &A[offpi+1+lda*j], 1);
                             vn2[j] = vn1[j];
-                        } else
+                        }
+                        else
                         {
                             vn1[j] = ZERO;
                             vn2[j] = ZERO;
                         }
-                    } else
+                    }
+                    else
                     {
                         vn1[j] *= sqrt(temp);
                     }
@@ -2007,12 +2063,12 @@ public:
         }
     }
 
-    /* dlaqps computes a step of QR factorization with column pivotingof a real m-by-n matrix A by using Blas-3.
-     * It tries to factorize nb columns from A starting from the row offset + 1,
-     * and updates all of the matrix with Blas-3 xgemm.
-     * In some cases, due to catastrophic cancellations, it cannot factorize nb columns.Hence,
-     * the actual number of factorized columns is returned in kb.
-     * Block A[0:offset-1, 0:n-1) is accordingly pivoted, but not factorized.
+    /* dlaqps computes a step of QR factorization with column pivotingof a real m-by-n matrix A by
+     * using Blas-3. It tries to factorize nb columns from A starting from the row offset + 1, and
+     * updates all of the matrix with Blas-3 xgemm. In some cases, due to catastrophic
+     * cancellations, it cannot factorize nb columns. Hence, the actual number of factorized
+     * columns is returned in kb. Block A[0:offset-1, 0:n-1] is accordingly pivoted, but not
+     * factorized.
      * Parameters: m: The number of rows of the matrix A. m >= 0.
      *             n: The number of columns of the matrix A. n >= 0
      *             offset: The number of rows of A that have been factorized in previous steps.
@@ -2025,7 +2081,8 @@ public:
      *                The rest of the matrix, block A[offset:m-1, kb:n-1] has been updated.
      *             lda: The leading dimension of the array A.lda >= max(1, m).
      *             jpvt: an integer array, dimension(n)
-     *                   jpvt[i] = k <==> Column k of the full matrix A has been permuted into position i in AP.
+     *                   jpvt[i] = k <==> Column k of the full matrix A has been permuted into
+     *                                    position i in AP.
      *                   Note: this array contains zero-based indices
      *             tau: an array, dimension(kb)
      *                  The scalar factors of the elementary reflectors.
@@ -2041,27 +2098,28 @@ public:
      * Authors: Univ.of Tennessee
      *          Univ.of California Berkeley
      *          Univ.of Colorado Denver
-     *          NAG Ltd.                                                                                      */
-    static void dlaqps(int m, int n, int offset, int nb, int& kb, T* A, int lda, int* jpvt, T* tau, T* vn1, T* vn2, T* auxv, T* F, int ldf)
+     *          NAG Ltd.                                                                         */
+    static void dlaqps(int m, int n, int offset, int nb, int& kb, T* A, int lda, int* jpvt, T* tau,
+                       T* vn1, T* vn2, T* auxv, T* F, int ldf)
     {
-        int lastrk = m < (n + offset) ? m : (n + offset);
+        int lastrk = ((m<n+offset) ? m : n+offset);
         int lsticc = -1;
         int k = -1;
         T tol3z = sqrt(dlamch("Epsilon"));
         // Beginning of while loop.
         int itemp, j, pvt, rk, acolk;
         T akk, temp, temp2;
-        while ((k + 1 < nb) && (lsticc == -1))
+        while ((k+1<nb) && (lsticc==-1))
         {
             k++;
             rk = offset + k;
             acolk = lda*k;
             // Determine i-th pivot column and swap if necessary
-            pvt = k + idamax(n - k, &vn1[k], 1);
-            if (pvt != k)
+            pvt = k + Blas<T>::idamax(n-k, &vn1[k], 1);
+            if (pvt!=k)
             {
-                dswap(m, &A[/*0+*/lda * pvt], 1, &A[/*0+*/acolk], 1);
-                dswap(k, &F[pvt/*+ldf*0*/], ldf, &F[k/*+ldf*0*/], ldf);
+                Blas<T>::dswap(m, &A[lda*pvt], 1, &A[acolk], 1);
+                Blas<T>::dswap(k, &F[pvt], ldf, &F[k], ldf);
                 itemp = jpvt[pvt];
                 jpvt[pvt] = jpvt[k];
                 jpvt[k] = itemp;
@@ -2070,84 +2128,94 @@ public:
             }
             // Apply previous Householder reflectors to column k:
             //     A[rk:m-1, k] -= A[rk:m-1, 0:k-1] * F[k, 0:k-1]^T.
-            if (k > 0)
+            if (k>0)
             {
-                dgemv("No transpose", m - rk, k, -ONE, &A[rk/*+lda*0*/], lda, &F[k/*+ldf*0*/], ldf, ONE, &A[rk + acolk], 1);
+                Blas<T>::dgemv("No transpose", m-rk, k, -ONE, &A[rk], lda, &F[k], ldf, ONE,
+                               &A[rk+acolk], 1);
             }
             // Generate elementary reflector H(k).
-            if (rk < m - 1)
+            if (rk<m-1)
             {
-                dlarfg(m - rk, A[rk + acolk], &A[rk + 1 + acolk], 1, tau[k]);
-            } else
-            {
-                dlarfg(1, A[rk + acolk], &A[rk + acolk], 1, tau[k]);
+                dlarfg(m-rk, A[rk+acolk], &A[rk+1+acolk], 1, tau[k]);
             }
-            akk = A[rk + acolk];
-            A[rk + acolk] = ONE;
+            else
+            {
+                dlarfg(1, A[rk+acolk], &A[rk+acolk], 1, tau[k]);
+            }
+            akk = A[rk+acolk];
+            A[rk+acolk] = ONE;
             // Compute k-th column of F:
             // Compute  F[k+1:n-1, k] = tau[k] * A[rk:m-1, k+1:n-1]^T * A[rk:m-1, k].
-            if (k < n - 1)
+            if (k<n-1)
             {
-                dgemv("Transpose", m - rk, n - k - 1, tau[k], &A[rk + acolk + lda], lda, &A[rk + acolk], 1, ZERO, &F[k + 1 + ldf * k], 1);
+                Blas<T>::dgemv("Transpose", m-rk, n-k-1, tau[k], &A[rk+acolk+lda], lda,
+                               &A[rk+acolk], 1, ZERO, &F[k+1+ldf*k], 1);
             }
             // Padding F[0:k, k] with zeros.
-            for (j = 0; j <= k; j++)
+            for (j=0; j<=k; j++)
             {
-                F[j + ldf * k] = ZERO;
+                F[j+ldf*k] = ZERO;
             }
             // Incremental updating of F:
             // F[0:n-1, k] -= tau[k] * F[0:n-1, 0:k-1] * A[rk:m-1, 0:k-1]^T * A[rk:m-1, k].
-            if (k > 0)
+            if (k>0)
             {
-                dgemv("Transpose", m - rk, k, -tau[k], &A[rk/*lda*0*/], lda, &A[rk + acolk], 1, ZERO, auxv/*[0]*/, 1);
-                dgemv("No transpose", n, k, ONE, F/*[0+ldf*0]*/, ldf, auxv, 1, ONE, &F[/*0+*/ldf * k], 1);
+                Blas<T>::dgemv("Transpose", m-rk, k, -tau[k], &A[rk], lda, &A[rk+acolk], 1, ZERO,
+                               auxv, 1);
+                Blas<T>::dgemv("No transpose", n, k, ONE, F, ldf, auxv, 1, ONE, &F[ldf*k], 1);
             }
             // Update the current row of A:
             // A[rk, k+1:n-1] -= A[rk, 0:k] * F[k+1:n-1, 0:k]^T.
-            if (k < n - 1)
+            if (k<n-1)
             {
-                dgemv("No transpose", n - k - 1, k + 1, -ONE, &F[k + 1/*+ldf*0*/], ldf, &A[rk/*lda*0*/], lda, ONE, &A[rk + acolk + lda], lda);
+                Blas<T>::dgemv("No transpose", n-k-1, k+1, -ONE, &F[k+1], ldf, &A[rk], lda,
+                               ONE, &A[rk+acolk+lda], lda);
             }
             // Update partial column norms.
-            if (rk < lastrk - 1)
+            if (rk < lastrk-1)
             {
-                for (j = k + 1; j < n; j++)
+                for (j=k+1; j<n; j++)
                 {
-                    if (vn1[j] != ZERO)
+                    if (vn1[j]!=ZERO)
                     {
-                        // NOTE: The following 6 lines follow from the analysis in Lapack Working Note 176.
-                        temp = fabs(A[rk + lda * j]) / vn1[j];
-                        temp = (ONE + temp)*(ONE - temp);
-                        temp = (ZERO > temp ? ZERO : temp);
+                        // NOTE: The following 6 lines follow from the analysis in Lapack Working
+                        //       Note 176.
+                        temp = fabs(A[rk+lda*j]) / vn1[j];
+                        temp = (ONE+temp) * (ONE-temp);
+                        temp = ((ZERO>temp) ? ZERO : temp);
                         temp2 = vn1[j] / vn2[j];
                         temp2 = temp * temp2 * temp2;
-                        if (temp2 <= tol3z)
+                        if (temp2<=tol3z)
                         {
-                            vn2[j] = T(lsticc + 1);
+                            vn2[j] = T(lsticc+1);
                             lsticc = j;
-                        } else
+                        }
+                        else
                         {
                             vn1[j] *= sqrt(temp);
                         }
                     }
                 }
             }
-            A[rk + acolk] = akk;
+            A[rk+acolk] = akk;
         }
         kb = k + 1;
         rk = offset + kb - 1;
         // Apply the block reflector to the rest of the matrix:
         // A[offset+kb:m-1, kb:n-1] -= A[offset+kb:m-1, 0:kb-1] * F[kb:n-1, 0:kb-1]^T.
-        if (kb < (n < (m - offset) ? n : (m - offset)))
+        if (kb < ((n<=m-offset)?n:m-offset))
         {
-            dgemm("No transpose", "Transpose", m - rk - 1, n - kb, kb, -ONE, &A[rk + 1/*+lda*0*/], lda, &F[kb/*+ldf*0*/], ldf, ONE, &A[rk + 1 + lda * kb], lda);
+            Blas<T>::dgemm("No transpose", "Transpose", m-rk-1, n-kb, kb, -ONE, &A[rk+1], lda,
+                           &F[kb], ldf, ONE, &A[rk+1+lda*kb], lda);
         }
         // Recomputation of difficult columns.
-        while (lsticc >= 0)
+        while (lsticc>=0)
         {
-            itemp = int(vn2[lsticc] - T(0.5)); // round vn2[lsticc]-1
-            vn1[lsticc] = dnrm2(m - rk - 1, &A[rk + 1 + lda * lsticc], 1);
-            // NOTE: The computation of vn1[lsticc] relies on the fact that dnrm2 does not fail on vectors with norm below the value of sqrt(dlamch("S"))
+
+            itemp = int(vn2[lsticc]-HALF); // round vn2[lsticc]-1
+            vn1[lsticc] = Blas<T>::dnrm2(m-rk-1, &A[rk+1+lda*lsticc], 1);
+            // NOTE: The computation of vn1[lsticc] relies on the fact that dnrm2 does not fail on
+            // vectors with norm below the value of sqrt(dlamch("S"))
             vn2[lsticc] = vn1[lsticc];
             lsticc = itemp;
         }
@@ -2178,30 +2246,33 @@ public:
      *          Univ.of California Berkeley
      *          Univ.of Colorado Denver
      *          NAG Ltd.                                                                      */
-    static void dlarf(char const* side, int m, int n, T const* v, int incv, T tau, T* C, int ldc, T* work)
+    static void dlarf(char const* side, int m, int n, T const* v, int incv, T tau, T* C, int ldc,
+                      T* work)
     {
         bool applyleft;
-        int i, lastv = 0, lastc = 0;
-        applyleft = (toupper(side[0]) == 'L');
-        if (tau != ZERO)
+        int i, lastv=0, lastc=0;
+        applyleft = (toupper(side[0])=='L');
+        if (tau!=ZERO)
         {
             //Set up variables for scanning v. LASTV begins pointing to the end of v.
             if (applyleft)
             {
                 lastv = m;
-            } else
+            }
+            else
             {
                 lastv = n;
             }
-            if (incv > 0)
+            if (incv>0)
             {
-                i = (lastv - 1) * incv;
-            } else
+                i = (lastv-1) * incv;
+            }
+            else
             {
                 i = 0;
             }
             // Look for the last non - zero row in v.
-            while (lastv > 0 && v[i] == ZERO)
+            while (lastv>0 && v[i]==ZERO)
             {
                 lastv--;
                 i -= incv;
@@ -2210,32 +2281,35 @@ public:
             {
                 // Scan for the last non - zero column in C[0:lastv-1,:].
                 lastc = iladlc(lastv, n, C, ldc) + 1;
-            } else
+            }
+            else
             {
                 // Scan for the last non - zero row in C[:,0:lastv-1].
                 lastc = iladlr(m, lastv, C, ldc) + 1;
             }
         }
-        // Note that lastc==0 renders the BLAS operations null; no special case is needed at this level.
+        // Note that lastc==0 renders the BLAS operations null;
+        // no special case is needed at this level.
         if (applyleft)
         {
             //Form  H * C
-            if (lastv > 0)
+            if (lastv>0)
             {
                 // work[0:lastc-1] = C[0:lastv-1,0:last-1]^T * v[0:lastv-1]
-                dgemv("Transpose", lastv, lastc, ONE, C, ldc, v, incv, ZERO, work, 1);
+                Blas<T>::dgemv("Transpose", lastv, lastc, ONE, C, ldc, v, incv, ZERO, work, 1);
                 // C[0:lastv-1,0:lastc-1] -= v[0:lastv-1] * work[0:lastc-1]^T
-                dger(lastv, lastc, -tau, v, incv, work, 1, C, ldc);
+                Blas<T>::dger(lastv, lastc, -tau, v, incv, work, 1, C, ldc);
             }
-        } else
+        }
+        else
         {
             // Form  C * H
-            if (lastv > 0)
+            if (lastv>0)
             {
                 // work[0:lastc-1] = C[0:lastc-1,0:lastv-1] * v[0:lastv-1]
-                dgemv("No transpose", lastc, lastv, ONE, C, ldc, v, incv, ZERO, work, 1);
+                Blas<T>::dgemv("No transpose", lastc, lastv, ONE, C, ldc, v, incv, ZERO, work, 1);
                 // C[0:lastc-1,0:lastv-1] -= work[0:lastc-1] * v[0:lastv-1]^T
-                dger(lastc, lastv, -tau, work, 1, v, incv, C, ldc);
+                Blas<T>::dger(lastc, lastv, -tau, work, 1, v, incv, C, ldc);
             }
         }
     }
@@ -2281,8 +2355,9 @@ public:
      *          NAG Ltd.
      * Further Details:
      *     The shape of the matrix V and the storage of the vectors which define the H(i) is best
-     *     illustrated by the following example with n = 5 and k = 3. The elements equal to 1 are not stored;
-     *     the corresponding array elements are modified but restored on exit.The rest of the array is not used.
+     *     illustrated by the following example with n==5 and k==3. The elements equal to 1 are not
+     *     stored; the corresponding array elements are modified but restored on exit. The rest of
+     *     the array is not used.
      *     direct = 'F' and storev = 'C':        direct = 'F' and storev = 'R':
      *                  V = (1)                  V = (1 v1 v1 v1 v1)
      *                      (v1  1)                     (1 v2 v2 v2)
@@ -2294,20 +2369,22 @@ public:
      *                      (v1 v2 v3)                     (v2 v2 v2  1)
      *                      (1 v2 v3)                      (v3 v3 v3 v3  1)
      *                      (1 v3)
-     *                      (1)                                                                                  */
-    static void dlarfb(char const* side, char const* trans, char const* direct, char const* storev, int m, int n, int k,
-            T* V, int ldv, T const* Tm, int ldt, T* C, int ldc, T* Work, int ldwork)
+     *                      (1)                                                                  */
+    static void dlarfb(char const* side, char const* trans, char const* direct, char const* storev,
+                       int m, int n, int k, T* V, int ldv, T const* Tm, int ldt, T* C, int ldc,
+                       T* Work, int ldwork)
     {
         // Quick return if possible
-        if (m < 0 || n < 0)
+        if (m<0 || n<0)
         {
             return;
         }
         char const* transt;
-        if (toupper(trans[0]) == 'N')
+        if (toupper(trans[0])=='N')
         {
             transt = "Transpose";
-        } else
+        }
+        else
         {
             transt = "No transpose";
         }
@@ -2315,322 +2392,369 @@ public:
         char upstorev = toupper(storev[0]);
         char updirect = toupper(direct[0]);
         char upside = toupper(side[0]);
-        if (upstorev == 'C')
+        if (upstorev=='C')
         {
-            if (updirect == 'F')
+            if (updirect=='F')
             {
                 // Let V = (V1) (first k rows)
                 //         (V2)
                 // where V1 is unit lower triangular.
-                if (upside == 'L')
+                if (upside=='L')
                 {
                     // Form  H * C or H^T * C  where  C = (C1)
                     //                                    (C2)
                     // W = C^T * V = (C1^T * V1 + C2^T * V2)  (stored in Work)
                     // W = C1^T
-                    for (j = 0; j < k; j++)
+                    for (j=0; j<k; j++)
                     {
-                        dcopy(n, &C[j/*+ldc*0*/], ldc, &Work[/*0+*/ldwork * j], 1);
+                        Blas<T>::dcopy(n, &C[j], ldc, &Work[ldwork*j], 1);
                     }
                     // W : = W * V1
-                    dtrmm("Right", "Lower", "No transpose", "Unit", n, k, ONE, V, ldv, Work, ldwork);
-                    if (m > k)
+                    Blas<T>::dtrmm("Right", "Lower", "No transpose", "Unit", n, k, ONE, V, ldv,
+                                   Work, ldwork);
+                    if (m>k)
                     {
                         // W = W + C2^T * V2
-                        dgemm("Transpose", "No transpose", n, k, m - k, ONE, &C[k/*+ldc*0*/], ldc, &V[k/*+ldv*0*/], ldv, ONE, Work, ldwork);
+                        Blas<T>::dgemm("Transpose", "No transpose", n, k, m-k, ONE, &C[k], ldc,
+                                       &V[k], ldv, ONE, Work, ldwork);
                     }
                     // W = W * Tm^T or W * Tm
-                    dtrmm("Right", "Upper", transt, "Non-unit", n, k, ONE, Tm, ldt, Work, ldwork);
+                    Blas<T>::dtrmm("Right", "Upper", transt, "Non-unit", n, k, ONE, Tm, ldt, Work,
+                                   ldwork);
                     // C = C - V * W^T
-                    if (m > k)
+                    if (m>k)
                     {
                         // C2 = C2 - V2 * W^T
-                        dgemm("No transpose", "Transpose", m - k, n, k, -ONE, &V[k/*+ldv*0*/], ldv, Work, ldwork, ONE, &C[k/*+ldc*0*/], ldc);
+                        Blas<T>::dgemm("No transpose", "Transpose", m-k, n, k, -ONE, &V[k], ldv,
+                                       Work, ldwork, ONE, &C[k], ldc);
                     }
                     // W = W * V1^T
-                    dtrmm("Right", "Lower", "Transpose", "Unit", n, k, ONE, V, ldv, Work, ldwork);
+                    Blas<T>::dtrmm("Right", "Lower", "Transpose", "Unit", n, k, ONE, V, ldv, Work,
+                                   ldwork);
                     // C1 = C1 - W^T
-                    for (j = 0; j < k; j++)
+                    for (j=0; j<k; j++)
                     {
-                        workcol = ldwork*j;
-                        for (i = 0; i < n; i++)
+                        workcol = ldwork * j;
+                        for (i=0; i<n; i++)
                         {
-                            C[j + ldc * i] -= Work[i + workcol];
+                            C[j+ldc*i] -= Work[i+workcol];
                         }
                     }
-                } else if (upside == 'R')
+                }
+                else if (upside=='R')
                 {
                     // Form  C * H or C * H^T  where  C = (C1  C2)
                     // W = C * V = (C1*V1 + C2*V2)  (stored in Work)
                     // W = C1
-                    for (j = 0; j < k; j++)
+                    for (j=0; j<k; j++)
                     {
-                        dcopy(m, &C[/*0+*/ldc * j], 1, &Work[/*0+*/ldwork * j], 1);
+                        Blas<T>::dcopy(m, &C[ldc*j], 1, &Work[ldwork*j], 1);
                     }
                     // W = W * V1
-                    dtrmm("Right", "Lower", "No transpose", "Unit", m, k, ONE, V, ldv, Work, ldwork);
-                    if (n > k)
+                    Blas<T>::dtrmm("Right", "Lower", "No transpose", "Unit", m, k, ONE, V, ldv,
+                                   Work, ldwork);
+                    if (n>k)
                     {
                         // W = W + C2 * V2
-                        dgemm("No transpose", "No transpose", m, k, n - k, ONE, &C[/*0+*/ldc * k], ldc, &V[k/*+ldv*0*/], ldv, ONE, Work, ldwork);
+                        Blas<T>::dgemm("No transpose", "No transpose", m, k, n-k, ONE, &C[ldc*k],
+                                       ldc, &V[k], ldv, ONE, Work, ldwork);
                     }
                     // W = W * Tm or W * Tm^T
-                    dtrmm("Right", "Upper", trans, "Non-unit", m, k, ONE, Tm, ldt, Work, ldwork);
+                    Blas<T>::dtrmm("Right", "Upper", trans, "Non-unit", m, k, ONE, Tm, ldt, Work,
+                                   ldwork);
                     // C = C - W * V^T
-                    if (n > k)
+                    if (n>k)
                     {
                         // C2 = C2 - W * V2^T
-                        dgemm("No transpose", "Transpose", m, n - k, k, -ONE, Work, ldwork, &V[k/*+ldv*0*/], ldv, ONE, &C[/*0+*/ldc * k], ldc);
+                        Blas<T>::dgemm("No transpose", "Transpose", m, n-k, k, -ONE, Work, ldwork,
+                                       &V[k], ldv, ONE, &C[ldc*k], ldc);
                     }
                     // W = W * V1^T
-                    dtrmm("Right", "Lower", "Transpose", "Unit", m, k, ONE, V, ldv, Work, ldwork);
+                    Blas<T>::dtrmm("Right", "Lower", "Transpose", "Unit", m, k, ONE, V, ldv, Work,
+                                   ldwork);
                     // C1 = C1 - W
-                    for (j = 0; j < k; j++)
+                    for (j=0; j<k; j++)
                     {
-                        ccol = ldc*j;
-                        workcol = ldwork*j;
-                        for (i = 0; i < m; i++)
+                        ccol = ldc * j;
+                        workcol = ldwork * j;
+                        for (i=0; i<m; i++)
                         {
-                            C[i + ccol] -= Work[i + workcol];
-                        }
-                    }
-                }
-            } else
-            {
-                // Let V = (V1)
-                //         (V2) (last k rows)
-                // where V2 is unit upper triangular.
-                if (upside == 'L')
-                {
-                    // Form  H * C or H^T * C  where  C = (C1)
-                    //                                    (C2)
-                    // W = C^T * V = (C1^T * V1 + C2^T * V2)  (stored in Work)
-                    // W = C2^T
-                    for (j = 0; j < k; j++)
-                    {
-                        dcopy(n, &C[m - k + j/*+ldc*0*/], ldc, &Work[/*0+*/ldwork * j], 1);
-                    }
-                    // W = W * V2
-                    dtrmm("Right", "Upper", "No transpose", "Unit", n, k, ONE, &V[m - k/*+ldv*0*/], ldv, Work, ldwork);
-                    if (m > k)
-                    {
-                        // W = W + C1^T * V1
-                        dgemm("Transpose", "No transpose", n, k, m - k, ONE, C, ldc, V, ldv, ONE, Work, ldwork);
-                    }
-                    // W = W * Tm^T or W * Tm
-                    dtrmm("Right", "Lower", transt, "Non-unit", n, k, ONE, Tm, ldt, Work, ldwork);
-                    // C = C - V * W^T
-                    if (m > k)
-                    {
-                        // C1 = C1 - V1 * W^T
-                        dgemm("No transpose", "Transpose", m - k, n, k, -ONE, V, ldv, Work, ldwork, ONE, C, ldc);
-                    }
-                    // W = W * V2^T
-                    dtrmm("Right", "Upper", "Transpose", "Unit", n, k, ONE, &V[m - k/*+ldv*0*/], ldv, Work, ldwork);
-                    // C2 = C2 - W^T
-                    for (j = 0; j < k; j++)
-                    {
-                        ccol = m - k + j;
-                        workcol = ldwork*j;
-                        for (i = 0; i < n; i++)
-                        {
-                            C[ccol + ldc * i] -= Work[i + workcol];
-                        }
-                    }
-                } else if (upside == 'R')
-                {
-                    // Form  C * H or C * H^T  where  C = (C1  C2)
-                    // W = C * V = (C1*V1 + C2*V2)  (stored in Work)
-                    // W = C2
-                    ccol = ldc * (n - k);
-                    for (j = 0; j < k; j++)
-                    {
-                        dcopy(m, &C[/*0+*/ccol + ldc * j], 1, &Work[/*0+*/ldwork * j], 1);
-                    }
-                    // W = W * V2
-                    dtrmm("Right", "Upper", "No transpose", "Unit", m, k, ONE, &V[n - k/*+ldv*0*/], ldv, Work, ldwork);
-                    if (n > k)
-                    {
-                        // W = W + C1 * V1
-                        dgemm("No transpose", "No transpose", m, k, n - k, ONE, C, ldc, V, ldv, ONE, Work, ldwork);
-                    }
-                    // W : = W * Tm or W * Tm^T
-                    dtrmm("Right", "Lower", trans, "Non-unit", m, k, ONE, Tm, ldt, Work, ldwork);
-                    // C = C - W * V^T
-                    if (n > k)
-                    {
-                        // C1 = C1 - W * V1^T
-                        dgemm("No transpose", "Transpose", m, n - k, k, -ONE, Work, ldwork, V, ldv, ONE, C, ldc);
-                    }
-                    // W = W * V2^T
-                    dtrmm("Right", "Upper", "Transpose", "Unit", m, k, ONE, &V[n - k/*+ldv*0*/], ldv, Work, ldwork);
-                    // C2 = C2 - W
-                    for (j = 0; j < k; j++)
-                    {
-                        ccol = ldc * (n - k + j);
-                        workcol = ldwork*j;
-                        for (i = 0; i < m; i++)
-                        {
-                            C[i + ccol] -= Work[i + workcol];
+                            C[i+ccol] -= Work[i+workcol];
                         }
                     }
                 }
             }
-        } else if (upstorev == 'R')
+            else
+            {
+                // Let V = (V1)
+                //         (V2) (last k rows)
+                // where V2 is unit upper triangular.
+                if (upside=='L')
+                {
+                    // Form  H * C or H^T * C  where  C = (C1)
+                    //                                    (C2)
+                    // W = C^T * V = (C1^T * V1 + C2^T * V2)  (stored in Work)
+                    // W = C2^T
+                    for (j=0; j<k; j++)
+                    {
+                        Blas<T>::dcopy(n, &C[m-k+j], ldc, &Work[ldwork*j], 1);
+                    }
+                    // W = W * V2
+                    Blas<T>::dtrmm("Right", "Upper", "No transpose", "Unit", n, k, ONE, &V[m-k],
+                                   ldv, Work, ldwork);
+                    if (m>k)
+                    {
+                        // W = W + C1^T * V1
+                        Blas<T>::dgemm("Transpose", "No transpose", n, k, m-k, ONE, C, ldc, V, ldv,
+                                ONE, Work, ldwork);
+                    }
+                    // W = W * Tm^T or W * Tm
+                    Blas<T>::dtrmm("Right", "Lower", transt, "Non-unit", n, k, ONE, Tm, ldt, Work,
+                                   ldwork);
+                    // C = C - V * W^T
+                    if (m>k)
+                    {
+                        // C1 = C1 - V1 * W^T
+                        Blas<T>::dgemm("No transpose", "Transpose", m-k, n, k, -ONE, V, ldv, Work,
+                                ldwork, ONE, C, ldc);
+                    }
+                    // W = W * V2^T
+                    Blas<T>::dtrmm("Right", "Upper", "Transpose", "Unit", n, k, ONE, &V[m-k], ldv,
+                                   Work, ldwork);
+                    // C2 = C2 - W^T
+                    for (j=0; j<k; j++)
+                    {
+                        ccol = m - k + j;
+                        workcol = ldwork * j;
+                        for (i = 0; i<n; i++)
+                        {
+                            C[ccol+ldc*i] -= Work[i+workcol];
+                        }
+                    }
+                }
+                else if (upside=='R')
+                {
+                    // Form  C * H or C * H^T  where  C = (C1  C2)
+                    // W = C * V = (C1*V1 + C2*V2)  (stored in Work)
+                    // W = C2
+                    ccol = ldc * (n-k);
+                    for (j=0; j<k; j++)
+                    {
+                        Blas<T>::dcopy(m, &C[ccol+ldc*j], 1, &Work[ldwork*j], 1);
+                    }
+                    // W = W * V2
+                    Blas<T>::dtrmm("Right", "Upper", "No transpose", "Unit", m, k, ONE, &V[n-k],
+                                   ldv, Work, ldwork);
+                    if (n>k)
+                    {
+                        // W = W + C1 * V1
+                        Blas<T>::dgemm("No transpose", "No transpose", m, k, n-k, ONE, C, ldc, V,
+                                       ldv, ONE, Work, ldwork);
+                    }
+                    // W : = W * Tm or W * Tm^T
+                    Blas<T>::dtrmm("Right", "Lower", trans, "Non-unit", m, k, ONE, Tm, ldt, Work,
+                                   ldwork);
+                    // C = C - W * V^T
+                    if (n>k)
+                    {
+                        // C1 = C1 - W * V1^T
+                        Blas<T>::dgemm("No transpose", "Transpose", m, n-k, k, -ONE, Work, ldwork,
+                                       V, ldv, ONE, C, ldc);
+                    }
+                    // W = W * V2^T
+                    Blas<T>::dtrmm("Right", "Upper", "Transpose", "Unit", m, k, ONE, &V[n-k], ldv,
+                                   Work, ldwork);
+                    // C2 = C2 - W
+                    for (j=0; j<k; j++)
+                    {
+                        ccol = ldc * (n-k+j);
+                        workcol = ldwork * j;
+                        for (i=0; i<m; i++)
+                        {
+                            C[i+ccol] -= Work[i+workcol];
+                        }
+                    }
+                }
+            }
+        }
+        else if (upstorev=='R')
         {
-            if (updirect == 'F')
+            if (updirect=='F')
             {
                 // Let V = (V1  V2)   (V1: first k columns)
                 // where V1 is unit upper triangular.
-                if (upside == 'L')
+                if (upside=='L')
                 {
                     // Form H * C or H^T * C where C = (C1)
                     //                                 (C2)
                     // W = C^T * V^T = (C1^T * V1^T + C2^T * V2^T) (stored in Work)
                     // W = C1^T
-                    for (j = 0; j < k; j++)
+                    for (j=0; j<k; j++)
                     {
-                        dcopy(n, &C[j/*+ldc*0*/], ldc, &Work[/*0+*/ldwork * j], 1);
+                        Blas<T>::dcopy(n, &C[j], ldc, &Work[ldwork*j], 1);
                     }
                     // W = W * V1^T
-                    dtrmm("Right", "Upper", "Transpose", "Unit", n, k, ONE, V, ldv, Work, ldwork);
-                    if (m > k)
+                    Blas<T>::dtrmm("Right", "Upper", "Transpose", "Unit", n, k, ONE, V, ldv, Work,
+                                   ldwork);
+                    if (m>k)
                     {
                         // W = W + C2^T * V2^T
-                        dgemm("Transpose", "Transpose", n, k, m - k, ONE, &C[k/*+ldc*0*/], ldc, &V[/*0+*/ldv * k], ldv, ONE, Work, ldwork);
+                        Blas<T>::dgemm("Transpose", "Transpose", n, k, m-k, ONE, &C[k], ldc,
+                                       &V[ldv*k], ldv, ONE, Work, ldwork);
                     }
                     // W = W * Tm^T or W * Tm
-                    dtrmm("Right", "Upper", transt, "Non-unit", n, k, ONE, Tm, ldt, Work, ldwork);
+                    Blas<T>::dtrmm("Right", "Upper", transt, "Non-unit", n, k, ONE, Tm, ldt, Work,
+                                   ldwork);
                     // C = C - V^T * W^T
-                    if (m > k)
+                    if (m>k)
                     {
                         // C2 = C2 - V2^T * W^T
-                        dgemm("Transpose", "Transpose", m - k, n, k, -ONE, &V[/*0+*/ldv * k], ldv, Work, ldwork, ONE, &C[k/*+ldc*0*/], ldc);
+                        Blas<T>::dgemm("Transpose", "Transpose", m-k, n, k, -ONE, &V[ldv*k], ldv,
+                                       Work, ldwork, ONE, &C[k], ldc);
                     }
                     // W = W * V1
-                    dtrmm("Right", "Upper", "No transpose", "Unit", n, k, ONE, V, ldv, Work, ldwork);
+                    Blas<T>::dtrmm("Right", "Upper", "No transpose", "Unit", n, k, ONE, V, ldv,
+                                   Work, ldwork);
                     // C1 = C1 - W^T
-                    for (j = 0; j < k; j++)
+                    for (j=0; j<k; j++)
                     {
                         workcol = ldwork*j;
-                        for (i = 0; i < n; i++)
+                        for (i=0; i<n; i++)
                         {
-                            C[j + ldc * i] -= Work[i + workcol];
+                            C[j+ldc*i] -= Work[i+workcol];
                         }
                     }
-                } else if (upside == 'R')
+                }
+                else if (upside=='R')
                 {
                     // Form C * H or C * H^T where  C = (C1  C2)
                     // W = C * V^T = (C1*V1^T + C2*V2^T)  (stored in Work)
                     // W = C1
-                    for (j = 0; j < k; j++)
+                    for (j=0; j<k; j++)
                     {
-                        dcopy(m, &C[/*0+*/ldc * j], 1, &Work[/*0+*/ldwork * j], 1);
+                        Blas<T>::dcopy(m, &C[ldc*j], 1, &Work[ldwork*j], 1);
                     }
                     // W = W * V1^T
-                    dtrmm("Right", "Upper", "Transpose", "Unit", m, k, ONE, V, ldv, Work, ldwork);
-                    if (n > k)
+                    Blas<T>::dtrmm("Right", "Upper", "Transpose", "Unit", m, k, ONE, V, ldv, Work,
+                                   ldwork);
+                    if (n>k)
                     {
                         // W = W + C2 * V2^T
-                        dgemm("No transpose", "Transpose", m, k, n - k, ONE, &C[/*0+*/ldc * k], ldc, &V[/*0+*/ldv * k], ldv, ONE, Work, ldwork);
+                        Blas<T>::dgemm("No transpose", "Transpose", m, k, n-k, ONE, &C[ldc*k], ldc,
+                                        &V[ldv*k], ldv, ONE, Work, ldwork);
                     }
                     // W = W * Tm or W * Tm^T
-                    dtrmm("Right", "Upper", trans, "Non-unit", m, k, ONE, Tm, ldt, Work, ldwork);
+                    Blas<T>::dtrmm("Right", "Upper", trans, "Non-unit", m, k, ONE, Tm, ldt, Work,
+                                   ldwork);
                     // C = C - W * V
-                    if (n > k)
+                    if (n>k)
                     {
                         // C2 = C2 - W * V2
-                        dgemm("No transpose", "No transpose", m, n - k, k, -ONE, Work, ldwork, &V[/*0+*/ldv * k], ldv, ONE, &C[/*0+*/ldc * k], ldc);
+                        Blas<T>::dgemm("No transpose", "No transpose", m, n-k, k, -ONE, Work,
+                                       ldwork, &V[ldv*k], ldv, ONE, &C[ldc*k], ldc);
                     }
                     // W = W * V1
-                    dtrmm("Right", "Upper", "No transpose", "Unit", m, k, ONE, V, ldv, Work, ldwork);
+                    Blas<T>::dtrmm("Right", "Upper", "No transpose", "Unit", m, k, ONE, V, ldv,
+                                   Work, ldwork);
                     // C1 = C1 - W
-                    for (j = 0; j < k; j++)
+                    for (j=0; j<k; j++)
                     {
-                        ccol = ldc*j;
-                        workcol = ldwork*j;
-                        for (i = 0; i < m; i++)
+                        ccol = ldc * j;
+                        workcol = ldwork * j;
+                        for (i=0; i<m; i++)
                         {
-                            C[i + ccol] -= Work[i + workcol];
+                            C[i+ccol] -= Work[i+workcol];
                         }
                     }
                 }
-            } else
+            }
+            else
             {
                 // Let V = (V1  V2)   (V2: last k columns)
                 // where V2 is unit lower triangular.
-                if (upside == 'L')
+                if (upside=='L')
                 {
                     // Form H * C or H^T * C where C = (C1)
                     //                                 (C2)
                     // W = C^T * V^T = (C1^T * V1^T + C2^T * V2^T) (stored in Work)
                     // W = C2^T
-                    for (j = 0; j < k; j++)
+                    for (j=0; j<k; j++)
                     {
-                        dcopy(n, &C[m - k + j/*+ldc*0*/], ldc, &Work[/*0+*/ldwork * j], 1);
+                        Blas<T>::dcopy(n, &C[m-k+j], ldc, &Work[ldwork*j], 1);
                     }
                     // W = W * V2^T
-                    dtrmm("Right", "Lower", "Transpose", "Unit", n, k, ONE, &V[/*0+*/ldv * (m - k)], ldv, Work, ldwork);
-                    if (m > k)
+                    Blas<T>::dtrmm("Right", "Lower", "Transpose", "Unit", n, k, ONE, &V[ldv*(m-k)],
+                                   ldv, Work, ldwork);
+                    if (m>k)
                     {
                         // W = W + C1^T * V1^T
-                        dgemm("Transpose", "Transpose", n, k, m - k, ONE, C, ldc, V, ldv, ONE, Work, ldwork);
+                        Blas<T>::dgemm("Transpose", "Transpose", n, k, m-k, ONE, C, ldc, V, ldv,
+                                       ONE, Work, ldwork);
                     }
                     // W = W * Tm^T or W * Tm
-                    dtrmm("Right", "Lower", transt, "Non-unit", n, k, ONE, Tm, ldt, Work, ldwork);
+                    Blas<T>::dtrmm("Right", "Lower", transt, "Non-unit", n, k, ONE, Tm, ldt, Work,
+                                   ldwork);
                     // C = C - V^T * W^T
-                    if (m > k)
+                    if (m>k)
                     {
                         // C1 = C1 - V1^T * W^T
-                        dgemm("Transpose", "Transpose", m - k, n, k, -ONE, V, ldv, Work, ldwork, ONE, C, ldc);
+                        Blas<T>::dgemm("Transpose", "Transpose", m-k, n, k, -ONE, V, ldv, Work,
+                                       ldwork, ONE, C, ldc);
                     }
                     // W = W * V2
-                    dtrmm("Right", "Lower", "No transpose", "Unit", n, k, ONE, &V[/*0+*/ldv * (m - k)], ldv, Work, ldwork);
+                    Blas<T>::dtrmm("Right", "Lower", "No transpose", "Unit", n, k, ONE,
+                                   &V[ldv*(m-k)], ldv, Work, ldwork);
                     // C2 = C2 - W^T
-                    for (j = 0; j < k; j++)
+                    for (j=0; j<k; j++)
                     {
                         ccol = m - k + j;
-                        workcol = ldwork*j;
-                        for (i = 0; i < n; i++)
+                        workcol = ldwork * j;
+                        for (i=0; i<n; i++)
                         {
-                            C[ccol + ldc * i] -= Work[i + workcol];
+                            C[ccol+ldc*i] -= Work[i+workcol];
                         }
                     }
-                } else if (upside == 'R')
+                }
+                else if (upside=='R')
                 {
                     // Form  C * H or C * H^T where C = (C1  C2)
                     // W = C * V^T = (C1*V1^T + C2*V2^T) (stored in Work)
                     // W = C2
-                    ccol = ldc * (n - k);
-                    for (j = 0; j < k; j++)
+                    ccol = ldc * (n-k);
+                    for (j=0; j<k; j++)
                     {
-                        dcopy(m, &C[/*0+*/ccol + ldc * j], 1, &Work[/*0+*/ldwork * j], 1);
+                        Blas<T>::dcopy(m, &C[ccol+ldc*j], 1, &Work[ldwork*j], 1);
                     }
                     // W = W * V2^T
-                    dtrmm("Right", "Lower", "Transpose", "Unit", m, k, ONE, &V[/*0+*/ldv * (n - k)], ldv, Work, ldwork);
-                    if (n > k)
+                    Blas<T>::dtrmm("Right", "Lower", "Transpose", "Unit", m, k, ONE, &V[ldv*(n-k)],
+                                   ldv, Work, ldwork);
+                    if (n>k)
                     {
                         // W = W + C1 * V1^T
-                        dgemm("No transpose", "Transpose", m, k, n - k, ONE, C, ldc, V, ldv, ONE, Work, ldwork);
+                        Blas<T>::dgemm("No transpose", "Transpose", m, k, n-k, ONE, C, ldc, V, ldv,
+                                       ONE, Work, ldwork);
                     }
                     // W = W * Tm or W * Tm^T
-                    dtrmm("Right", "Lower", trans, "Non-unit", m, k, ONE, Tm, ldt, Work, ldwork);
+                    Blas<T>::dtrmm("Right", "Lower", trans, "Non-unit", m, k, ONE, Tm, ldt, Work,
+                                   ldwork);
                     // C = C - W * V
-                    if (n > k)
+                    if (n>k)
                     {
                         // C1 = C1 - W * V1
-                        dgemm("No transpose", "No transpose", m, n - k, k, -ONE, Work, ldwork, V, ldv, ONE, C, ldc);
+                        Blas<T>::dgemm("No transpose", "No transpose", m, n-k, k, -ONE, Work,
+                                       ldwork, V, ldv, ONE, C, ldc);
                     }
                     // W = W * V2
-                    dtrmm("Right", "Lower", "No transpose", "Unit", m, k, ONE, &V[/*0+*/ldv * (n - k)], ldv, Work, ldwork);
+                    Blas<T>::dtrmm("Right", "Lower", "No transpose", "Unit", m, k, ONE,
+                                   &V[ldv*(n-k)], ldv, Work, ldwork);
                     // C1 = C1 - W
-                    for (j = 0; j < k; j++)
+                    for (j=0; j<k; j++)
                     {
-                        ccol = ldc * (n - k + j);
-                        workcol = ldwork*j;
-                        for (i = 0; i < m; i++)
+                        ccol = ldc * (n-k+j);
+                        workcol = ldwork * j;
+                        for (i=0; i<m; i++)
                         {
-                            C[i + ccol] -= Work[i + workcol];
+                            C[i+ccol] -= Work[i+workcol];
                         }
                     }
                 }
@@ -2659,48 +2783,49 @@ public:
      * Authors: Univ.of Tennessee
      *          Univ.of California Berkeley
      *          Univ.of Colorado Denver
-     *          NAG Ltd.																	*/
+     *          NAG Ltd.                                                                         */
     static void dlarfg(int n, T& alpha, T* x, int incx, T& tau)
     {
         int j, knt;
         T beta, rsafmin, safmin, xnorm;
-        if (n <= 1)
+        if (n<=1)
         {
             tau = ZERO;
             return;
         }
-        xnorm = dnrm2(n - 1, x, incx);
-        if (xnorm == ZERO)
+        xnorm = Blas<T>::dnrm2(n-1, x, incx);
+        if (xnorm==ZERO)
         {
             // H = I
             tau = ZERO;
-        } else
+        }
+        else
         {
             // general case
-            beta = -dlapy2(alpha, xnorm) * T((ZERO <= alpha) - (alpha < ZERO));
+            beta = -dlapy2(alpha, xnorm) * T((ZERO<=alpha) - (alpha<ZERO));
             safmin = dlamch("SafeMin") / dlamch("Epsilon");
             knt = 0;
-            if (fabs(beta) < safmin)
+            if (fabs(beta)<safmin)
             {
                 // xnorm, beta may be inaccurate; scale x and recompute them
                 rsafmin = ONE / safmin;
                 do
                 {
                     knt++;
-                    dscal(n - 1, rsafmin, x, incx);
-                    beta = beta*rsafmin;
-                    alpha = alpha*rsafmin;
-                } while (fabs(beta) < safmin);
+                    Blas<T>::dscal(n-1, rsafmin, x, incx);
+                    beta *= rsafmin;
+                    alpha *= rsafmin;
+                } while (fabs(beta)<safmin);
                 // New beta is at most 1, at least SAFMIN
-                xnorm = dnrm2(n - 1, x, incx);
-                beta = -dlapy2(alpha, xnorm) * T((ZERO <= alpha) - (alpha < ZERO));
+                xnorm = Blas<T>::dnrm2(n-1, x, incx);
+                beta = -dlapy2(alpha, xnorm) * T((ZERO<=alpha) - (alpha<ZERO));
             }
-            tau = (beta - alpha) / beta;
-            dscal(n - 1, ONE / (alpha - beta), x, incx);
+            tau = (beta-alpha) / beta;
+            Blas<T>::dscal(n-1, ONE/(alpha-beta), x, incx);
             // If alpha is subnormal, it may lose relative accuracy
-            for (j = 0; j < knt; j++)
+            for (j=0; j<knt; j++)
             {
-                beta = beta*safmin;
+                beta *= safmin;
             }
             alpha = beta;
         }
@@ -2734,16 +2859,18 @@ public:
      *             tau: an array, dimension(k)
      *                  tau(i) must contain the scalar factor of the elementary reflector H(i).
      *             A: an array, dimension(lda, k)
-     *                The k by k triangular factor A of the block reflector. If direct = 'F', A is upper triangular;
-     *                if direct = 'B', A is lower triangular. The rest of the array is not used.
+     *                The k by k triangular factor A of the block reflector.
+     *                If direct=='F', A is upper triangular;
+     *                if direct=='B', A is lower triangular. The rest of the array is not used.
      *             lda: The leading dimension of the array A. lda >= k.
      * Authors: Univ.of Tennessee
      *          Univ.of California Berkeley
      *          Univ.of Colorado Denver
      *          NAG Ltd.
      * Further Details:
-     *     The shape of the matrix V and the storage of the vectors which define the H(i) is best illustrated by
-     *     the following example with n = 5 and k = 3. The elements equal to 1 are not stored.
+     *     The shape of the matrix V and the storage of the vectors which define the H(i) is best
+     *     illustrated by the following example with n==5 and k==3. The elements equal to 1 are not
+     *     stored.
      * direct = 'F' and storev = 'C':         direct = 'F' and storev = 'R':
      *                V = (1)                 V = (1 v1 v1 v1 v1)
      *                    (v1  1)                    (1 v2 v2 v2)
@@ -2755,160 +2882,174 @@ public:
      *                    (v1 v2 v3)                     (v2 v2 v2  1)
      *                    (1 v2 v3)                      (v3 v3 v3 v3  1)
      *                    (1 v3)
-     *                    (1)                                                                                            */
-    static void dlarft(char const* direct, char const* storev, int n, int k, T const* V, int ldv, T const* tau, T* A, int lda)
+     *                    (1)                                                                    */
+    static void dlarft(char const* direct, char const* storev, int n, int k, T const* V, int ldv,
+                       T const* tau, T* A, int lda)
     {
         // Quick return if possible
-        if (n == 0)
+        if (n==0)
         {
             return;
         }
         char updirect = toupper(direct[0]);
         char upstorev = toupper(storev[0]);
         int i, j, prevlastv, lastv, tcoli, vcol;
-        if (updirect == 'F')
+        if (updirect=='F')
         {
-            prevlastv = n - 1;
-            for (i = 0; i < k; i++)
+            prevlastv = n-1;
+            for (i=0; i<k; i++)
             {
-                tcoli = lda*i;
-                if (i > prevlastv)
+                tcoli = lda * i;
+                if (i>prevlastv)
                 {
                     prevlastv = i;
                 }
-                if (tau[i] == ZERO)
+                if (tau[i]==ZERO)
                 {
                     // H(i) = I
-                    for (j = 0; j <= i; j++)
+                    for (j=0; j<=i; j++)
                     {
-                        A[j + tcoli] = ZERO;
+                        A[j+tcoli] = ZERO;
                     }
-                } else
+                }
+                else
                 {
                     // general case
-                    if (upstorev == 'C')
+                    if (upstorev=='C')
                     {
-                        vcol = ldv*i;
+                        vcol = ldv * i;
                         // Skip any trailing zeros.
-                        for (lastv = n - 1; lastv > i; lastv--)
+                        for (lastv=n-1; lastv>i; lastv--)
                         {
-                            if (V[lastv + vcol] != ZERO)
+                            if (V[lastv+vcol]!=ZERO)
                             {
                                 break;
                             }
                         }
-                        for (j = 0; j < i; j++)
+                        for (j = 0; j<i; j++)
                         {
-                            A[j + tcoli] = -tau[i] * V[i + ldv * j];
+                            A[j+tcoli] = -tau[i]*V[i+ldv*j];
                         }
-                        j = lastv < prevlastv ? lastv : prevlastv;
+                        j = ((lastv<prevlastv) ? lastv : prevlastv);
                         // T[0:i-1, i] = -tau[i] * V[i:j, 0:i-1]^T * V[i:j, i]
-                        dgemv("Transpose", j - i, i, -tau[i], &V[i + 1 /*+ldv*0*/], ldv, &V[i + 1 + vcol], 1, ONE, &A[/*0+*/tcoli], 1);
-                    } else
+                        Blas<T>::dgemv("Transpose", j-i, i, -tau[i], &V[i+1], ldv, &V[i+1+vcol], 1,
+                                       ONE, &A[tcoli], 1);
+                    }
+                    else
                     {
                         // Skip any trailing zeros.
-                        for (lastv = n - 1; lastv > i; lastv--)
+                        for (lastv=n-1; lastv>i; lastv--)
                         {
-                            if (V[i + ldv * lastv] != ZERO)
+                            if (V[i+ldv*lastv]!=ZERO)
                             {
                                 break;
                             }
                         }
                         vcol = ldv*i;
-                        for (j = 0; j < i; j++)
+                        for (j=0; j<i; j++)
                         {
-                            A[j + tcoli] = -tau[i] * V[j + vcol];
+                            A[j+tcoli] = -tau[i]*V[j+vcol];
                         }
-                        j = lastv < prevlastv ? lastv : prevlastv;
+                        j = ((lastv<prevlastv) ? lastv : prevlastv);
                         // T[0:i-1, i] = -tau[i] * V[0:i-1, i:j] * V[i, i:j]^T
-                        dgemv("No transpose", i, j - i, -tau[i], &V[/*0+*/vcol + ldv], ldv, &V[i + vcol + ldv], ldv, ONE, &A[/*0+*/tcoli], 1);
+                        Blas<T>::dgemv("No transpose", i, j-i, -tau[i], &V[vcol+ldv], ldv,
+                                       &V[i+vcol+ldv], ldv, ONE, &A[tcoli], 1);
                     }
                     // T[0:i-1, i] = T[0:i-1, 0:i-1] * T[0:i-1, i]
-                    dtrmv("Upper", "No transpose", "Non-unit", i, A, lda, &A[/*0+*/tcoli], 1);
-                    A[i + tcoli] = tau[i];
-                    if (i > 0)
+                    Blas<T>::dtrmv("Upper", "No transpose", "Non-unit", i, A, lda, &A[tcoli], 1);
+                    A[i+tcoli] = tau[i];
+                    if (i>0)
                     {
-                        if (lastv > prevlastv)
+                        if (lastv>prevlastv)
                         {
                             prevlastv = lastv;
                         }
-                    } else
+                    }
+                    else
                     {
                         prevlastv = lastv;
                     }
                 }
             }
-        } else
+        }
+        else
         {
             prevlastv = 0;
-            for (i = k - 1; i >= 0; i--)
+            for (i=k-1; i>=0; i--)
             {
-                tcoli = lda*i;
-                if (tau[i] == ZERO)
+                tcoli = lda * i;
+                if (tau[i]==ZERO)
                 {
                     // H(i) = I
-                    for (j = i; j < k; j++)
+                    for (j=i; j<k; j++)
                     {
-                        A[j + tcoli] = ZERO;
+                        A[j+tcoli] = ZERO;
                     }
-                } else
+                }
+                else
                 {
                     // general case
-                    if (i < k - 1)
+                    if (i<k-1)
                     {
-                        if (upstorev == 'C')
+                        if (upstorev=='C')
                         {
-                            vcol = ldv*i;
+                            vcol = ldv * i;
                             // Skip any leading zeros.
-                            for (lastv = 0; lastv < i; lastv++)
+                            for (lastv=0; lastv<i; lastv++)
                             {
-                                if (V[lastv + vcol] != ZERO)
+                                if (V[lastv+vcol]!=ZERO)
                                 {
                                     break;
                                 }
                             }
                             vcol = n - k - i; // misuse: not a col, but a row
-                            for (j = (i + 1); j < k; j++)
+                            for (j=(i+1); j<k; j++)
                             {
-                                A[j + tcoli] = -tau[i] * V[vcol + ldv * j];
+                                A[j+tcoli] = -tau[i] * V[vcol+ldv*j];
                             }
-                            j = lastv > prevlastv ? lastv : prevlastv;
+                            j = ((lastv>prevlastv) ? lastv : prevlastv);
                             // T[i+1:k-1, i] = -tau[i] * V[j:n-k+i, i+1:k-1]^T * V[j:n-k+i, i]
-                            dgemv("Transpose", vcol - j, k - 1 - i, -tau[i], &V[j + ldv * (i + 1)], ldv, &V[j + ldv * i], 1, ONE, &A[i + 1 + tcoli], 1);
-                        } else
+                            dgemv("Transpose", vcol-j, k-1-i, -tau[i], &V[j+ldv*(i+1)], ldv,
+                                  &V[j+ldv*i], 1, ONE, &A[i+1+tcoli], 1);
+                        }
+                        else
                         {
                             // Skip any leading zeros.
-                            for (lastv = 0; lastv < i; lastv++)
+                            for (lastv=0; lastv<i; lastv++)
                             {
-                                if (V[i + ldv * lastv] != ZERO)
+                                if (V[i+ldv*lastv]!=ZERO)
                                 {
                                     break;
                                 }
                             }
-                            vcol = ldv * (n - k + i);
-                            for (j = (i + 1); j < k; j++)
+                            vcol = ldv * (n-k+i);
+                            for (j=(i+1); j<k; j++)
                             {
-                                A[j + tcoli] = -tau[i] * V[j + vcol];
+                                A[j+tcoli] = -tau[i]*V[j+vcol];
                             }
-                            j = lastv > prevlastv ? lastv : prevlastv;
+                            j = ((lastv>prevlastv) ? lastv : prevlastv);
                             // T[i+1:k-1, i] = -tau[i] * V[i+1:k-1, j:n-k+i] * V[i, j:n-k+i]^T
                             vcol = ldv*j;
-                            dgemv("No transpose", k - 1 - i, n - k + i - j, -tau[i], &V[i + 1 + vcol], ldv, &V[i + vcol], ldv, ONE, &A[i + 1 + tcoli], 1);
+                            dgemv("No transpose", k-1-i, n-k+i-j, -tau[i], &V[i+1+vcol], ldv,
+                                  &V[i+vcol], ldv, ONE, &A[i+1+tcoli], 1);
                         }
                         // T[i+1:k-1, i] = T[i+1:k-1, i+1:k-1] * T[i+1:k-1, i]
-                        dtrmv("Lower", "No transpose", "Non-unit", k - i - 1, &A[i + 1 + lda * (i + 1)], lda, &A[i + 1 + tcoli], 1);
-                        if (i > 0)
+                        Blas<T>::dtrmv("Lower", "No transpose", "Non-unit", k-i-1,
+                                       &A[i+1+lda*(i+1)], lda, &A[i+1+tcoli], 1);
+                        if (i>0)
                         {
-                            if (lastv < prevlastv)
+                            if (lastv<prevlastv)
                             {
                                 prevlastv = lastv;
                             }
-                        } else
+                        }
+                        else
                         {
+
                             prevlastv = lastv;
                         }
                     }
-                    A[i + tcoli] = tau[i];
+                    A[i+tcoli] = tau[i];
                 }
             }
         }
@@ -2937,7 +3078,7 @@ public:
      *     Muller method is used to transform numbers from a uniform to a normal distribution.   */
     static void dlarnv(int idist, int* iseed, int n, T* x)
     {
-        const T TWOPI  = T(6.2831853071795864769252867663);
+        const T TWOPI = T(6.2831853071795864769252867663);
         const int LV = 128;
         int i, il, il2, iv;
         T* u[LV];
@@ -2950,11 +3091,11 @@ public:
             }
             if (idist==3)
             {
-               il2 = 2*il;
+                il2 = 2*il;
             }
             else
             {
-               il2 = il;
+                il2 = il;
             }
             // Call dlaruv to generate il2 numbers from a uniform (0,1) distribution (il2 <= LV)
             dlaruv(iseed, il2, u);
@@ -3013,12 +3154,12 @@ public:
         /*static*/ T safmn2, safmx2;
         //if (first)
         //{
-            T safmin = dlamch("S");
-            T eps = dlamch("E");
-            T base = dlamch("B");
-            safmn2 = std::pow(base, std::log(safmin/eps) / std::log(base) / TWO);
-            safmx2 = ONE/safmn2;
-            //first = false;
+        T safmin = dlamch("S");
+        T eps = dlamch("E");
+        T base = dlamch("B");
+        safmn2 = std::pow(base, std::log(safmin/eps)/std::log(base)/TWO);
+        safmx2 = ONE/safmn2;
+        //first = false;
         //}
         if (g==ZERO)
         {
@@ -3037,7 +3178,7 @@ public:
             T f1 = f;
             T g1 = g;
             T scale = fabs(f1);
-            scale = scale>fabs(g1)?scale:fabs(g1);
+            scale = ((scale>fabs(g1)) ? scale : fabs(g1));
             int i, count = 0;
             if (scale>=safmx2)
             {
@@ -3047,7 +3188,7 @@ public:
                     f1 *= safmn2;
                     g1 *= safmn2;
                     scale = fabs(f1);
-                    scale = scale>fabs(g1)?scale:fabs(g1);
+                    scale = ((scale>fabs(g1)) ? scale : fabs(g1));
                 } while (scale>=safmx2);
                 r = std::sqrt(f1*f1+g1*g1);
                 cs = f1 / r;
@@ -3065,9 +3206,9 @@ public:
                     f1 *= safmx2
                     g1 *= safmx2
                     scale = fabs(f1);
-                    scale = scale>fabs(g1)?scale:fabs(g1);
+                    scale = ((scale>fabs(g1)) ? scale : fabs(g1));
                 } while (scale<=safmn2)
-                r = std::sqrt(f1*f1+g1*g1);
+                    r = std::sqrt(f1*f1+g1*g1);
                 cs = f1 / r;
                 sn = g1 / r;
                 for (i=0; i<count; i++)
@@ -3265,7 +3406,7 @@ public:
                 it2 = it2 + i2*MM[3+im4] + i3*MM[2+im4] + i4*MM[1+im4];
                 it1 = it2 / IPW2;
                 it2 = it2 - IPW2*it1;
-                it1 = it1 + i1*MM[3+im4] + i2*MM[2+im4] + i3*MM[1+im4] + i4*MM[/*0+*/im4];
+                it1 = it1 + i1*MM[3+im4] + i2*MM[2+im4] + i3*MM[1+im4] + i4*MM[im4];
                 it1 = it1 % IPW2;
                 // Convert 48-bit integer to a real number in the interval (0,1)
                 x[i] = R*(T(it1)+R*(T(it2)+R*(T(it3)+R*T(it4))));
@@ -3379,7 +3520,7 @@ public:
                     as = ONE + fhmn/fhmx;
                     at = (fhmx-fhmn) / fhmx;
                     c = ONE / (std::sqrt(ONE+(as*au)*(as*au))+std::sqrt(ONE+(at*au)*(at*au)));
-                    ssmin = (fhmn*c)*au;
+                    ssmin = (fhmn*c) * au;
                     ssmin = ssmin + ssmin;
                     ssmax = ga / (c+c);
                 }
@@ -3465,27 +3606,27 @@ public:
         }
         if (itype==-1)
         {
-           info = -1;
+            info = -1;
         }
         else if (cfrom==ZERO || std::isnan(cfrom))
         {
-           info = -4;
+            info = -4;
         }
         else if (std::isnan(cto))
         {
-           info = -5;
+            info = -5;
         }
         else if (m<0)
         {
-           info = -6;
+            info = -6;
         }
         else if (n<0 || (itype==4 && n!=m) || (itype==5 && n!=m))
         {
-           info = -7;
+            info = -7;
         }
         else if (itype<=3 && (lda<1 || lda<m))
         {
-           info = -9;
+            info = -9;
         }
         else if (itype>=4)
         {
@@ -3497,15 +3638,16 @@ public:
             {
                 info = -3;
             }
-            else if ((itype==4 && lda<(kl+1)) || (itype==5 && lda<(ku+1)) || (itype==6 && lda<(2*kl+ku+1)))
+            else if ((itype==4 && lda<(kl+1)) || (itype==5 && lda<(ku+1))
+                     || (itype==6 && lda<(2*kl+ku+1)))
             {
                 info = -9;
             }
         }
         if (info!=0)
         {
-           xerbla("DLASCL", -info);
-           return;
+            xerbla("DLASCL", -info);
+            return;
         }
         // Quick return if possible
         if (n==0 || m==0)
@@ -3627,7 +3769,7 @@ public:
                 {
                     ldaj = lda*j;
                     k1 = ku-j;
-                    for (i=(k1>0?k1:0); i<=ku; i++)
+                    for (i=((k1>0)?k1:0); i<=ku; i++)
                     {
                         A[i+ldaj] *= mul;
                     }
@@ -3643,7 +3785,7 @@ public:
                 {
                     ldaj = lda*j;
                     k2 = k1-j;
-                    for (i=(k2>kl?k2:kl); i<k3 && i<(k4-j); i++)
+                    for (i=((k2>kl)?k2:kl); i<k3 && i<(k4-j); i++)
                     {
                         A[i+ldaj] *= mul;
                     }
@@ -3785,7 +3927,10 @@ public:
         {
             d[i] = fabs(d[i]);
             temp = fabs(e[i]));
-            sigmx = sigmx>temp?sigmx:temp;
+            if (temp>sigmx)
+            {
+                sigmx = temp;
+            }
         }
         d[n-1] = fabs(d[n-1]);
         // Early return if SIGMX is zero (matrix is already diagonal).
@@ -3796,15 +3941,18 @@ public:
         }
         for (i=0; i<n; i++)
         {
-           sigmx = sigmx>d[i]?sigmx:d[i];
+            if (d[i]>sigmx)
+            {
+                sigmx = d[i];
+            }
         }
         // Copy d and e into work (in the Z format) and scale (squaring the input data makes
         // scaling by a power of the radix pointless).
         eps = dlamch("Precision");
         safmin = dlamch("Safe minimum");
         scale = std::sqrt(eps/safmin);
-        dcopy(n, d, 1, work[0], 2);
-        dcopy(n-1, e, 1, work[1], 2);
+        Blas<T>::dcopy(n, d, 1, work[0], 2);
+        Blas<T>::dcopy(n-1, e, 1, work[1], 2);
         dlascl("G", 0, 0, sigmx, scale, 2*n-1, 1, work, 2*n-1, iinfo);
         // Compute the q's and e's.
         for (i=0; i<2*n-1; i++)
@@ -3873,8 +4021,8 @@ public:
      *     (alternates between 0 and 1).                                                         */
     static void dlasq2(int n, int Z, int& info)
     {
-        const T CBIAS  = T(1.50);
-        const T FOUR   = T(4.0);
+        const T CBIAS = T(1.50);
+        const T FOUR  = T(4.0);
         bool ieee, loopbreak;
         int i0, i1, i4, iinfo, ipn4, iter, iwhila, iwhilb, k, kmin, n0, n1, nbig, ndiv, nfail, pp,
             splt, ttype;
@@ -3886,7 +4034,8 @@ public:
         safmin = dlamch("Safe minimum");
         tol = eps * HNDRD;
         tol2 = tol * tol;
-        if (n<0){
+        if (n<0)
+        {
             info = -1;
             xerbla("DLASQ2", 1);
             return;
@@ -3927,9 +4076,11 @@ public:
                 s = Z[2] * (Z[1]/tt);
                 if (s<=tt)
                 {
-                   s = Z[2] * (Z[1]/(tt*(ONE+std::sqrt(ONE+s/tt))));
-                }else{
-                   s = Z[2] * (Z[1]/(tt+std::sqrt(tt)*std::sqrt(tt+s)));
+                    s = Z[2] * (Z[1]/(tt*(ONE+std::sqrt(ONE+s/tt))));
+                }
+                else
+                {
+                    s = Z[2] * (Z[1]/(tt+std::sqrt(tt)*std::sqrt(tt+s)));
                 }
                 tt = Z[0] + (s+Z[1]);
                 Z[2] = Z[2] * (Z[0]/tt);
@@ -3962,10 +4113,10 @@ public:
             }
             d += Z[k];
             e += Z[k+1];
-            qmax = qmax>Z[k]?qmax:Z[k];
-            emin = emin<Z[k+1]?emin:Z[k+1];
-            zmax = qmax>zmax?qmax:zmax;
-            zmax = zmax>Z[k+1]?zmax:Z[k+1];
+            qmax = ((qmax>Z[k])   ? qmax : Z[k]);
+            emin = ((emin<Z[k+1]) ? emin : Z[k+1]);
+            zmax = ((qmax>zmax)   ? qmax : zmax);
+            zmax = ((zmax>Z[k+1]) ? zmax : Z[k+1]);
         }
         if (Z[2*n-2]<ZERO)
         {
@@ -3974,8 +4125,8 @@ public:
             return;
         }
         d += Z[2*n-2];
-        qmax = qmax>Z[2*n-2]?qmax:Z[2*n-2];
-        zmax = qmax>zmax?qmax:zmax;
+        qmax = ((qmax>Z[2*n-2]) ? qmax : Z[2*n-2]);
+        zmax = ((qmax>zmax)     ? qmax : zmax);
         // Check for diagonality.
         if (e==ZERO)
         {
@@ -4062,14 +4213,20 @@ public:
                     Z[i4-2*pp+3] = Z[i4+4] * (Z[i4+2]/Z(i4-2*pp+2));
                     d = Z[i4+4] * (d/Z[i4-2*pp+1]);
                 }
-                emin = emin<Z[i4-2*pp+3]?emin:Z[i4-2*pp+3];
+                if (emin>Z[i4-2*pp+3])
+                {
+                    emin = Z[i4-2*pp+3];
+                }
             }
             Z[4*n0-pp+1] = d;
             // Now find qmax.
             qmax = Z[4*n0-pp+1];
             for (i4=4*i0-pp+2; i4<=4*n0-pp-2; i4+=4)
             {
-                qmax = qmax>Z[i4+3]?qmax:Z[i4+3];
+                if (qmax<Z[i4+3])
+                {
+                    qmax = Z[i4+3];
+                }
             }
             // Prepare for the next iteration on k.
             pp = 1 - pp;
@@ -4132,12 +4289,12 @@ public:
                 }
                 if (qmin>=FOUR*emax)
                 {
-                    qmin = qmin<Z[i4]?qmin:Z[i4];
-                    emax = emax>Z[i4-2]?emax:Z[i4-2];
+                    qmin = ((qmin<Z[i4])   ? qmin : Z[i4]);
+                    emax = ((emax>Z[i4-2]) ? emax : Z[i4-2]);
                 }
                 temp = Z[i4-4] + Z[i4-2];
-                qmax = qmax>temp?qmax:temp;
-                emin = emin<Z[i4-2]?emin:Z[i4-2];
+                qmax = ((qmax>temp)    ? qmax : temp);
+                emin = ((emin<Z[i4-2]) ? emin : Z[i4-2]);
             }
             if (!loopbreak)
             {
@@ -4163,7 +4320,7 @@ public:
                 {
                     ipn4 = 4*(i0+n0+1);
                     pp = 2;
-                    for(i4=4*i0; i4<=2*(i0+n0-1); i4+=4)
+                    for (i4=4*i0; i4<=2*(i0+n0-1); i4+=4)
                     {
                         temp         = Z[i4];
                         Z[i4]        = Z[ipn4-i4-4];
@@ -4171,8 +4328,8 @@ public:
                         temp         = Z[i4+1];
                         Z[i4+1]      = Z[ipn4-i4-3];
                         Z[ipn4-i4-3] = temp;
-                        temp          = Z[i4+2];
-                        Z[i4+2]       = Z[ipn4-i4-6];
+                        temp         = Z[i4+2];
+                        Z[i4+2]      = Z[ipn4-i4-6];
                         Z[ipn4-i4-6] = temp;
                         temp         = Z[i4+3];
                         Z[i4+3]      = Z[ipn4-i4-5];
@@ -4182,7 +4339,10 @@ public:
             }
             // Put -(initial shift) into DMIN.
             dmin = TWO*std::sqrt(qmin)*std::sqrt(emax) - qmin;
-            dmin = dmin<ZERO?dmin:ZERO;
+            if (dmin>ZERO)
+            {
+                dmin = ZERO;
+            }
             // Now i0:n0 is unreduced.
             // PP = 0 for ping, PP = 1 for pong.
             // PP = 2 indicates that flipping was applied to the Z array and and that the tests for
@@ -4205,7 +4365,7 @@ public:
                 {
                     if (Z[4*n0+3]<=tol2*qmax || Z[4*n0+2]<=tol2*sigma)
                     {
-                        splt = i0 -1;
+                        splt = i0 - 1;
                         qmax = Z[4*i0];
                         emin = Z[4*i0+2];
                         oldemn = Z[4*i0+3];
@@ -4221,9 +4381,9 @@ public:
                             }
                             else
                             {
-                                qmax = qmax>Z[i4+4]?qmax:Z[i4+4];
-                                emin = emin<Z[i4+2]?emin:Z[i4+2];
-                                oldemn = oldemn<Z[i4+3]?oldemn:Z[i4+3];
+                                qmax   = ((qmax>Z[i4+4])   ? qmax   : Z[i4+4]);
+                                emin   = ((emin<Z[i4+2])   ? emin   : Z[i4+2]);
+                                oldemn = ((oldemn<Z[i4+3]) ? oldemn : Z[i4+3]);
                             }
                         }
                         Z[4*n0+2] = emin;
@@ -4260,22 +4420,22 @@ public:
                 n1 = i1 - 1;
                 while ((i1>=1) && (Z[4*i1-2]>=ZERO))
                 {
-                   i1--;
+                    i1--;
                 }
                 sigma = -Z[4*n1+2];
             }
-            for(k=0; k<n; k++)
+            for (k=0; k<n; k++)
             {
                 Z[2*k] = Z[4*k];
                 // Only the block 0..n0-1 is unfinished. The rest of the e's must be essentially
                 // zero, although sometimes other data has been stored in them.
                 if (k<n0)
                 {
-                   Z[2*k+1] = Z[4*k+2];
+                    Z[2*k+1] = Z[4*k+2];
                 }
                 else
                 {
-                   Z[2*k+1] = 0;
+                    Z[2*k+1] = 0;
                 }
             }
             return;
@@ -4288,7 +4448,7 @@ public:
         // Move q's to the front.
         for (k=1; k<n; k++)
         {
-           Z[k] = Z[4*k];
+            Z[k] = Z[4*k];
         }
         // Sort and compute sum of eigenvalues.
         dlasrt("D", n, Z, iinfo);
@@ -4341,7 +4501,7 @@ public:
                        int& nfail, int& iter, int& ndiv, bool ieee, int& ttype, T& dmin1, T& dmin2,
                        T& dn, T& dn1, T& dn2, T& g, T& tau)
     {
-        const T CBIAS  = T(1.50);
+        const T CBIAS = T(1.50);
         int n0in = n0;
         T eps = dlamch("Precision");
         T tol = eps*HNDRD;
@@ -4395,9 +4555,9 @@ public:
                 {
                     s = Z[nn-4] * (Z[nn-6] / (tt+std::sqrt(tt)*std::sqrt(tt+s)));
                 }
-                 tt = Z[nn-8] + (s+Z[nn-6]);
-                 Z[nn-4] = Z[nn-4]*(Z[nn-8] / tt);
-                 Z[nn-8] = tt;
+                tt = Z[nn-8] + (s+Z[nn-6]);
+                Z[nn-4] = Z[nn-4] * (Z[nn-8]/tt);
+                Z[nn-8] = tt;
             }
             Z[4*n0-4] = Z[nn-8] + sigma;
             Z[4*n0]   = Z[nn-4] + sigma;
@@ -4434,20 +4594,20 @@ public:
                     Z[4*n0-pp+3] = Z[4*i0-pp+3];
                 }
                 temp = Z[4*n0+pp+2];
-                dmin2 = dmin2<temp?dmin2:temp;
+                dmin2 = ((dmin2<temp) ? dmin2 : temp);
                 temp = Z[4*n0+pp+2];
-                temp = temp<Z[4*i0+pp+2]?temp:Z[4*i0+pp+2];
-                Z[4*n0+pp+2] = temp<Z[4*i0+pp+6]?temp:Z[4*i0+pp+6];
+                temp = ((temp<Z[4*i0+pp+2]) ? temp : Z[4*i0+pp+2]);
+                Z[4*n0+pp+2] = ((temp<Z[4*i0+pp+6]) ? temp : Z[4*i0+pp+6]);
                 temp = Z[4*n0-pp+3];
-                temp = temp<Z[4*i0-pp+3]?temp:Z[4*i0-pp+3];
-                Z[4*n0-pp+3] = temp<Z[4*i0-pp+7]?temp:Z[4*i0-pp+7];
+                temp = ((temp<Z[4*i0-pp+3]) ? temp : Z[4*i0-pp+3]);
+                Z[4*n0-pp+3] = ((temp<Z[4*i0-pp+7]) ? temp : Z[4*i0-pp+7]);
                 temp = Z[4*i0+pp];
-                temp = qmax>temp?qmax:temp;
-                qmax = temp>Z[4*i0+pp+4]?temp:Z[4*i0+pp+4];
+                temp = ((qmax>temp) ? qmax : temp);
+                qmax = ((temp>Z[4*i0+pp+4]) ? temp : Z[4*i0+pp+4]);
                 dmin = -ZERO;
             }
-         }
-         // Choose a shift.
+        }
+        // Choose a shift.
         dlasq4(i0, n0, Z, pp, n0in, dmin, dmin1, dmin2, dn, dn1, dn2, tau, ttype, g);
         // Call dqds until DMIN>0.
         while (true)// 70 CONTINUE
@@ -4497,8 +4657,8 @@ public:
                 // NaN.
                 if (tau!=ZERO)
                 {
-                   tau = ZERO;
-                   continue;
+                    tau = ZERO;
+                    continue;
                 }
             }//else {// Possible underflow. Play it safe.}
             // Risk of underflow.
@@ -4509,14 +4669,14 @@ public:
         }
         if (tau<sigma)
         {
-           desig += tau;
-           tt = sigma + desig;
-           desig -= tt - sigma;
+            desig += tau;
+            tt = sigma + desig;
+            desig -= tt - sigma;
         }
         else
         {
-           tt = sigma + tau;
-           desig += sigma - (tt-tau);
+            tt = sigma + tau;
+            desig += sigma - (tt-tau);
         }
         sigma = tt;
     }
@@ -4552,7 +4712,7 @@ public:
         const T CNST1 = T(0.563);
         const T CNST2 = T(1.01);
         const T CNST3 = T(1.05);
-        const T THIRD  = T(0.333);
+        const T THIRD = T(0.333);
         // A negative dmin forces the shift to take that absolute value
         // dn2 records the type of shift.
         if (dmin<=ZERO)
@@ -4587,7 +4747,10 @@ public:
                     {
                         s = dn-(b1/gap1)*b1;
                         temp = HALF*dmin;
-                        s = s>temp?s:temp;
+                        if (temp>s)
+                        {
+                            s = temp;
+                        }
                         ttype = -2;
                     }
                     else
@@ -4600,10 +4763,16 @@ public:
                         if (a2>(b1+b2))
                         {
                             temp = a2 - (b1+b2);
-                            s = s<temp?s:temp;
+                            if (temp<s)
+                            {
+                                s = temp;
+                            }
                         }
-                        temp = THIRD*dmin;
-                        s = s>temp?s:temp;
+                        temp = THIRD * dmin;
+                        if (s<temp)
+                        {
+                            s = temp;
+                        }
                         ttype = -3;
                     }
                 }
@@ -4641,7 +4810,7 @@ public:
                     }
                     // Approximate contribution to norm squared from I<nn-1.
                     a2 += b2;
-                    for (i4=np; i4>=(4*i0 + 2 + pp); i4-=4)//10
+                    for (i4=np; i4>=(4*i0+2+pp); i4-=4)
                     {
                         if (b2==ZERO)
                         {
@@ -4663,7 +4832,7 @@ public:
                     // Rayleigh quotient residual bound.
                     if (a2<CNST1)
                     {
-                        s = gam*(ONE-std::sqrt(a2)) / (ONE+a2);
+                        s = gam * (ONE-std::sqrt(a2)) / (ONE+a2);
                     }
                 }
             }
@@ -4686,8 +4855,8 @@ public:
                 if (n0-i0>2)
                 {
                     b2 = Z[nn-14] / Z[nn-16];
-                    a2 = a2 + b2;
-                    for (i4=nn-18; i4>=(4*i0 + 2 + pp); i4-=4)
+                    a2 += b2;
+                    for (i4=nn-18; i4>=(4*i0+2+pp); i4-=4)
                     {
                         if (b2==ZERO)
                         {
@@ -4747,7 +4916,7 @@ public:
                 b2 = b1;
                 if (b2!=ZERO)
                 {
-                    for (i4=(4*n0 - 6 + pp); i4>=(4*i0 + 2 + pp); i4-=4)
+                    for (i4=(4*n0-6+pp); i4>=(4*i0+2+pp); i4-=4)
                     {
                         a2 = b1;
                         if (Z[i4]>Z[i4-2])
@@ -4768,12 +4937,18 @@ public:
                 if (gap2>ZERO && gap2>b2*a2)
                 {
                     temp = a2 * (ONE-CNST2*a2*(b2/gap2)*b2);
-                    s = s>temp?s:temp;
+                    if (s<temp)
+                    {
+                        s = temp;
+                    }
                 }
                 else
                 {
                     temp = a2 * (ONE-CNST2*b2);
-                    s = s>temp?s:temp;
+                    if (s<temp)
+                    {
+                        s = temp;
+                    }
                     ttype = -8;
                 }
             }
@@ -4804,7 +4979,7 @@ public:
                 b2 = b1;
                 if (b2!=ZERO)
                 {
-                    for (i4=(4*n0 - 6 + pp); i4>=(4*i0 + 2 + pp); i4-=4)//70
+                    for (i4=(4*n0-6+pp); i4>=(4*i0+2+pp); i4-=4)
                     {
                         if (Z[i4]>Z[i4-2])
                         {
@@ -4820,22 +4995,27 @@ public:
                 }
                 b2 = std::sqrt(CNST3*b2);
                 a2 = dmin2 / (ONE+b2*b2);
-                gap2 = Z[nn-8] + Z[nn-10]
-                       -std::sqrt(Z[nn-12])*std::sqrt(Z[nn-10]) - a2;
+                gap2 = Z[nn-8] + Z[nn-10] - std::sqrt(Z[nn-12])*std::sqrt(Z[nn-10]) - a2;
                 if (gap2>ZERO && gap2>b2*a2)
                 {
                     temp = a2 * (ONE-CNST2*a2*(b2/gap2)*b2);
-                    s = s>temp?s:temp;
+                    if (s<temp)
+                    {
+                        s = temp;
+                    }
                 }
                 else
                 {
-                    temp = a2*(ONE-CNST2*b2);
-                    s = s>temp?s:temp;
+                    temp = a2 * (ONE-CNST2*b2);
+                    if (s<temp)
+                    {
+                        s = temp;
+                    }
                 }
             }
             else
             {
-                s = QURTR*dmin2;
+                s = QURTR * dmin2;
                 ttype = -11;
             }
         }
@@ -4870,8 +5050,8 @@ public:
      *          Univ.of Colorado Denver
      *          NAG Ltd.
      * Date June 2017                                                                            */
-    static void dlasq5(int i0, int n0, T* Z, int pp, T tau, T sigma, T& dmin, T& dmin1,
-                       T& dmin2, T& dn, T& dnm1, T& dnm2, bool ieee, T eps)
+    static void dlasq5(int i0, int n0, T* Z, int pp, T tau, T sigma, T& dmin, T& dmin1, T& dmin2,
+                       T& dn, T& dnm1, T& dnm2, bool ieee, T eps)
     {
         if ((n0-i0-1)<=0)
         {
@@ -4901,9 +5081,9 @@ public:
                         Z[j4-2] = d + Z[j4-1];
                         temp = Z[j4+1] / Z[j4-2];
                         d = d*temp - tau;
-                        dmin = dmin<d?dmin:d;
+                        dmin = ((dmin<d) ? dmin : d);
                         Z[j4] = Z[j4-1]*temp;
-                        emin = Z[j4]<emin?Z[j4]:emin;
+                        emin = ((Z[j4]<emin) ? Z[j4] : emin);
                     }
                 }
                 else
@@ -4913,9 +5093,9 @@ public:
                         Z[j4-3] = d + Z[j4];
                         temp = Z[j4+2] / Z[j4-3];
                         d = d*temp - tau;
-                        dmin = dmin<d?dmin:d;
+                        dmin = ((dmin<d) ? dmin : d);
                         Z[j4-1] = Z[j4]*temp;
-                        emin = Z[j4-1]<emin?Z[j4-1]:emin;
+                        emin = ((Z[j4-1]<emin) ? Z[j4-1] : emin);
                     }
                 }
                 // Unroll last two steps.
@@ -4926,14 +5106,14 @@ public:
                 Z[j4-2] = dnm2 + Z[j4p2];
                 Z[j4] = Z[j4p2+2] * (Z[j4p2]/Z[j4-2]);
                 dnm1 = Z[j4p2+2]*(dnm2/Z[j4-2]) - tau;
-                dmin = dmin<dnm1?dmin:dnm1;
+                dmin = ((dmin<dnm1) ? dmin : dnm1);
                 dmin1 = dmin;
                 j4 += 4;
                 j4p2 = j4 + 2*pp - 1;
                 Z[j4-2] = dnm1 + Z[j4p2];
                 Z[j4] = Z[j4p2+2] * (Z[j4p2]/Z[j4-2]);
                 dn = Z[j4p2+2]*(dnm1/Z[j4-2]) - tau;
-                dmin = dmin<dn?dmin:dn;
+                dmin = ((dmin<dn) ? dmin : dn);
             }
             else
             {
@@ -4952,8 +5132,8 @@ public:
                             Z[j4] = Z[j4+1] * (Z[j4-1]/Z[j4-2]);
                             d = Z[j4+1]*(d/Z[j4-2]) - tau;
                         }
-                        dmin = dmin<d?dmin:d;
-                        emin = emin<Z[j4]?emin:Z[j4];
+                        dmin = ((dmin<d) ? dmin : d);
+                        emin = ((emin<Z[j4]) ? emin : Z[j4]);
                     }
                 }
                 else
@@ -4970,8 +5150,8 @@ public:
                             Z[j4-1] = Z[j4+2] * (Z[j4]/Z[j4-3]);
                             d = Z[j4+2]*(d/Z[j4-3]) - tau;
                         }
-                        dmin = dmin<d?dmin:d;
-                        emin = emin<Z[j4-1]?emin:Z[j4-1];
+                        dmin = ((dmin<d) ? dmin : d);
+                        emin = ((emin<Z[j4-1]) ? emin : Z[j4-1]);
                     }
                 }
                 // Unroll last two steps.
@@ -4989,21 +5169,21 @@ public:
                     Z[j4] = Z[j4p2+2] * (Z[j4p2]/Z[j4-2]);
                     dnm1 = Z[j4p2+2]*(dnm2/Z[j4-2]) - tau;
                 }
-                dmin = dmin<dnm1?dmin:dnm1;
+                dmin = ((dmin<dnm1) ? dmin : dnm1);
                 dmin1 = dmin;
                 j4 += 4;
                 j4p2 = j4 + 2*pp - 1;
                 Z[j4-2] = dnm1 + Z[j4p2];
                 if (dnm1<ZERO)
                 {
-                   return;
+                    return;
                 }
                 else
                 {
                     Z[j4] = Z[j4p2+2] * (Z[j4p2]/Z[j4-2]);
                     dn = Z[j4p2+2]*(dnm1/Z[j4-2]) - tau;
                 }
-                dmin = dmin<dn?dmin:dn;
+                dmin = ((dmin<dn) ? dmin : dn);
             }
         }
         else
@@ -5028,9 +5208,9 @@ public:
                         {
                             d = ZERO;
                         }
-                        dmin = dmin<d?dmin:d;
+                        dmin = ((dmin<d) ? dmin : d);
                         Z[j4] = Z[j4-1]*temp;
-                        emin = Z[j4]<emin?Z[j4]:emin;
+                        emin = ((Z[j4]<emin) ? Z[j4] : emin);
                     }
                 }
                 else
@@ -5044,9 +5224,9 @@ public:
                         {
                             d = ZERO;
                         }
-                        dmin = dmin<d?dmin:d;
+                        dmin = ((dmin<d) ? dmin : d);
                         Z[j4-1] = Z[j4]*temp;
-                        emin = Z[j4-1]<emin?Z[j4-1]:emin;
+                        emin = ((Z[j4-1]<emin) ? Z[j4-1] : emin);
                     }
                 }
                 // Unroll last two steps.
@@ -5056,15 +5236,15 @@ public:
                 j4p2 = j4 + 2*pp - 1;
                 Z[j4-2] = dnm2 + Z[j4p2];
                 Z[j4] = Z[j4p2+2] * (Z[j4p2]/Z[j4-2]);
-                dnm1 = Z[j4p2+2]*(dnm2 / Z[j4-2]) - tau;
-                dmin = dmin<dnm1?dmin:dnm1;
+                dnm1 = Z[j4p2+2]*(dnm2/Z[j4-2]) - tau;
+                dmin = ((dmin<dnm1) ? dmin : dnm1);
                 dmin1 = dmin;
                 j4 += 4;
                 j4p2 = j4 + 2*pp - 1;
                 Z[j4-2] = dnm1 + Z[j4p2];
                 Z[j4] = Z[j4p2+2] * (Z[j4p2]/Z[j4-2]);
                 dn = Z[j4p2+2]*(dnm1/Z[j4-2]) - tau;
-                dmin = dmin<dn?dmin:dn;
+                dmin = ((dmin<dn) ? dmin : dn);
             }
             else
             {
@@ -5087,8 +5267,8 @@ public:
                         {
                             d = ZERO;
                         }
-                        dmin = dmin<d?dmin:d;
-                        emin = Z[j4]<emin?Z[j4]:emin;
+                        dmin = ((dmin<d) ? dmin : d);
+                        emin = ((Z[j4]<emin) ? Z[j4] : emin);
                     }
                 }
                 else
@@ -5109,8 +5289,8 @@ public:
                         {
                             d = ZERO;
                         }
-                        dmin = dmin<d?dmin:d;
-                        emin = Z[j4-1]<emin?Z[j4-1]:emin;
+                        dmin = ((dmin<d) ? dmin : d);
+                        emin = ((Z[j4-1]<emin) ? Z[j4-1] : emin);
                     }
                 }
                 // Unroll last two steps.
@@ -5128,7 +5308,7 @@ public:
                     Z[j4] = Z[j4p2+2] * (Z[j4p2]/Z[j4-2]);
                     dnm1 = Z[j4p2+2]*(dnm2/Z[j4-2]) - tau;
                 }
-                dmin = dmin<dnm1?dmin:dnm1;
+                dmin = ((dmin<dnm1) ? dmin : dnm1);
                 dmin1 = dmin;
                 j4 += 4;
                 j4p2 = j4 + 2*pp - 1;
@@ -5142,7 +5322,7 @@ public:
                     Z[j4] = Z[j4p2+2] * (Z[j4p2]/Z[j4-2]);
                     dn = Z[j4p2+2]*(dnm1/Z[j4-2]) - tau;
                 }
-                dmin = dmin<dn?dmin:dn;
+                dmin = ((dmin<dn) ? dmin : dn);
             }
         }
         Z[j4+2] = dn;
@@ -5204,13 +5384,13 @@ public:
                     Z[j4] = Z[j4+1] * (Z[j4-1]/Z[j4-2]);
                     d = Z[j4+1] * (d/Z[j4-2]);
                 }
-                dmin = dmin<d?dmin:d;
-                emin = emin<Z[j4]?emin:Z[j4];
+                dmin = ((dmin<d) ? dmin : d);
+                emin = ((emin<Z[j4]) ? emin : Z[j4]);
             }
         }
         else
         {
-            for (j4 = 4*i0+3; j4<4*(n0-2); j4+=4)
+            for (j4=4*i0+3; j4<4*(n0-2); j4+=4)
             {
                 Z[j4-3] = d+Z[j4];
                 if (Z[j4-3]==ZERO)
@@ -5231,8 +5411,8 @@ public:
                     Z[j4-1] = Z[j4+2] * (Z[j4]/Z[j4-3]);
                     d = Z[j4+2] * (d/Z[j4-3]);
                 }
-                dmin = dmin<d?dmin:d;
-                emin = emin<Z[j4-1]?emin:Z[j4-1];
+                dmin = ((dmin<d) ? dmin : d);
+                emin = ((emin<Z[j4-1]) ? emin : Z[j4-1]);
             }
         }
         // Unroll last two steps.
@@ -5259,7 +5439,7 @@ public:
             Z[j4] = Z[j4p2+2] * (Z[j4p2]/Z[j4-2]);
             dnm1 = Z[j4p2+2] * (dnm2/Z[j4-2]);
         }
-        dmin = dmin<dnm1?dmin:dnm1;
+        dmin = ((dmin<dnm1) ? dmin : dnm1);
         dmin1 = dmin;
         j4 += 4;
         j4p2 = j4 + 2*pp - 1;
@@ -5282,7 +5462,7 @@ public:
             Z[j4] = Z[j4p2+2] * (Z[j4p2]/Z[j4-2]);
             dn = Z[j4p2+2] * (dnm1/Z[j4-2]);
         }
-        dmin = dmin<dn?dmin:dn;
+        dmin = ((dmin<dn) ? dmin : dn);
         Z[j4+2] = dn;
         Z(4*n0+4-pp) = emin;
     }
@@ -5388,7 +5568,7 @@ public:
         {
             info = 2;
         }
-        else if (!(updirect=='F'||updirect=='B'))
+        else if (!(updirect=='F' || updirect=='B'))
         {
             info = 3;
         }
@@ -5425,7 +5605,7 @@ public:
                     {
                         ctemp = c[j];
                         stemp = s[j];
-                        if (ctemp!=ONE||stemp!=ZERO)
+                        if (ctemp!=ONE || stemp!=ZERO)
                         {
                             for (i=0; i<n; i++)
                             {
@@ -5433,8 +5613,8 @@ public:
                                 aind2 = aind1+1;
                                 // A[j+1,i] and A[j,i]
                                 temp     = A[aind2];
-                                A[aind2] = ctemp*temp-stemp*A[aind1];
-                                A[aind1] = stemp*temp+ctemp*A[aind1];
+                                A[aind2] = ctemp*temp - stemp*A[aind1];
+                                A[aind1] = stemp*temp + ctemp*A[aind1];
                             }
                         }
                     }
@@ -5464,13 +5644,13 @@ public:
             {
                 if (updirect=='F')
                 {
-                    for(j=1; j<m; j++)
+                    for (j=1; j<m; j++)
                     {
                         ctemp = c[j-1];
                         stemp = s[j-1];
                         if (ctemp!=ONE || stemp!=ZERO)
                         {
-                            for(i=0; i<n; i++)
+                            for (i=0; i<n; i++)
                             {
                                 aind1 = lda*i;
                                 aind2 = j+aind1;
@@ -5731,24 +5911,24 @@ public:
         }
         if (info!=0)
         {
-           xerbla("DLASRT", -info);
-           return;
+            xerbla("DLASRT", -info);
+            return;
         }
         // Quick return if possible
         if (n<=1)
         {
             return;
         }
-        int stack[2*32];// stack[2, 32]
+        int stack[2*32]; // stack[2, 32]
         int endd, i, j, start, stkpnt;
         T d1, d2, d3, dmnmx, tmp;
         stkpnt = 0;
-        stack[0] = 0;//stack[0,0]
-        stack[1] = n-1;//stack[1,0]
+        stack[0] = 0;     //stack[0,0]
+        stack[1] = n - 1; //stack[1,0]
         do
         {
-            start = stack[2*stkpnt];//stack[0,stkpnt]
-            endd = stack[1+2*stkpnt];//stack[1,stkpnt]
+            start = stack[2*stkpnt];   //stack[0,stkpnt]
+            endd  = stack[1+2*stkpnt]; //stack[1,stkpnt]
             stkpnt--;
             if (endd-start<=SELECT && endd-start>0)
             {
@@ -5858,20 +6038,20 @@ public:
                     if (j-start>endd-j-1)
                     {
                         stkpnt++;
-                        stack[2*stkpnt] = start;//stack[0,stkpnt]
-                        stack[1+2*stkpnt] = j;//stack[1,stkpnt]
+                        stack[2*stkpnt] = start; //stack[0,stkpnt]
+                        stack[1+2*stkpnt] = j;   //stack[1,stkpnt]
                         stkpnt++;
-                        stack[2*stkpnt] = j + 1;//stack[0,stkpnt]
-                        stack[1+2*stkpnt] = endd;//stack[1,stkpnt]
+                        stack[2*stkpnt] = j + 1;  //stack[0,stkpnt]
+                        stack[1+2*stkpnt] = endd; //stack[1,stkpnt]
                     }
                     else
                     {
                         stkpnt++;
-                        stack[2*stkpnt] = j + 1;//stack[0,stkpnt]
-                        stack[1+2*stkpnt] = endd;//stack[1,stkpnt]
+                        stack[2*stkpnt] = j + 1;  //stack[0,stkpnt]
+                        stack[1+2*stkpnt] = endd; //stack[1,stkpnt]
                         stkpnt++;
-                        stack[2*stkpnt] = start;//stack[0,stkpnt]
-                        stack[1+2*stkpnt] = j;//stack[1,stkpnt]
+                        stack[2*stkpnt] = start; //stack[0,stkpnt]
+                        stack[1+2*stkpnt] = j;   //stack[1,stkpnt]
                     }
                 }
                 else
@@ -5900,20 +6080,20 @@ public:
                     if (j-start>endd-j-1)
                     {
                         stkpnt++;
-                        stack[2*stkpnt] = start;//stack[0,stkpnt]
-                        stack[1+2*stkpnt] = j;//stack[1,stkpnt]
+                        stack[2*stkpnt] = start; //stack[0,stkpnt]
+                        stack[1+2*stkpnt] = j;   //stack[1,stkpnt]
                         stkpnt++;
-                        stack[2*stkpnt] = j + 1;//stack[0,stkpnt]
-                        stack[1+2*stkpnt] = endd;//stack[1,stkpnt]
+                        stack[2*stkpnt] = j + 1;  //stack[0,stkpnt]
+                        stack[1+2*stkpnt] = endd; //stack[1,stkpnt]
                     }
                     else
                     {
                         stkpnt++;
-                        stack[2*stkpnt] = j + 1;//stack[0,stkpnt]
-                        stack[1+2*stkpnt] = endd;//stack[1,stkpnt]
+                        stack[2*stkpnt] = j + 1;  //stack[0,stkpnt]
+                        stack[1+2*stkpnt] = endd; //stack[1,stkpnt]
                         stkpnt++;
-                        stack[2*stkpnt] = start;//stack[0,stkpnt]
-                        stack[1+2*stkpnt] = j;//stack[1,stkpnt]
+                        stack[2*stkpnt] = start; //stack[0,stkpnt]
+                        stack[1+2*stkpnt] = j;   //stack[1,stkpnt]
                     }
                 }
             }
@@ -6055,9 +6235,11 @@ public:
                     ssmax = ga;
                     if (ha>ONE)
                     {
-                       ssmin = fa / (ga/ha);
-                    }else{
-                       ssmin = (fa/ga) * ha;
+                        ssmin = fa / (ga/ha);
+                    }
+                    else
+                    {
+                        ssmin = (fa/ga) * ha;
                     }
                     clt = ONE;
                     slt = ht / gt;
@@ -6076,7 +6258,7 @@ public:
                 }
                 else
                 {
-                   l = d / fa;
+                    l = d / fa;
                 }
                 // Note that 0 <= l <= 1
                 m = gt / ft;
@@ -6089,11 +6271,11 @@ public:
                 // Note that 1 <= s <= 1 + 1/macheps
                 if (l==ZERO)
                 {
-                   r = std::fabs(m);
+                    r = std::fabs(m);
                 }
                 else
                 {
-                   r = std::sqrt(l*l+mm);
+                    r = std::sqrt(l*l+mm);
                 }
                 // Note that 0 <= r <= 1 + 1/macheps
                 a = T(0.5) * (s+r);
@@ -6103,18 +6285,18 @@ public:
                 if (mm==ZERO)
                 {
                     // Note that m is very tiny
-                   if (l==ZERO)
-                   {
-                      t = T((ZERO<=ft)-(ft<ZERO))*TWO*T((ZERO<=gt)-(gt<ZERO));
-                   }
-                   else
-                   {
-                      t = gt/(T((ZERO<=ft)-(ft<ZERO))*std::fabs(d)) + m/t;
-                   }
+                    if (l==ZERO)
+                    {
+                        t = T((ZERO<=ft)-(ft<ZERO)) * TWO * T((ZERO<=gt)-(gt<ZERO));
+                    }
+                    else
+                    {
+                        t = gt / (T((ZERO<=ft)-(ft<ZERO))*std::fabs(d)) + m / t;
+                    }
                 }
                 else
                 {
-                   t = (m/(s+t) + m/(r+l)) * (ONE + a);
+                    t = (m/(s+t) + m/(r+l)) * (ONE + a);
                 }
                 l = std::sqrt(t*t+T(4.0));
                 crt = TWO / l;
@@ -6132,10 +6314,10 @@ public:
         }
         else
         {
-           csl = clt;
-           snl = slt;
-           csr = crt;
-           snr = srt;
+            csl = clt;
+            snl = slt;
+            csr = crt;
+            snr = srt;
         }
         // Correct signs of SSMAX and SSMIN
         if (pmax==0)
@@ -6177,78 +6359,82 @@ public:
      * Authors: Univ.of Tennessee
      *          Univ.of California Berkeley
      *          Univ.of Colorado Denver
-     *          NAG Ltd.                                                                                      */
+     *          NAG Ltd.                                                                         */
     static void dorg2r(int m, int n, int k, T* A, int lda, T const* tau, T* work, int& info)
     {
         // Test the input arguments
         info = 0;
-        if (m < 0)
+        if (m<0)
         {
             info = -1;
-        } else if (n < 0 || n > m)
+        }
+        else if (n<0 || n>m)
         {
             info = -2;
-        } else if (k < 0 || k > n)
+        }
+        else if (k<0 || k>n)
         {
             info = -3;
-        } else if (lda < (1 > m ? 1 : m))
+        }
+        else if (lda<1 || lda<m)
         {
             info = -5;
         }
-        if (info != 0)
+        if (info!=0)
         {
             xerbla("DORG2R", -info);
             return;
         }
         // Quick return if possible
-        if (n < 0)
+        if (n<0)
         {
             return;
         }
         int i, j, acoli;
         // Initialise columns k:n-1 to columns of the unit matrix
-        for (i = k; i < n; i++)
+        for (i=k; i<n; i++)
         {
             acoli = lda*i;
-            for (j = 0; j < m; j++)
+            for (j=0; j<m; j++)
             {
-                A[j + acoli] = ZERO;
+                A[j+acoli] = ZERO;
             }
-            A[i + acoli] = ONE;
+            A[i+acoli] = ONE;
         }
-        for (i = k - 1; i >= 0; i--)
+        for (i=k-1; i>=0; i--)
         {
             acoli = lda*i;
             // Apply H(i) to A[i:m-1, i:n-1] from the left
-            if (i < n - 1)
+            if (i<n-1)
             {
-                A[i + acoli] = ONE;
-                dlarf("Left", m - i, n - i - 1, &A[i + acoli], 1, tau[i], &A[i + acoli + lda], lda, work);
+                A[i+acoli] = ONE;
+                dlarf("Left", m-i, n-i-1, &A[i+acoli], 1, tau[i], &A[i+acoli+lda], lda, work);
             }
-            if (i < m - 1)
+            if (i<m-1)
             {
-                dscal(m - i - 1, -tau[i], &A[i + 1 + acoli], 1);
+                Blas<T>::dscal(m-i-1, -tau[i], &A[i+1+acoli], 1);
             }
-            A[i + acoli] = ONE - tau[i];
+            A[i+acoli] = ONE - tau[i];
             // Set A(1:i - 1, i) to zero
-            for (j = 0; j < i; j++)
+            for (j=0; j<i; j++)
             {
-                A[j + acoli] = ZERO;
+                A[j+acoli] = ZERO;
             }
         }
     }
 
-    /* dorgqr generates an m-by-n real matrix Q with orthonormal columns, which is defined
-     * as the first n columns of a product of k elementary reflectors of order m
+    /* dorgqr generates an m-by-n real matrix Q with orthonormal columns, which is defined as the
+     * first n columns of a product of k elementary reflectors of order m
      *     Q = H(1) H(2) . ..H(k)
      * as returned by dgeqrf.
      * Parameters: m: The number of rows of the matrix Q. m >= 0.
      *             n: The number of columns of the matrix Q. m >= n >= 0.
-     *             k: The number of elementary reflectors whose product defines the matrix Q. n >= k >= 0.
+     *             k: The number of elementary reflectors whose product defines the matrix Q.
+     *                n>=k>=0.
      *             A: an array, dimension(lda, n)
      *                On entry, the i-th column must contain the vector which defines the
-     *                elementary reflector H(i), for i = 1, 2, ..., k, as returned by dgeqrf
-     *                in the first k columns of its array argument A.
+     *                elementary reflector H(i), for i = 1, 2, ..., k, as returned by dgeqrf in the
+     *                first k columns of its array argument A.
      *                On exit, the m-by-n matrix Q.
      *             lda: The first dimension of the array A. lda >= max(1, m).
      *             tau:  array, dimension(k). tau[i] must contain the scalar factor of the
@@ -6257,49 +6443,56 @@ public:
      *                   On exit, if info = 0, work[0] returns the optimal lwork.
      *             lwork: The dimension of the array work. lwork >= max(1, n).
      *                    For optimum performance lwork >= n*nb, where nb is the optimal blocksize.
-     *                    If lwork = -1, then a workspace query is assumed; the routine only calculates
-     *                    the optimal size of the work array, returns this value as the first entry of
-     *                    the work array, and no error message related to lwork is issued by xerbla.
+     *                    If lwork = -1, then a workspace query is assumed; the routine only
+     *                    calculates the optimal size of the work array, returns this value as the
+     *                    first entry of the work array, and no error message related to lwork is
+     *                    issued by xerbla.
      *             info: =0:  successful exit
      *                   <0:  if info = -i, the i-th argument has an illegal value
      * Authors: Univ.of Tennessee
      *          Univ.of California Berkeley
      *          Univ.of Colorado Denver
-     *          NAG Ltd.                                                                                      */
-    static void dorgqr(int m, int n, int k, T* A, int lda, T const* tau, T* work, int lwork, int& info)
+     *          NAG Ltd.                                                                         */
+    static void dorgqr(int m, int n, int k, T* A, int lda, T const* tau, T* work, int lwork,
+                       int& info)
     {
         // Test the input arguments
         info = 0;
         int nb = ilaenv(1, "DORGQR", " ", m, n, k, -1);
-        int lwkopt = (1 > n ? 1 : n) * nb;
+        int lwkopt = ((1>n)?1:n) * nb;
         work[0] = lwkopt;
-        bool lquery = (lwork == -1);
-        if (m < 0)
+        bool lquery = (lwork==-1);
+        if (m<0)
         {
             info = -1;
-        } else if (n < 0 || n > m)
+        }
+        else if (n<0 || n>m)
         {
             info = -2;
-        } else if (k < 0 || k > n)
+        }
+        else if (k<0 || k>n)
         {
             info = -3;
-        } else if (lda < (1 > m ? 1 : m))
+        }
+        else if (lda<1 || lda<m)
         {
             info = -5;
-        } else if (lwork < (1 > n ? 1 : n) && !lquery)
+        }
+        else if ((lwork<1 || lwork<n) && !lquery)
         {
             info = -8;
         }
-        if (info != 0)
+        if (info!=0)
         {
             xerbla("DORGQR", -info);
             return;
-        } else if (lquery)
+        }
+        else if (lquery)
         {
             return;
         }
         // Quick return if possible
-        if (n <= 0)
+        if (n<=0)
         {
             work[0] = 1;
             return;
@@ -6308,26 +6501,26 @@ public:
         int nx = 0;
         int iws = n;
         int ldwork = 0;
-        if (nb > 1 && nb < k)
+        if (nb>1 && nb<k)
         {
             // Determine when to cross over from blocked to unblocked code.
             nx = ilaenv(3, "DORGQR", " ", m, n, k, -1);
-            if (nx < 0)
+            if (nx<0)
             {
                 nx = 0;
             }
-            if (nx < k)
+            if (nx<k)
             {
                 // Determine if workspace is large enough for blocked code.
                 ldwork = n;
                 iws = ldwork*nb;
-                if (lwork < iws)
+                if (lwork<iws)
                 {
                     // Not enough workspace to use optimal nb:
                     // reduce nb and determine the minimum value of nb.
                     nb = lwork / ldwork;
                     nbmin = ilaenv(2, "DORGQR", " ", m, n, k, -1);
-                    if (nbmin < 2)
+                    if (nbmin<2)
                     {
                         nbmin = 2;
                     }
@@ -6335,62 +6528,65 @@ public:
             }
         }
         int i, j, kk, ki = 0, acol;
-        if (nb >= nbmin && nb < k && nx < k)
+        if (nb>=nbmin && nb<k && nx<k)
         {
             // Use blocked code after the last block. The first kk columns are handled by the block method.
-            ki = ((k - nx - 1) / nb) * nb;
+            ki = ((k-nx-1)/nb) * nb;
             kk = ki + nb;
-            if (kk > k)
+            if (kk>k)
             {
                 kk = k;
             }
             // Set A[0:kk-1, kk:n-1] to zero.
-            for (j = kk; j < n; j++)
+            for (j=kk; j<n; j++)
             {
-                acol = lda*j;
-                for (i = 0; i < kk; i++)
+                acol = lda * j;
+                for (i=0; i<kk; i++)
                 {
-                    A[i + acol] = ZERO;
+                    A[i+acol] = ZERO;
                 }
             }
-        } else
+        }
+        else
         {
             kk = 0;
         }
         int iinfo;
         // Use unblocked code for the last or only block.
-        if (kk < n)
+        if (kk<n)
         {
-            dorg2r(m - kk, n - kk, k - kk, &A[kk + lda * kk], lda, &tau[kk], work, iinfo);
+            dorg2r(m-kk, n-kk, k-kk, &A[kk+lda*kk], lda, &tau[kk], work, iinfo);
         }
-        if (kk > 0)
+        if (kk>0)
         {
             int ib, l;
             // Use blocked code
-            for (i = ki; i >= 0; i -= nb)
+            for (i=ki; i>=0; i-=nb)
             {
                 ib = k - i;
-                if (ib > nb)
+                if (ib>nb)
                 {
                     ib = nb;
                 }
                 acol = i + lda*i;
-                if (i + ib < n)
+                if (i+ib < n)
                 {
-                    // Form the triangular factor of the block reflector H = H(i) H(i + 1) ... H(i + ib - 1)
-                    dlarft("Forward", "Columnwise", m - i, ib, &A[acol], lda, &tau[i], work, ldwork);
+                    // Form the triangular factor of the block reflector
+                    // H = H(i) H(i + 1) ... H(i + ib - 1)
+                    dlarft("Forward", "Columnwise", m-i, ib, &A[acol], lda, &tau[i], work, ldwork);
                     // Apply H to A[i:m-1, i+ib:n-1] from the left
-                    dlarfb("Left", "No transpose", "Forward", "Columnwise", m - i, n - i - ib, ib, &A[acol], lda, work, ldwork, &A[acol + lda * ib], lda, &work[ib], ldwork);
+                    dlarfb("Left", "No transpose", "Forward", "Columnwise", m-i, n-i-ib, ib,
+                           &A[acol], lda, work, ldwork, &A[acol+lda*ib], lda, &work[ib], ldwork);
                 }
                 // Apply H to rows i:m-1 of current block
-                dorg2r(m - i, ib, ib, &A[acol], lda, &tau[i], work, iinfo);
+                dorg2r(m-i, ib, ib, &A[acol], lda, &tau[i], work, iinfo);
                 // Set rows 0:i-1 of current block to zero
-                for (j = i; j < (i + ib); j++)
+                for (j=i; j<(i+ib); j++)
                 {
-                    acol = lda*j;
-                    for (l = 0; l < i; l++)
+                    acol = lda * j;
+                    for (l=0; l<i; l++)
                     {
-                        A[l + acol] = ZERO;
+                        A[l+acol] = ZERO;
                     }
                 }
             }
@@ -6416,14 +6612,16 @@ public:
      *                If side = 'L', m >= k >= 0;
      *                if side = 'R', n >= k >= 0.
      *             A: an array, dimension(lda, k)
-     *                The i-th column must contain the vector which defines the elementary reflector H(i),
-     *                for i = 1, 2, ..., k, as returned by dgeqrf in the first k columns of its array argument A.
-     *                A is modified by the routine but restored on exit.
+     *                The i-th column must contain the vector which defines the elementary
+     *                reflector H(i), for i = 1, 2, ..., k, as returned by dgeqrf in the first k
+     *                columns of its array argument A. A is modified by the routine but restored
+     *                on exit.
      *             lda: The leading dimension of the array A.
      *                  If side = 'L', lda >= max(1, m);
      *                  if side = 'R', lda >= max(1, n).
      *             tau: an array, dimension(k)
-     *                  tau[i] must contain the scalar factor of the elementary reflector H(i), as returned by dgeqrf.
+     *                  tau[i] must contain the scalar factor of the elementary reflector H(i),
+     *                  as returned by dgeqrf.
      *             C: an array, dimension(ldc, n)
      *                On entry, the m-by-n matrix C.
      *                On exit, C is overwritten by Q*C or Q^T*C or C*Q^T or C*Q.
@@ -6436,50 +6634,58 @@ public:
      *          Univ.of California Berkeley
      *          Univ.of Colorado Denver
      *          NAG Ltd.                                                                                      */
-    static void dorm2r(char const* side, char const* trans, int m, int n, int k, T* A, int lda, T const* tau, T* C, int ldc, T* work, int& info)
+    static void dorm2r(char const* side, char const* trans, int m, int n, int k, T* A, int lda,
+                       T const* tau, T* C, int ldc, T* work, int& info)
     {
         // Test the input arguments
-        bool left = (toupper(side[0]) == 'L');
-        bool notran = (toupper(trans[0]) == 'N');
+        bool left = (toupper(side[0])=='L');
+        bool notran = (toupper(trans[0])=='N');
         // nq is the order of Q
         int nq;
         if (left)
         {
             nq = m;
-        } else
+        }
+        else
         {
             nq = n;
         }
         info = 0;
-        if (!left && (toupper(side[0]) != 'R'))
+        if (!left && (toupper(side[0])!='R'))
         {
             info = -1;
-        } else if (!notran && (toupper(trans[0]) != 'T'))
+        }
+        else if (!notran && (toupper(trans[0])!='T'))
         {
             info = -2;
-        } else if (m < 0)
+        }
+        else if (m<0)
         {
             info = -3;
-        } else if (n < 0)
+        }
+        else if (n<0)
         {
             info = -4;
-        } else if (k < 0 || k > nq)
+        }
+        else if (k<0 || k>nq)
         {
             info = -5;
-        } else if (lda < (1 > nq ? 1 : nq))
+        }
+        else if (lda<1 || lda<nq)
         {
             info = -7;
-        } else if (ldc < (1 > m ? 1 : m))
+        }
+        else if (ldc<1 || ldc<m)
         {
             info = -10;
         }
-        if (info != 0)
+        if (info!=0)
         {
             xerbla("DORM2R", -info);
             return;
         }
         // Quick return if possible
-        if (m == 0 || n == 0 || k == 0)
+        if (m==0 || n==0 || k==0)
         {
             return;
         }
@@ -6489,32 +6695,35 @@ public:
             i1 = 0;
             i2 = k;
             i3 = 1;
-        } else
+        }
+        else
         {
             i1 = k - 1;
             i2 = -1;
             i3 = -1;
         }
-        int ic, jc, mi = 0, ni = 0;
+        int ic, jc, mi=0, ni=0;
         if (left)
         {
             ni = n;
             jc = 0;
-        } else
+        }
+        else
         {
             mi = m;
             ic = 0;
         }
         int i, aind;
         T aii;
-        for (i = i1; i != i2; i += i3)
+        for (i=i1; i!=i2; i+=i3)
         {
             if (left)
             {
                 // H(i) is applied to C[i:m-1, 0:n-1]
                 mi = m - i;
                 ic = i;
-            } else
+            }
+            else
             {
                 // H(i) is applied to C[0:m-1, i:n-1]
                 ni = n - i;
@@ -6524,7 +6733,7 @@ public:
             aind = i + lda*i;
             aii = A[aind];
             A[aind] = ONE;
-            dlarf(side, mi, ni, &A[aind], 1, tau[i], &C[ic + ldc * jc], ldc, work);
+            dlarf(side, mi, ni, &A[aind], 1, tau[i], &C[ic+ldc*jc], ldc, work);
             A[aind] = aii;
         }
     }
@@ -6546,14 +6755,15 @@ public:
      *                If side = 'L', m >= k >= 0;
      *                if side = 'R', n >= k >= 0.
      *             A: an array, dimension(lda, k)
-     *               The i-th column must contain the vector which defines the elementary reflector H(i),
-     *               for i = 1, 2, ..., k, as returned by dgeqrf in the first k columns of its array argument A.
-     *               A may be modified by the routine but is restored on exit.
+     *               The i-th column must contain the vector which defines the elementary reflector
+     *               H(i), for i=1, 2, ..., k, as returned by dgeqrf in the first k columns of its
+     *               array argument A. A may be modified by the routine but is restored on exit.
      *             lda: The leading dimension of the array A.
      *                  If side = 'L', lda >= max(1, m);
      *                  if side = 'R', lda >= max(1, n).
      *             tau:  array, dimension(k)
-     *                   tau(i) must contain the scalar factor of the elementary reflector H(i), as returned by dgeqrf.
+     *                   tau(i) must contain the scalar factor of the elementary reflector H(i),
+     *                   as returned by dgeqrf.
      *             C: an array, dimension(ldc, n)
      *                On entry, the m-by-n matrix C.
      *                On exit, C is overwritten by Q*C or Q^T*C or C*Q^T or C*Q.
@@ -6574,51 +6784,61 @@ public:
      * Authors: Univ.of Tennessee
      *          Univ.of California Berkeley
      *          Univ.of Colorado Denver
-     *          NAG Ltd.                                                                                      */
-    static void dormqr(char const* side, char const* trans, int m, int n, int k, T* A, int lda, T const* tau, T* C, int ldc, T* work, int lwork, int& info)
+     *          NAG Ltd.                                                                         */
+    static void dormqr(char const* side, char const* trans, int m, int n, int k, T* A, int lda,
+                       T const* tau, T* C, int ldc, T* work, int lwork, int& info)
     {
-        int const NBMAX = 64, LDT = NBMAX + 1;
-        T* Tm = new T[LDT * NBMAX];
+        const int NBMAX = 64;
+        const int LDT = NBMAX + 1;
+        T* Tm = new T[LDT*NBMAX];
         // Test the input arguments
         info = 0;
         char upside = toupper(side[0]);
         char uptrans = toupper(trans[0]);
-        bool left = (upside == 'L');
-        bool notran = (uptrans == 'N');
-        bool lquery = (lwork == -1);
+        bool left = (upside=='L');
+        bool notran = (uptrans=='N');
+        bool lquery = (lwork==-1);
         // nq is the order of Q and nw is the minimum dimension of work
         int nq, nw;
         if (left)
         {
             nq = m;
             nw = n;
-        } else
+        }
+        else
         {
             nq = n;
             nw = m;
         }
-        if (!left && (upside != 'R'))
+        if (!left && (upside!='R'))
         {
             info = -1;
-        } else if (!notran && (uptrans != 'T'))
+        }
+        else if (!notran && (uptrans!='T'))
         {
             info = -2;
-        } else if (m < 0)
+        }
+        else if (m<0)
         {
             info = -3;
-        } else if (n < 0)
+        }
+        else if (n<0)
         {
             info = -4;
-        } else if (k < 0 || k > nq)
+        }
+        else if (k<0 || k>nq)
         {
             info = -5;
-        } else if (lda < (1 > nq ? 1 : nq))
+        }
+        else if (lda<1 || lda<nq)
         {
             info = -7;
-        } else if (ldc < (1 > m ? 1 : m))
+        }
+        else if (ldc<1 || ldc<m)
         {
             info = -10;
-        } else if (lwork < (1 > nw ? 1 : nw) && !lquery)
+        }
+        else if ((lwork<1 || lwork<nw) && !lquery)
         {
             info = -12;
         }
@@ -6626,29 +6846,30 @@ public:
         opts[0] = upside;
         opts[1] = uptrans;
         int lwkopt, nb;
-        if (info == 0)
+        if (info==0)
         {
             // Determine the block size. nb may be at most NBMAX, where NBMAX is used to define the local array T.
             {
                 nb = ilaenv(1, "DORMQR", opts, m, n, k, -1);
             }
-            if (nb > NBMAX)
+            if (nb>NBMAX)
             {
                 nb = NBMAX;
             }
-            lwkopt = (1 > nw ? 1 : nw) * nb;
+            lwkopt = ((1>nw)?1:nw) * nb;
             work[0] = lwkopt;
         }
-        if (info != 0)
+        if (info!=0)
         {
             xerbla("DORMQR", -info);
             return;
-        } else if (lquery)
+        }
+        else if (lquery)
         {
             return;
         }
         // Quick return if possible
-        if (m == 0 || n == 0 || k == 0)
+        if (m==0 || n==0 || k==0)
         {
             work[0] = 1;
             return;
@@ -6656,28 +6877,30 @@ public:
         int nbmin = 2;
         int ldwork = nw;
         int iws;
-        if (nb > 1 && nb < k)
+        if (nb>1 && nb<k)
         {
             iws = nw*nb;
-            if (lwork < iws)
+            if (lwork<iws)
             {
                 nb = lwork / ldwork;
                 nbmin = ilaenv(2, "DORMQR", opts, m, n, k, -1);
-                if (nbmin < 2)
+                if (nbmin<2)
                 {
                     nbmin = 2;
                 }
             }
-        } else
+        }
+        else
         {
             iws = nw;
         }
-        if (nb < nbmin || nb >= k)
+        if (nb<nbmin || nb>=k)
         {
             // Use unblocked code
             int iinfo;
             dorm2r(side, trans, m, n, k, A, lda, tau, C, ldc, work, iinfo);
-        } else
+        }
+        else
         {
             // Use blocked code
             int i1, i2, i3;
@@ -6686,9 +6909,10 @@ public:
                 i1 = 0;
                 i2 = k - 1;
                 i3 = nb;
-            } else
+            }
+            else
             {
-                i1 = ((k - 1) / nb) * nb;
+                i1 = ((k-1)/nb) * nb;
                 i2 = 0;
                 i3 = -nb;
             }
@@ -6697,44 +6921,49 @@ public:
             {
                 ni = n;
                 jc = 0;
-            } else
+            }
+            else
             {
                 mi = m;
                 ic = 0;
             }
             int i, ib, aind;
-            for (i = i1; i != i2 + i3; i += i3)
+            for (i=i1; i!=i2+i3; i+=i3)
             {
                 ib = k - i;
-                if (ib > nb)
+                if (ib>nb)
                 {
                     ib = nb;
                 }
                 // Form the triangular factor of the block reflector
                 aind = i + lda*i;
                 //     H = H(i) H(i + 1) . ..H(i + ib - 1)
-                dlarft("Forward", "Columnwise", nq - i, ib, &A[aind], lda, &tau[i], Tm, LDT);
+                dlarft("Forward", "Columnwise", nq-i, ib, &A[aind], lda, &tau[i], Tm, LDT);
                 if (left)
                 {
                     // H or H^T is applied to C[i:m-1, 0:n-1]
                     mi = m - i;
                     ic = i;
-                } else
+                }
+                else
                 {
                     // H or H^T is applied to C[0:m-1, i:n-1]
                     ni = n - i;
                     jc = i;
                 }
                 // Apply H or H^T
-                dlarfb(side, trans, "Forward", "Columnwise", mi, ni, ib, &A[aind], lda, Tm, LDT, &C[ic + ldc * jc], ldc, work, ldwork);
+                dlarfb(side, trans, "Forward", "Columnwise", mi, ni, ib, &A[aind], lda, Tm, LDT,
+                       &C[ic+ldc*jc], ldc, work, ldwork);
             }
         }
         work[0] = lwkopt;
         delete[] Tm;
     }
 
-    /* ieeeck is called from the ilaenv to verify that Infinity and possibly NaN arithmetic is safe (i.e.will not trap).
-     * Parameters: ispec: Specifies whether to test just for inifinity arithmetic or whether to test for infinity and NaN arithmetic.
+    /* ieeeck is called from the ilaenv to verify that Infinity and possibly NaN arithmetic is safe
+     * (i.e.will not trap).
+     * Parameters: ispec: Specifies whether to test just for inifinity arithmetic or whether to
+     *                    test for infinity and NaN arithmetic.
      *                    0: Verify infinity arithmetic only.
      *                    1: Verify infinity and NaN arithmetic.
      *             Zero: Must contain the value 0.0
@@ -6747,81 +6976,81 @@ public:
      *          Univ.of California Berkeley
      *          Univ.of Colorado Denver
      *          NAG Ltd.
-     * TODO: Check whether these checks are still valid in c++                                                            */
+     * TODO: Check whether these checks are still valid in c++                                   */
     static int ieeeck(int ispec, T Zero, T One)
     {
         T posinf = One / Zero;
-        if (posinf < One)
+        if (posinf<One)
         {
             return 0;
         }
         T neginf = -One / Zero;
-        if (neginf >= Zero)
+        if (neginf>=Zero)
         {
             return 0;
         }
-        T negzro = One / (neginf + One);
-        if (negzro != Zero)
+        T negzro = One / (neginf+One);
+        if (negzro!=Zero)
         {
             return 0;
         }
         neginf = One / negzro;
-        if (neginf >= Zero)
+        if (neginf>=Zero)
         {
             return 0;
         }
         T newzro = negzro + Zero;
-        if (newzro != Zero)
+        if (newzro!=Zero)
         {
             return 0;
         }
         posinf = One / newzro;
-        if (posinf <= One)
+        if (posinf<=One)
         {
             return 0;
         }
-        neginf = neginf*posinf;
-        if (neginf >= Zero)
+        neginf = neginf * posinf;
+        if (neginf>=Zero)
         {
             return 0;
         }
-        posinf = posinf*posinf;
-        if (posinf <= One)
+        posinf = posinf * posinf;
+        if (posinf<=One)
         {
             return 0;
         }
         // Return if we were only asked to check infinity arithmetic
-        if (ispec == 0)
+        if (ispec==0)
         {
             return 1;
         }
         T NaN1 = posinf + neginf;
         T NaN2 = posinf / neginf;
         T NaN3 = posinf / posinf;
-        T NaN4 = posinf*Zero;
-        T NaN5 = neginf*negzro;
-        T NaN6 = NaN5*Zero;
-        if (NaN1 == NaN1)
+        T NaN4 = posinf * Zero;
+        T NaN5 = neginf * negzro;
+        T NaN6 = NaN5   * Zero;
+        if (NaN1==NaN1)
         {
             return 0;
         }
-        if (NaN2 == NaN2)
+        if (NaN2==NaN2)
         {
             return 0;
         }
-        if (NaN3 == NaN3)
+        if (NaN3==NaN3)
         {
             return 0;
         }
-        if (NaN4 == NaN4)
+        if (NaN4==NaN4)
         {
             return 0;
         }
-        if (NaN5 == NaN5)
+        if (NaN5==NaN5)
         {
             return 0;
         }
-        if (NaN6 == NaN6)
+        if (NaN6==NaN6)
         {
             return 0;
         }
@@ -6840,24 +7069,27 @@ public:
      *          NAG Ltd.                                                           */
     static int iladlc(int m, int n, T const* A, int lda)
     {
-        int ila, lastcol = lda * (n - 1);
+        int ila, lastcol=lda*(n-1);
         // Quick test for the common case where one corner is non - zero.
-        if (n == 0)
+        if (n==0)
         {
             return 0;
-        } else if (A[lastcol] != ZERO || A[m - 1 + lastcol] != ZERO)
+        }
+        else if (A[lastcol]!=ZERO || A[m-1+lastcol]!=ZERO)
         {
             return n - 1;
-        } else
+        }
+        else
         {
             int i;
             // Now scan each column from the end, returning with the first non-zero.
-            for (ila = lastcol; ila >= 0; ila -= lda)
+            for (ila=lastcol; ila>=0; ila-=lda)
             {
-                for (i = 0; i < m; i++)
+                for (i=0; i<m; i++)
                 {
-                    if (A[i + ila] != ZERO)
+                    if (A[i+ila] != ZERO)
                     {
+
                         return ila / lda;
                     }
                 }
@@ -6880,82 +7112,102 @@ public:
     {
         int lastrow = m - 1;
         // Quick test for the common case where one corner is non - zero.
-        if (m == 0)
+        if (m==0)
         {
             return 0;
-        } else if (A[lastrow] != ZERO || A[lastrow + lda * (n - 1)] != ZERO)
+        }
+        else if (A[lastrow]!=ZERO || A[lastrow+lda*(n-1)]!=ZERO)
         {
             return lastrow;
-        } else
+        }
+        else
         {
-            int i, j;
+            int i, j, ipos;
             // Scan up each column tracking the last zero row seen.
-            int colj, ila = 0;
-            for (j = 0; j < n; j++)
+            int colj, ila=0;
+            for (j=0; j<n; j++)
             {
-                colj = lda*j;
+                colj = lda * j;
                 i = lastrow;
-                //while ((A[(i>0 ? i : 0) + colj] == zero) && (i > 0))
-                while ((A[i + colj] == ZERO) && (i > 0))// TODO: check if correct
+                while ((i>0) && (A[i+colj]==ZERO))
                 {
                     i--;
                 }
-                ila = (ila > i ? ila : i);
+                if (ila<i)
+                {
+                    ila = i;
+                }
             }
             return ila;
         }
     }
 
-    /* ilaenv is called from the LAPACK routines to choose problem-dependent parameters for the local environment.
+    /* ilaenv is called from the LAPACK routines to choose problem-dependent parameters for the
+     * local environment.
      * See ispec for a description of the parameters.
-     * ilaenv returns an integer: if >= 0: ilaenv returns the value of the parameter specified by ispec
-     *                            if  < 0: if -k, the k-th argument had an illegal value.
-     * This version provides a set of parameters which should give good, but not optimal, performance
-     *     on many of the currently available computers.Users are encouraged to modify this subroutine to set
-     *     the tuning parameters for their particular machine using the option and problem size information in the arguments.
+     * ilaenv returns an integer: if >=0: ilaenv returns the value of the parameter specified by
+     *                                     ispec
+     *                            if  <0: if -k, the k-th argument had an illegal value.
+     * This version provides a set of parameters which should give good, but not optimal,
+     *     performance on many of the currently available computers.Users are encouraged to modify
+     *     this subroutine to set the tuning parameters for their particular machine using the
+     *     option and problem size information in the arguments.
      * This routine will not function correctly if it is converted to all lower case.
      *     Converting it to all upper case is allowed.
      * Parameters: ispec: Specifies the parameter to be returned.
-     *                    1: the optimal blocksize; if this value is 1, an unblocked algorithm will give the best performance.
+     *                    1: the optimal blocksize; if this value is 1, an unblocked algorithm will
+     *                       give the best performance.
      *                    2: the minimum block size for which the block routine should be used;
-     *                       if the usable block size is less than this value, an unblocked routine should be used.
-     *                    3: the crossover point(in a block routine, for N less than this value, an unblocked routine should be used)
-     *                    4: the number of shifts, used in the nonsymmetric eigenvalue routines(DEPRECATED)
-     *                    5: the minimum column dimension for blocking to be used; rectangular blocks must have dimension
-     *                       at least k by m, where k is given by ILAENV(2, ...) and m by ILAENV(5, ...)
-     *                    6: the crossover point for the SVD (when reducing an m by n matrix to bidiagonal form,
-     *                       if max(m, n) / min(m, n) exceeds this value, a QR factorization is used first to
-     *                       reduce the matrix to a triangular form.)
+     *                       if the usable block size is less than this value, an unblocked routine
+     *                       should be used.
+     *                    3: the crossover point(in a block routine, for N less than this value, an
+     *                       unblocked routine should be used)
+     *                    4: the number of shifts, used in the nonsymmetric eigenvalue routines
+     *                       (DEPRECATED)
+     *                    5: the minimum column dimension for blocking to be used; rectangular
+     *                       blocks must have dimension at least k by m, where k is given by
+     *                       ILAENV(2, ...) and m by ILAENV(5, ...)
+     *                    6: the crossover point for the SVD (when reducing an m by n matrix to
+     *                       bidiagonal form, if max(m, n) / min(m, n) exceeds this value, a QR
+     *                       factorization is used first to reduce the matrix to triangular form.)
      *                    7: the number of processors
-     *                    8: the crossover point for the multishift QR method for nonsymmetric eigenvalue problems(DEPRECATED)
-     *                    9: maximum size of the subproblems at the bottom of the computation tree in the
-     *                       divide-and-conquer algorithm (used by xGELSD and xGESDD)
+     *                    8: the crossover point for the multishift QR method for nonsymmetric
+     *                       eigenvalue problems(DEPRECATED)
+     *                    9: maximum size of the subproblems at the bottom of the computation tree
+     *                       in the divide-and-conquer algorithm (used by xGELSD and xGESDD)
      *                    10: ieee NaN arithmetic can be trusted not to trap
      *                    11: infinity arithmetic can be trusted not to trap
-     *                    12 <= ispec <= 16: xHSEQR or one of its subroutines, see IPARMQ for detailed explanation
+     *                    12<=ispec<=16: xHSEQR or one of its subroutines, see IPARMQ for
+     *                                   detailed explanation
      *             name: The name of the calling subroutine, in either upper case or lower case.
-     *             opts: The character options to the subroutine name, concatenated into a single character string.
-     *                   For example, UPLO = 'U', trans = 'T', and DIAG = 'N' for a triangular routine would be specified as opts = 'UTN'.
+     *             opts: The character options to the subroutine name, concatenated into a single
+     *                   character string. For example, UPLO=='U', trans=='T', and DIAG=='N' for a
+     *                   triangular routine would be specified as opts=='UTN'.
      *             n1: integer
      *             n2: integer
      *             n3: integer
-     *             n4: integer; Problem dimensions for the subroutine name; these may not all be required.
+     *             n4: integer; Problem dimensions for the subroutine name;
+     *                          these may not all be required.
      * Authors: Univ.of Tennessee
      *          Univ.of California Berkeley
      *          Univ.of Colorado Denver
      *          NAG Ltd.
      * Further Details:
      *     The following conventions have been used when calling ilaenv from the LAPACK routines:
-     *      1)  opts is a concatenation of all of the character options to subroutine name, in the same order that they appear
-     *          in the argument list for name, even if they are not used in determining the value of the parameter specified by ispec.
-     *      2)  The problem dimensions n1, n2, n3, n4 are specified in the order that they appear in the argument list for name.
-     *          n1 is used first, n2 second, and so on, and unused problem dimensions are passed a value of -1.
-     *      3)  The parameter value returned by ILAENV is checked for validity in the calling subroutine.For example,
-     *          ilaenv is used to retrieve the optimal blocksize for STRTRI as follows :
+     *      1)  opts is a concatenation of all of the character options to subroutine name, in the
+     *          same order that they appear in the argument list for name, even if they are not
+     *          used in determining the value of the parameter specified by ispec.
+     *      2)  The problem dimensions n1, n2, n3, n4 are specified in the order that they appear
+     *          in the argument list for name. n1 is used first, n2 second, and so on, and unused
+     *          problem dimensions are passed a value of -1.
+     *      3)  The parameter value returned by ILAENV is checked for validity in the calling
+     *          subroutine. For example, ilaenv is used to retrieve the optimal blocksize for
+     *          STRTRI as follows:
      *          nb = ilaenv(1, 'STRTRI', UPLO // DIAG, N, -1, -1, -1)
-     *          if(nb<=1) nb = MAX(1, N)
-     * TODO: optimize                                                                                                                  */
-    static int ilaenv(int ispec, char const* name, char const* opts, int n1, int n2, int n3, int n4)
+     *          if(nb<=1) nb = MAX(1, N);
+     * TODO: optimize                                                                            */
+    static int ilaenv(int ispec, char const* name, char const* opts, int n1, int n2, int n3,
+                      int n4)
     {
         bool sname, cname;
         char c1;
@@ -6968,227 +7220,272 @@ public:
                 char subnam[6];
                 std::strncpy(subnam, name, 6);
                 int nb, nbmin;
-                for (nb = 0; nb < 6; nb++)
+                for (nb=0; nb<6; nb++)
                 {
                     subnam[nb] = toupper(subnam[nb]);
                 }
                 c1 = subnam[0];
-                sname = (c1 == 'S' || c1 == 'D');
-                cname = (c1 == 'C' || c1 == 'Z');
+                sname = (c1=='S' || c1=='D');
+                cname = (c1=='C' || c1=='Z');
                 if (!(cname || sname))
                 {
                     return 1;
                 }
                 char c2[2], c3[3], c4[2];
-                std::strncpy(c2, subnam + 1, 2);
-                std::strncpy(c3, subnam + 3, 3);
-                std::strncpy(c4, c3 + 1, 2);
+                std::strncpy(c2, subnam+1, 2);
+                std::strncpy(c3, subnam+3, 3);
+                std::strncpy(c4, c3+1, 2);
                 switch (ispec)
                 {
                     case 1:
                         // ispec = 1: block size
-                        // In these examples, separate code is provided for setting nb for real and complex.
-                        // We assume that nb will take the same value in single or double precision.
+                        // In these examples, separate code is provided for setting nb for real and
+                        // complex. We assume that nb will take the same value in single or double
+                        // precision.
                         nb = 1;
-                        if (std::strncmp(c2, "GE", 2) == 0)
+                        if (std::strncmp(c2, "GE", 2)==0)
                         {
-                            if (std::strncmp(c3, "TRF", 3) == 0)
+                            if (std::strncmp(c3, "TRF", 3)==0)
                             {
                                 if (sname)
                                 {
                                     nb = 64;
-                                } else
-                                {
-                                    nb = 64;
                                 }
-                            } else if (std::strncmp(c3, "QRF", 3) == 0 || std::strncmp(c3, "RQF", 3) == 0 || std::strncmp(c3, "LQF", 3) == 0 || std::strncmp(c3, "QLF", 3) == 0)
-                            {
-                                if (sname)
-                                {
-                                    nb = 32;
-                                } else
-                                {
-                                    nb = 32;
-                                }
-                            } else if (std::strncmp(c3, "HRD", 3) == 0)
-                            {
-                                if (sname)
-                                {
-                                    nb = 32;
-                                } else
-                                {
-                                    nb = 32;
-                                }
-                            } else if (std::strncmp(c3, "BRD", 3) == 0)
-                            {
-                                if (sname)
-                                {
-                                    nb = 32;
-                                } else
-                                {
-                                    nb = 32;
-                                }
-                            } else if (std::strncmp(c3, "TRI", 3) == 0)
-                            {
-                                if (sname)
-                                {
-                                    nb = 64;
-                                } else
+                                else
                                 {
                                     nb = 64;
                                 }
                             }
-                        } else if (std::strncmp(c2, "PO", 2) == 0)
-                        {
-                            if (std::strncmp(c3, "TRF", 3) == 0)
+                            else if (std::strncmp(c3, "QRF", 3)==0 || std::strncmp(c3, "RQF", 3)==0
+                                 || std::strncmp(c3, "LQF", 3)==0 || std::strncmp(c3, "QLF", 3)==0)
+                            {
+                                if (sname)
+                                {
+                                    nb = 32;
+                                }
+                                else
+                                {
+                                    nb = 32;
+                                }
+                            }
+                            else if (std::strncmp(c3, "HRD", 3)==0)
+                            {
+                                if (sname)
+                                {
+                                    nb = 32;
+                                }
+                                else
+                                {
+                                    nb = 32;
+                                }
+                            }
+                            else if (std::strncmp(c3, "BRD", 3)==0)
+                            {
+                                if (sname)
+                                {
+                                    nb = 32;
+                                }
+                                else
+                                {
+                                    nb = 32;
+                                }
+                            }
+                            else if (std::strncmp(c3, "TRI", 3)==0)
                             {
                                 if (sname)
                                 {
                                     nb = 64;
-                                } else
+                                }
+                                else
                                 {
                                     nb = 64;
                                 }
                             }
-                        } else if (std::strncmp(c2, "SY", 2) == 0)
+                        }
+                        else if (std::strncmp(c2, "PO", 2)==0)
                         {
-                            if (std::strncmp(c3, "TRF", 3) == 0)
+                            if (std::strncmp(c3, "TRF", 3)==0)
                             {
                                 if (sname)
                                 {
                                     nb = 64;
-                                } else
+                                }
+                                else
                                 {
                                     nb = 64;
                                 }
-                            } else if (sname && std::strncmp(c3, "TRD", 3) == 0)
+                            }
+                        }
+                        else if (std::strncmp(c2, "SY", 2)==0)
+                        {
+                            if (std::strncmp(c3, "TRF", 3)==0)
+                            {
+                                if (sname)
+                                {
+                                    nb = 64;
+                                }
+                                else
+                                {
+                                    nb = 64;
+                                }
+                            }
+                            else if (sname && std::strncmp(c3, "TRD", 3)==0)
                             {
                                 nb = 32;
-                            } else if (sname && std::strncmp(c3, "GST", 3) == 0)
+                            }
+                            else if (sname && std::strncmp(c3, "GST", 3)==0)
                             {
                                 nb = 64;
                             }
-                        } else if (cname && std::strncmp(c2, "HE", 2) == 0)
+                        }
+                        else if (cname && std::strncmp(c2, "HE", 2)==0)
                         {
-                            if (std::strncmp(c3, "TRF", 3) == 0)
+                            if (std::strncmp(c3, "TRF", 3)==0)
                             {
                                 nb = 64;
-                            } else if (std::strncmp(c3, "TRD", 3) == 0)
+                            }
+                            else if (std::strncmp(c3, "TRD", 3)==0)
                             {
                                 nb = 32;
-                            } else if (std::strncmp(c3, "GST", 3) == 0)
+                            }
+                            else if (std::strncmp(c3, "GST", 3)==0)
                             {
                                 nb = 64;
                             }
-                        } else if (sname && std::strncmp(c2, "OR", 2) == 0)
+                        }
+                        else if (sname && std::strncmp(c2, "OR", 2)==0)
                         {
-                            if (c3[0] == 'G')
+                            if (c3[0]=='G')
                             {
-                                if (std::strncmp(c4, "QR", 2) == 0 || std::strncmp(c4, "RQ", 2) == 0 || std::strncmp(c4, "LQ", 2) == 0 || std::strncmp(c4, "QL", 2) == 0 ||
-                                        std::strncmp(c4, "HR", 2) == 0 || std::strncmp(c4, "TR", 2) == 0 || std::strncmp(c4, "BR", 2) == 0)
-                                {
-                                    nb = 32;
-                                }
-                            } else if (c3[0] == 'M')
-                            {
-                                if (std::strncmp(c4, "QR", 2) == 0 || std::strncmp(c4, "RQ", 2) == 0 || std::strncmp(c4, "LQ", 2) == 0 || std::strncmp(c4, "QL", 2) == 0 ||
-                                        std::strncmp(c4, "HR", 2) == 0 || std::strncmp(c4, "TR", 2) == 0 || std::strncmp(c4, "BR", 2) == 0)
+                                if (std::strncmp(c4, "QR", 2)==0 || std::strncmp(c4, "RQ", 2)==0
+                                    || std::strncmp(c4, "LQ", 2)==0 || std::strncmp(c4, "QL", 2)==0
+                                    || std::strncmp(c4, "HR", 2)==0 || std::strncmp(c4, "TR", 2)==0
+                                    || std::strncmp(c4, "BR", 2)==0)
                                 {
                                     nb = 32;
                                 }
                             }
-                        } else if (cname && std::strncmp(c2, "UN", 2) == 0)
-                        {
-                            if (c3[0] == 'G')
+                            else if (c3[0]=='M')
                             {
-                                if (std::strncmp(c4, "QR", 2) == 0 || std::strncmp(c4, "RQ", 2) == 0 || std::strncmp(c4, "LQ", 2) == 0 || std::strncmp(c4, "QL", 2) == 0 ||
-                                        std::strncmp(c4, "HR", 2) == 0 || std::strncmp(c4, "TR", 2) == 0 || std::strncmp(c4, "BR", 2) == 0)
-                                {
-                                    nb = 32;
-                                }
-                            } else if (c3[0] == 'M')
-                            {
-                                if (std::strncmp(c4, "QR", 2) == 0 || std::strncmp(c4, "RQ", 2) == 0 || std::strncmp(c4, "LQ", 2) == 0 || std::strncmp(c4, "QL", 2) == 0 ||
-                                        std::strncmp(c4, "HR", 2) == 0 || std::strncmp(c4, "TR", 2) == 0 || std::strncmp(c4, "BR", 2) == 0)
+                                if (std::strncmp(c4, "QR", 2)==0 || std::strncmp(c4, "RQ", 2)==0
+                                    || std::strncmp(c4, "LQ", 2)==0 || std::strncmp(c4, "QL", 2)==0
+                                    || std::strncmp(c4, "HR", 2)==0 || std::strncmp(c4, "TR", 2)==0
+                                    || std::strncmp(c4, "BR", 2)==0)
                                 {
                                     nb = 32;
                                 }
                             }
-                        } else if (std::strncmp(c2, "GB", 2) == 0)
+                        }
+                        else if (cname && std::strncmp(c2, "UN", 2)==0)
                         {
-                            if (std::strncmp(c3, "TRF", 3) == 0)
+                            if (c3[0]=='G')
+                            {
+                                if (std::strncmp(c4, "QR", 2)==0 || std::strncmp(c4, "RQ", 2)==0
+                                    || std::strncmp(c4, "LQ", 2)==0 || std::strncmp(c4, "QL", 2)==0
+                                    || std::strncmp(c4, "HR", 2)==0 || std::strncmp(c4, "TR", 2)==0
+                                    || std::strncmp(c4, "BR", 2)==0)
+                                {
+                                    nb = 32;
+                                }
+                            }
+                            else if (c3[0]=='M')
+                            {
+                                if (std::strncmp(c4, "QR", 2)==0 || std::strncmp(c4, "RQ", 2)==0
+                                    || std::strncmp(c4, "LQ", 2)==0 || std::strncmp(c4, "QL", 2)==0
+                                    || std::strncmp(c4, "HR", 2)==0 || std::strncmp(c4, "TR", 2)==0
+                                    || std::strncmp(c4, "BR", 2)==0)
+                                {
+                                    nb = 32;
+                                }
+                            }
+                        }
+                        else if (std::strncmp(c2, "GB", 2)==0)
+                        {
+                            if (std::strncmp(c3, "TRF", 3)==0)
                             {
                                 if (sname)
                                 {
-                                    if (n4 <= 64)
+                                    if (n4<=64)
                                     {
                                         nb = 1;
-                                    } else
-                                    {
-                                        nb = 32;
                                     }
-                                } else
-                                {
-                                    if (n4 <= 64)
-                                    {
-                                        nb = 1;
-                                    } else
+                                    else
                                     {
                                         nb = 32;
                                     }
                                 }
-                            }
-                        } else if (std::strncmp(c2, "PB", 2) == 0)
-                        {
-                            if (std::strncmp(c3, "TRF", 3) == 0)
-                            {
-                                if (sname)
+                                else
                                 {
-                                    if (n2 <= 64)
+                                    if (n4<=64)
                                     {
                                         nb = 1;
-                                    } else
-                                    {
-                                        nb = 32;
                                     }
-                                } else
-                                {
-                                    if (n2 <= 64)
-                                    {
-                                        nb = 1;
-                                    } else
+                                    else
                                     {
                                         nb = 32;
                                     }
                                 }
                             }
-                        } else if (std::strncmp(c2, "TR", 2) == 0)
+                        }
+                        else if (std::strncmp(c2, "PB", 2)==0)
                         {
-                            if (std::strncmp(c3, "TRI", 3) == 0)
+                            if (std::strncmp(c3, "TRF", 3)==0)
+                            {
+                                if (sname)
+                                {
+                                    if (n2<=64)
+                                    {
+                                        nb = 1;
+                                    }
+                                    else
+                                    {
+                                        nb = 32;
+                                    }
+                                }
+                                else
+                                {
+                                    if (n2<=64)
+                                    {
+                                        nb = 1;
+                                    }
+                                    else
+                                    {
+                                        nb = 32;
+                                    }
+                                }
+                            }
+                        }
+                        else if (std::strncmp(c2, "TR", 2)==0)
+                        {
+                            if (std::strncmp(c3, "TRI", 3)==0)
                             {
                                 if (sname)
                                 {
                                     nb = 64;
-                                } else
+                                }
+                                else
                                 {
                                     nb = 64;
                                 }
                             }
-                        } else if (std::strncmp(c2, "LA", 2) == 0)
+                        }
+                        else if (std::strncmp(c2, "LA", 2)==0)
                         {
-                            if (std::strncmp(c3, "UUM", 3) == 0)
+                            if (std::strncmp(c3, "UUM", 3)==0)
                             {
                                 if (sname)
                                 {
                                     nb = 64;
-                                } else
+                                }
+                                else
                                 {
                                     nb = 64;
                                 }
                             }
-                        } else if (sname && std::strncmp(c2, "ST", 2) == 0)
+                        }
+                        else if (sname && std::strncmp(c2, "ST", 2)==0)
                         {
-                            if (std::strncmp(c3, "EBZ", 3) == 0)
+                            if (std::strncmp(c3, "EBZ", 3)==0)
                             {
                                 nb = 1;
                             }
@@ -7198,96 +7495,120 @@ public:
                     case 2:
                         // ispec = 2: minimum block size
                         nbmin = 2;
-                        if (std::strncmp(c2, "GE", 2) == 0)
+                        if (std::strncmp(c2, "GE", 2)==0)
                         {
-                            if (std::strncmp(c3, "QRF", 3) == 0 || std::strncmp(c3, "RQF", 3) == 0 || std::strncmp(c3, "LQF", 3) == 0 || std::strncmp(c3, "QLF", 3) == 0)
+                            if (std::strncmp(c3, "QRF", 3)==0 || std::strncmp(c3, "RQF", 3)==0
+                                || std::strncmp(c3, "LQF", 3)==0 || std::strncmp(c3, "QLF", 3)==0)
                             {
                                 if (sname)
-                                {
-                                    nbmin = 2;
-                                } else
                                 {
                                     nbmin = 2;
                                 }
-                            } else if (std::strncmp(c3, "HRD", 3) == 0)
-                            {
-                                if (sname)
-                                {
-                                    nbmin = 2;
-                                } else
-                                {
-                                    nbmin = 2;
-                                }
-                            } else if (std::strncmp(c3, "BRD", 3) == 0)
-                            {
-                                if (sname)
-                                {
-                                    nbmin = 2;
-                                } else
-                                {
-                                    nbmin = 2;
-                                }
-                            } else if (std::strncmp(c3, "TRI", 3) == 0)
-                            {
-                                if (sname)
-                                {
-                                    nbmin = 2;
-                                } else
+                                else
                                 {
                                     nbmin = 2;
                                 }
                             }
-                        } else if (std::strncmp(c2, "SY", 2) == 0)
+                            else if (std::strncmp(c3, "HRD", 3)==0)
+                            {
+                                if (sname)
+                                {
+                                    nbmin = 2;
+                                }
+                                else
+                                {
+                                    nbmin = 2;
+                                }
+                            }
+                            else if (std::strncmp(c3, "BRD", 3)==0)
+                            {
+                                if (sname)
+                                {
+                                    nbmin = 2;
+                                }
+                                else
+                                {
+                                    nbmin = 2;
+                                }
+                            }
+                            else if (std::strncmp(c3, "TRI", 3)==0)
+                            {
+                                if (sname)
+                                {
+                                    nbmin = 2;
+                                }
+                                else
+                                {
+                                    nbmin = 2;
+                                }
+                            }
+                        }
+                        else if (std::strncmp(c2, "SY", 2)==0)
                         {
-                            if (std::strncmp(c3, "TRF", 3) == 0)
+                            if (std::strncmp(c3, "TRF", 3)==0)
                             {
                                 if (sname)
                                 {
                                     nbmin = 8;
-                                } else
+                                }
+                                else
                                 {
                                     nbmin = 8;
                                 }
-                            } else if (sname && std::strncmp(c3, "TRD", 3) == 0)
+                            }
+                            else if (sname && std::strncmp(c3, "TRD", 3)==0)
                             {
                                 nbmin = 2;
                             }
-                        } else if (cname && std::strncmp(c2, "HE", 2) == 0)
+                        }
+                        else if (cname && std::strncmp(c2, "HE", 2)==0)
                         {
-                            if (std::strncmp(c3, "TRD", 3) == 0)
+                            if (std::strncmp(c3, "TRD", 3)==0)
                             {
                                 nbmin = 2;
                             }
-                        } else if (sname && std::strncmp(c2, "OR", 2) == 0)
+                        }
+                        else if (sname && std::strncmp(c2, "OR", 2)==0)
                         {
-                            if (c3[0] == 'G')
+                            if (c3[0]=='G')
                             {
-                                if (std::strncmp(c4, "QR", 2) == 0 || std::strncmp(c4, "RQ", 2) == 0 || std::strncmp(c4, "LQ", 2) == 0 || std::strncmp(c4, "QL", 2) == 0 ||
-                                        std::strncmp(c4, "HR", 2) == 0 || std::strncmp(c4, "TR", 2) == 0 || std::strncmp(c4, "BR", 2) == 0)
-                                {
-                                    nbmin = 2;
-                                }
-                            } else if (c3[0] == 'M')
-                            {
-                                if (std::strncmp(c4, "QR", 2) == 0 || std::strncmp(c4, "RQ", 2) == 0 || std::strncmp(c4, "LQ", 2) == 0 || std::strncmp(c4, "QL", 2) == 0 ||
-                                        std::strncmp(c4, "HR", 2) == 0 || std::strncmp(c4, "TR", 2) == 0 || std::strncmp(c4, "BR", 2) == 0)
+                                if (std::strncmp(c4, "QR", 2)==0 || std::strncmp(c4, "RQ", 2)==0
+                                    || std::strncmp(c4, "LQ", 2)==0 || std::strncmp(c4, "QL", 2)==0
+                                    || std::strncmp(c4, "HR", 2)==0 || std::strncmp(c4, "TR", 2)==0
+                                    || std::strncmp(c4, "BR", 2)==0)
                                 {
                                     nbmin = 2;
                                 }
                             }
-                        } else if (cname && std::strncmp(c2, "UN", 2) == 0)
-                        {
-                            if (c3[0] == 'G')
+                            else if (c3[0]=='M')
                             {
-                                if (std::strncmp(c4, "QR", 2) == 0 || std::strncmp(c4, "RQ", 2) == 0 || std::strncmp(c4, "LQ", 2) == 0 || std::strncmp(c4, "QL", 2) == 0 ||
-                                        std::strncmp(c4, "HR", 2) == 0 || std::strncmp(c4, "TR", 2) == 0 || std::strncmp(c4, "BR", 2) == 0)
+                                if (std::strncmp(c4, "QR", 2)==0 || std::strncmp(c4, "RQ", 2)==0
+                                    || std::strncmp(c4, "LQ", 2)==0 || std::strncmp(c4, "QL", 2)==0
+                                    || std::strncmp(c4, "HR", 2)==0 || std::strncmp(c4, "TR", 2)==0
+                                    || std::strncmp(c4, "BR", 2)==0)
                                 {
                                     nbmin = 2;
                                 }
-                            } else if (c3[0] == 'M')
+                            }
+                        }
+                        else if (cname && std::strncmp(c2, "UN", 2)==0)
+                        {
+                            if (c3[0]=='G')
                             {
-                                if (std::strncmp(c4, "QR", 2) == 0 || std::strncmp(c4, "RQ", 2) == 0 || std::strncmp(c4, "LQ", 2) == 0 || std::strncmp(c4, "QL", 2) == 0 ||
-                                        std::strncmp(c4, "HR", 2) == 0 || std::strncmp(c4, "TR", 2) == 0 || std::strncmp(c4, "BR", 2) == 0)
+                                if (std::strncmp(c4, "QR", 2)==0 || std::strncmp(c4, "RQ", 2)==0
+                                    || std::strncmp(c4, "LQ", 2)==0 || std::strncmp(c4, "QL", 2)==0
+                                    || std::strncmp(c4, "HR", 2)==0 || std::strncmp(c4, "TR", 2)==0
+                                    || std::strncmp(c4, "BR", 2)==0)
+                                {
+                                    nbmin = 2;
+                                }
+                            }
+                            else if (c3[0]=='M')
+                            {
+                                if (std::strncmp(c4, "QR", 2)==0 || std::strncmp(c4, "RQ", 2)==0
+                                    || std::strncmp(c4, "LQ", 2)==0 || std::strncmp(c4, "QL", 2)==0
+                                    || std::strncmp(c4, "HR", 2)==0 || std::strncmp(c4, "TR", 2)==0
+                                    || std::strncmp(c4, "BR", 2)==0)
                                 {
                                     nbmin = 2;
                                 }
@@ -7298,64 +7619,78 @@ public:
                     case 3:
                         // ispec = 3: crossover point
                         int nx = 0;
-                        if (std::strncmp(c2, "GE", 2) == 0)
+                        if (std::strncmp(c2, "GE", 2)==0)
                         {
-                            if (std::strncmp(c3, "QRF", 3) == 0 || std::strncmp(c3, "RQF", 3) == 0 || std::strncmp(c3, "LQF", 3) == 0 || std::strncmp(c3, "QLF", 3) == 0)
+                            if (std::strncmp(c3, "QRF", 3)==0 || std::strncmp(c3, "RQF", 3)==0
+                                || std::strncmp(c3, "LQF", 3)==0 || std::strncmp(c3, "QLF", 3)==0)
                             {
                                 if (sname)
-                                {
-                                    nx = 128;
-                                } else
                                 {
                                     nx = 128;
                                 }
-                            } else if (std::strncmp(c3, "HRD", 3) == 0)
-                            {
-                                if (sname)
-                                {
-                                    nx = 128;
-                                } else
-                                {
-                                    nx = 128;
-                                }
-                            } else if (std::strncmp(c3, "BRD", 3) == 0)
-                            {
-                                if (sname)
-                                {
-                                    nx = 128;
-                                } else
+                                else
                                 {
                                     nx = 128;
                                 }
                             }
-                        } else if (std::strncmp(c2, "SY", 2) == 0)
+                            else if (std::strncmp(c3, "HRD", 3)==0)
+                            {
+                                if (sname)
+                                {
+                                    nx = 128;
+                                }
+                                else
+                                {
+                                    nx = 128;
+                                }
+                            }
+                            else if (std::strncmp(c3, "BRD", 3)==0)
+                            {
+                                if (sname)
+                                {
+                                    nx = 128;
+                                }
+                                else
+                                {
+                                    nx = 128;
+                                }
+                            }
+                        }
+                        else if (std::strncmp(c2, "SY", 2)==0)
                         {
-                            if (sname && std::strncmp(c3, "TRD", 3) == 0)
+                            if (sname && std::strncmp(c3, "TRD", 3)==0)
                             {
                                 nx = 32;
                             }
-                        } else if (cname && std::strncmp(c2, "HE", 2) == 0)
+                        }
+                        else if (cname && std::strncmp(c2, "HE", 2)==0)
                         {
-                            if (std::strncmp(c3, "TRD", 3) == 0)
+                            if (std::strncmp(c3, "TRD", 3)==0)
                             {
                                 nx = 32;
                             }
-                        } else if (sname && std::strncmp(c2, "OR", 2) == 0)
+                        }
+                        else if (sname && std::strncmp(c2, "OR", 2)==0)
                         {
-                            if (c3[0] == 'G')
+                            if (c3[0]=='G')
                             {
-                                if (std::strncmp(c4, "QR", 2) == 0 || std::strncmp(c4, "RQ", 2) == 0 || std::strncmp(c4, "LQ", 2) == 0 || std::strncmp(c4, "QL", 2) == 0 ||
-                                        std::strncmp(c4, "HR", 2) == 0 || std::strncmp(c4, "TR", 2) == 0 || std::strncmp(c4, "BR", 2) == 0)
+                                if (std::strncmp(c4, "QR", 2)==0 || std::strncmp(c4, "RQ", 2)==0
+                                    || std::strncmp(c4, "LQ", 2)==0 || std::strncmp(c4, "QL", 2)==0
+                                    || std::strncmp(c4, "HR", 2)==0 || std::strncmp(c4, "TR", 2)==0
+                                    || std::strncmp(c4, "BR", 2)==0)
                                 {
                                     nx = 128;
                                 }
                             }
-                        } else if (cname && std::strncmp(c2, "UN", 2) == 0)
+                        }
+                        else if (cname && std::strncmp(c2, "UN", 2)==0)
                         {
-                            if (c3[0] == 'G')
+                            if (c3[0]=='G')
                             {
-                                if (std::strncmp(c4, "QR", 2) == 0 || std::strncmp(c4, "RQ", 2) == 0 || std::strncmp(c4, "LQ", 2) == 0 || std::strncmp(c4, "QL", 2) == 0 ||
-                                        std::strncmp(c4, "HR", 2) == 0 || std::strncmp(c4, "TR", 2) == 0 || std::strncmp(c4, "BR", 2) == 0)
+                                if (std::strncmp(c4, "QR", 2)==0 || std::strncmp(c4, "RQ", 2)==0
+                                    || std::strncmp(c4, "LQ", 2)==0 || std::strncmp(c4, "QL", 2)==0
+                                    || std::strncmp(c4, "HR", 2)==0 || std::strncmp(c4, "TR", 2)==0
+                                    || std::strncmp(c4, "BR", 2)==0)
                                 {
                                     nx = 128;
                                 }
@@ -7375,7 +7710,7 @@ public:
                 break;
             case 6:
                 // ispec = 6: crossover point for SVD(used by xgelss and xgesvd)
-                return int(T(n1 < n2 ? n1 : n2)*1.6);
+                return int(T((n1<n2)?n1:n2) * 1.6);
                 break;
             case 7:
                 // ispec = 7: number of processors (not used)
@@ -7415,7 +7750,8 @@ public:
         return -1;
     }
 
-    /*This program sets problem and machine dependent parameters useful for xHSEQR and its subroutines.
+    /* This program sets problem and machine dependent parameters useful for xHSEQR and its
+     * subroutines.
      * It is called whenever ilaenv is called with 12 <= ispec <= 16
      * Parameters: ispec: specifies which tunable parameter IPARMQ should return.
      *                    12: (inmin) Matrices of order nmin or less are sent directly to xLAHQR,
@@ -7427,12 +7763,13 @@ public:
      *                        multi-shift QR sweep. If the aggressive early deflation subroutine
      *                        finds LD converged eigenvalues from an order nw deflation window and
      *                        LD>(nw*NIBBLE) / 100, then the next QR sweep is skipped and early
-     *                        deflation is applied immediately to the remaining active diagonal block.
-     *                        Setting iparmq(ispec = 14) = 0 causes ttqre to skip a multi-shift QR
-     *                        sweep whenever early deflation finds a converged eigenvalue. Setting
-     *                        iparmq(ispec = 14) greater than or equal to 100 prevents ttqre from
-     *                        skipping a multi-shift QR sweep.
-     *                    15: (nshfts) The number of simultaneous shifts in a multi-shift QR iteration.
+     *                        deflation is applied immediately to the remaining active diagonal
+     *                        block. Setting iparmq(ispec=14)=0 causes ttqre to skip a multi-shift
+     *                        QR sweep whenever early deflation finds a converged eigenvalue.
+     *                        Setting iparmq(ispec=14) greater than or equal to 100 prevents ttqre
+     *                        from skipping a multi-shift QR sweep.
+     *                    15: (nshfts) The number of simultaneous shifts in a multi-shift QR
+     *                        iteration.
      *                    16: (iacc22) iparmq is set to 0, 1 or 2 with the following meanings.
      *                        0: During the multi-shift QR sweep, xlaqr5 does not accumulate
      *                           reflections and does not use matrix-matrix multiply to update
@@ -7440,17 +7777,19 @@ public:
      *                        1: During the multi-shift QR sweep, xlaqr5 and/or xlaqr accumulates
      *                           reflections and uses matrix-matrix multiply to update the
      *                           far-from-diagonal matrix entries.
-     *                        2: During the multi-shift QR sweep. xlaqr5 accumulates reflections and
-     *                           takes advantage of 2-by-2 block structure during matrix-matrix multiplies.
-     *                        (If xTRMM is slower than xgemm, then iparmq(ispec = 16) = 1 may be more
-     *                         efficient than iparmq(ispec = 16) = 2 despite the greater level of
+     *                        2: During the multi-shift QR sweep. xlaqr5 accumulates reflections
+     *                           and takes advantage of 2-by-2 block structure during matrix-matrix
+     *                           multiplies.
+     *                        (If xTRMM is slower than xgemm, then iparmq(ispec=16)=1 may be more
+     *                         efficient than iparmq(ispec=16)=2 despite the greater level of
      *                         arithmetic work implied by the latter choice.)
      *             name: Name of the calling subroutine
      *             opts: This is a concatenation of the string arguments to ttqre.
      *             n: n is the order of the Hessenberg matrix H.
      *             ilo: integer
      *             ihi: integer
-     *                  It is assumed that H is already upper triangular in rows and columns 1:ilo-1 and ihi+1:n.
+     *                  It is assumed that H is already upper triangular in rows and columns
+     *                  1:ilo-1 and ihi+1:n.
      *             lwork: The amount of workspace available.
      * Authors: Univ.of Tennessee
      *          Univ.of California Berkeley
@@ -7459,18 +7798,21 @@ public:
      * Further Details:
      *     Little is known about how best to choose these parameters. It is possible to use
      *         different values of the parameters for each of chseqr, dhseqr, shseqr and zhseqr.
-     *     It is probably best to choose different parameters for different matrices and different parameters
-     *         at different times during the iteration, but this has not been implemented yet.
-     *     The best choices of most of the parameters depend in an ill-understood way on the relative execution
-     *         rate of xlaqr3 and xlaqr5 and on the nature of each particular eigenvalue problem.
-     *         Experiment may be the only practical way to determine which choices are most effective.
+     *     It is probably best to choose different parameters for different matrices and different
+     *         parameters at different times during the iteration, but this has not been
+     *         implemented yet.
+     *     The best choices of most of the parameters depend in an ill-understood way on the
+     *         relative execution rate of xlaqr3 and xlaqr5 and on the nature of each particular
+     *         eigenvalue problem. Experiment may be the only practical way to determine which
+     *         choices are most effective.
      *     Following is a list of default values supplied by iparmq. These defaults may be adjusted
      *         in order to attain better performance in any particular computational environment.
      *     iparmq(ispec = 12) The xlahqr vs xlaqr0 crossover point.
      *         Default: 75. (Must be at least 11.)
      *     iparmq(ispec = 13) Recommended deflation window size.
-     *         This depends on ilo, ihi and ns, the number of simultaneous shifts returned by iparmq(ispec = 15).
-     *         The default for (ihi-ilo+1)<=500 is ns. The default for (ihi-ilo+1)>500 is 3*ns/2.
+     *         This depends on ilo, ihi and ns, the number of simultaneous shifts returned by
+     *         iparmq(ispec = 15). The default for (ihi-ilo+1)<=500 is ns. The default for
+     *         (ihi-ilo+1)>500 is 3*ns/2.
      *     iparmq(ispec = 14) Nibble crossover point. Default: 14.
      *     iparmq(ispec = 15) Number of simultaneous shifts, ns.
      *         a multi-shift QR iteration. If ihi-ilo+1 is ...
@@ -7482,85 +7824,95 @@ public:
      *                                 590                  3000                     ns = 64
      *                                3000                  6000                     ns = 128
      *                                6000                  infinity                 ns = 256
-     *         (+) By default matrices of this order are passed to the implicit double shift routine xlahqr.
-     *             See iparmq(ispec = 12) above. These values of ns are used only in case of a rare xlahqr failure.
+     *         (+) By default matrices of this order are passed to the implicit double shift
+     *             routine xlahqr. See iparmq(ispec=12) above. These values of ns are used only in
+     *             case of a rare xlahqr failure.
      *         (**) an ad-hoc function increasing from 10 to 64.
-     *     iparmq(ispec = 16) Select structured matrix multiply. (See ispec = 16 above for details.) Default: 3.         */
-    static int iparmq(int ispec, char const* name, char const* opts, int n, int ilo, int ihi, int lwork)
+     *     iparmq(ispec = 16) Select structured matrix multiply. (See ispec=16 above for details.)
+     *         Default: 3.                                                                       */
+    static int iparmq(int ispec, char const* name, char const* opts, int n, int ilo, int ihi,
+                      int lwork)
     {
-        const int INMIN = 12, INWIN = 13, INIBL = 14, ISHFTS = 15, IACC22 = 16, NMIN = 75, K22MIN = 14, KACMIN = 14, NIBBLE = 14, KNWSWP = 500;
+        const int INMIN=12, INWIN=13, INIBL=14, ISHFTS=15, IACC22=16, NMIN=75, K22MIN=14,
+                  KACMIN=14, NIBBLE=14, KNWSWP=500;
         int nh, ns = 0, nstemp;
-        if ((ispec == ISHFTS) || (ispec == INWIN) || (ispec == IACC22))
+        if ((ispec==ISHFTS) || (ispec==INWIN) || (ispec==IACC22))
         {
             // Set the number simultaneous shifts
             nh = ihi - ilo + 1;
             ns = 2;
-            if (nh >= 30)
+            if (nh>=30)
             {
                 ns = 4;
             }
-            if (nh >= 60)
+            if (nh>=60)
             {
                 ns = 10;
             }
-            if (nh >= 150)
+            if (nh>=150)
             {
-                nstemp = nh / int(std::log(T(nh)) / std::log(TWO));
-                ns = 10 > nstemp ? 10 : nstemp;
+                nstemp = nh / int(std::log(T(nh))/std::log(TWO));
+                ns = ((10>nstemp) ? 10 : nstemp);
             }
-            if (nh >= 590)
+            if (nh>=590)
             {
                 ns = 64;
             }
-            if (nh >= 3000)
+            if (nh>=3000)
             {
                 ns = 128;
             }
-            if (nh >= 6000)
+            if (nh>=6000)
             {
                 ns = 256;
             }
-            nstemp = ns - (ns % 2);
-            ns = 2 > nstemp ? 2 : nstemp;
+            nstemp = ns - (ns%2);
+            ns = ((2>nstemp) ? 2 : nstemp);
         }
-        if (ispec == INMIN)
+        if (ispec==INMIN)
         {
             // Matrices of order smaller than NMIN get sent to xLAHQR, the classic double shift algorithm. This must be at least 11.
             return NMIN;
-        } else if (ispec == INIBL)
+        }
+        else if (ispec==INIBL)
         {
             // INIBL: skip a multi-shift qr iteration and whenever aggressive early
             // deflation finds at least(NIBBLE*(window size) / 100) deflations.
             return NIBBLE;
-        } else if (ispec == ISHFTS)
+        }
+        else if (ispec==ISHFTS)
         {
             // NSHFTS: The number of simultaneous shifts
             return ns;
-        } else if (ispec == INWIN)
+        }
+        else if (ispec==INWIN)
         {
             // nw: deflation window size.
-            if (nh <= KNWSWP)
+            if (nh<=KNWSWP)
             {
                 return ns;
-            } else
+            }
+            else
             {
                 return 3 * ns / 2;
             }
-        } else if (ispec == IACC22)
+        }
+        else if (ispec==IACC22)
         {
             // IACC22: Whether to accumulate reflections before updating the far-from-diagonal elements
             // and whether to use 2-by-2 block structure while doing it. A small amount of work could be
             // saved by making this choice dependent also upon the nh = ihi-ilo+1.
-            if (ns >= KACMIN)
+            if (ns>=KACMIN)
             {
                 return 1;
             }
-            if (ns >= K22MIN)
+            if (ns>=K22MIN)
             {
                 return 2;
             }
             return 0;
-        } else
+        }
+        else
         {
             // invalid value of ispec
             return -1;
@@ -7573,16 +7925,17 @@ public:
      * Installers may consider modifying the STOP statement in order to call
      * system-specific exception-handling facilities.
      * Parameters: srname: The name of the routine which called xerbla.
-     *             info: The position of the invalid parameter in the parameter list of the calling routine.
+     *             info: The position of the invalid parameter in the parameter list of the calling
+     *                   routine.
      * Authors: Univ.of Tennessee
      *          Univ.of California Berkeley
      *          Univ.of Colorado Denver
-     *          NAG Ltd.                                                                                      */
+     *          NAG Ltd.                                                                         */
     static void xerbla(char const* srname, int info)
     {
-        std::cerr << "On entry to " << srname << " parameter number " << info << " had an illegal value.";
+        std::cerr << "On entry to " << srname << " parameter number " << info
+                  << " had an illegal value.";
         throw info;
     }
 }
-
 #endif

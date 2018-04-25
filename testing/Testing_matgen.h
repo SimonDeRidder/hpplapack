@@ -1,4 +1,3 @@
-#include <limits>
 #include <iostream>
 #include <iomanip>
 #include <fstream>
@@ -106,7 +105,7 @@ public:
             {
                 // generate random reflection
                 dlarnv(3, iseed, m-i, work);
-                wn = dnrm2(m-i, work, 1);
+                wn = Blas<T>::dnrm2(m-i, work, 1);
                 wa = std::fabs(wn)*T((ZERO<=work[0])-(work[0]<ZERO));
                 if (wn==ZERO)
                 {
@@ -115,19 +114,20 @@ public:
                 else
                 {
                     wb = work[0] + wa;
-                    dscal(m-i-1, ONE/wb, &work[1], 1);
+                    Blas<T>::dscal(m-i-1, ONE/wb, &work[1], 1);
                     work[0] = ONE;
                     tau = wb / wa;
                 }
                 // multiply A[i:m-1,i:n-1] by random reflection from the left
-                dgemv("Transpose", m-i, n-i, ONE, &A[aind], lda, work, 1, ZERO, &work[m], 1);
-                dger(m-i, n-i, -tau, work, 1, &work[m], 1, &A[aind], lda);
+                Blas<T>::dgemv("Transpose", m-i, n-i, ONE, &A[aind], lda, work, 1, ZERO, &work[m],
+                               1);
+                Blas<T>::dger(m-i, n-i, -tau, work, 1, &work[m], 1, &A[aind], lda);
             }
             if (i<n-1)
             {
                 // generate random reflection
                 dlarnv(3, iseed, n-i, work);
-                wn = dnrm2(n-i, work, 1);
+                wn = Blas<T>::dnrm2(n-i, work, 1);
                 wa = std::fabs(wn)*T((ZERO<=work[0])-(work[0]<ZERO));
                 if (wn==ZERO)
                 {
@@ -136,13 +136,14 @@ public:
                 else
                 {
                     wb = work[0] + wa;
-                    dscal(n-i-1, ONE / wb, &work[1], 1);
+                    Blas<T>::dscal(n-i-1, ONE / wb, &work[1], 1);
                     work[0] = ONE;
                     tau = wb / wa;
                 }
                 // multiply A[i:m-1,i:n-1] by random reflection from the right
-                dgemv("No transpose", m-i, n-i, ONE, &A[aind], lda, work, 1, ZERO, &work[n], 1);
-                dger(m-i, n-i, -tau, &work[n], 1, work, 1, &A[aind], lda);
+                Blas<T>::dgemv("No transpose", m-i, n-i, ONE, &A[aind], lda, work, 1, ZERO,
+                               &work[n], 1);
+                Blas<T>::dger(m-i, n-i, -tau, &work[n], 1, work, 1, &A[aind], lda);
             }
         }
         // Reduce number of subdiagonals to KL and number of superdiagonals to KU
@@ -155,7 +156,7 @@ public:
                 {
                     aind = kl+i+lda*i;
                     // generate reflection to annihilate A[kl+i+1:m-1,i]
-                    wn = dnrm2(m-kl-i, &A[aind], 1);
+                    wn = Blas<T>::dnrm2(m-kl-i, &A[aind], 1);
                     wa = std::fabs(wn)*T((ZERO<=A[aind])-(A[aind]<ZERO));
                     if (wn==ZERO)
                     {
@@ -164,21 +165,21 @@ public:
                     else
                     {
                         wb = A[aind] + wa;
-                        dscal(m-1-kl-i, ONE/wb, &A[1+aind], 1);
+                        Blas<T>::dscal(m-1-kl-i, ONE/wb, &A[1+aind], 1);
                         A[aind] = ONE;
                         tau = wb / wa;
                     }
                     // apply reflection to A[kl+i:m-1,i+1:n-1] from the left
-                    dgemv("Transpose", m-kl-i, n-i-1, ONE, &A[aind+lda], lda, &A[aind], 1, ZERO,
-                          work, 1);
-                    dger(m-kl-i, n-i-1, -tau, &A[aind], 1, work, 1, &A[aind+lda], lda);
+                    Blas<T>::dgemv("Transpose", m-kl-i, n-i-1, ONE, &A[aind+lda], lda, &A[aind], 1,
+                                   ZERO, work, 1);
+                    Blas<T>::dger(m-kl-i, n-i-1, -tau, &A[aind], 1, work, 1, &A[aind+lda], lda);
                     A[kl+i+lda*i] = -wa;
                 }
                 if (i<n-1-ku && i<m)
                 {
                     aind = i+lda*(ku+i);
                     // generate reflection to annihilate A[i,ku+i+1:n-1]
-                    wn = dnrm2(n-ku-i, &A[aind], lda);
+                    wn = Blas<T>::dnrm2(n-ku-i, &A[aind], lda);
                     wa = std::fabs(wn)*T((ZERO<=A[aind])-(A[aind]<ZERO));
                     if (wn==ZERO)
                     {
@@ -187,14 +188,14 @@ public:
                     else
                     {
                         wb = A[aind] + wa;
-                        dscal(n-ku-i-1, ONE/wb, &A[aind+lda], lda);
+                        Blas<T>::dscal(n-ku-i-1, ONE/wb, &A[aind+lda], lda);
                         A[aind] = ONE;
                         tau = wb / wa;
                     }
                     // apply reflection to A[i+1:m-1,ku+i:n-1] from the right
-                    dgemv("No transpose", m-i-1, n-ku-i, ONE, &A[1+aind], lda, &A[aind], lda, ZERO,
-                          work, 1);
-                    dger(m-i-1, n-ku-i, -tau, work, 1, &A[aind], lda, &A[1+aind], lda);
+                    Blas<T>::dgemv("No transpose", m-i-1, n-ku-i, ONE, &A[1+aind], lda, &A[aind],
+                                   lda, ZERO, work, 1);
+                    Blas<T>::dger(m-i-1, n-ku-i, -tau, work, 1, &A[aind], lda, &A[1+aind], lda);
                     A[aind] = -wa;
                 }
             }
@@ -205,7 +206,7 @@ public:
                 {
                     aind = i+lda*(ku+i);
                     // generate reflection to annihilate A[i,ku+i+1:n-1]
-                    wn = dnrm2(n-ku-i, &A[aind], lda);
+                    wn = Blas<T>::dnrm2(n-ku-i, &A[aind], lda);
                     wa = std::fabs(wn)*T((ZERO<=A[aind])-(A[aind]<ZERO));
                     if (wn==ZERO)
                     {
@@ -214,21 +215,21 @@ public:
                     else
                     {
                         wb = A[aind] + wa;
-                        dscal(n-ku-i-1, ONE/wb, &A[aind+lda], lda);
+                        Blas<T>::dscal(n-ku-i-1, ONE/wb, &A[aind+lda], lda);
                         A[aind] = ONE;
                         tau = wb / wa;
                     }
                     // apply reflection to A[i+1:m-1,ku+i:n-1] from the right
-                    dgemv("No transpose", m-i-1, n-ku-i, ONE, &A[1+aind], lda, &A[aind], lda, ZERO,
-                          work, 1);
-                    dger(m-i-1, n-ku-i, -tau, work, 1, &A[aind], lda, &A[1+aind], lda);
+                    Blas<T>::dgemv("No transpose", m-i-1, n-ku-i, ONE, &A[1+aind], lda, &A[aind],
+                                   lda, ZERO, work, 1);
+                    Blas<T>::dger(m-i-1, n-ku-i, -tau, work, 1, &A[aind], lda, &A[1+aind], lda);
                     A[aind] = -wa;
                 }
                 if (i<m-1-kl && i<n)
                 {
                     aind = kl+i+lda*i;
                     // generate reflection to annihilate A[kl+i+1:m-1,i]
-                    wn = dnrm2(m-kl-i, &A[aind], 1);
+                    wn = Blas<T>::dnrm2(m-kl-i, &A[aind], 1);
                     wa = std::fabs(wn)*T((ZERO<=A[aind])-(A[aind]<ZERO));
                     if (wn==ZERO)
                     {
@@ -237,14 +238,14 @@ public:
                     else
                     {
                         wb = A[aind] + wa;
-                        dscal(m-kl-i-1, ONE/wb, &A[1+aind], 1);
+                        Blas<T>::dscal(m-kl-i-1, ONE/wb, &A[1+aind], 1);
                         A[aind] = ONE;
                         tau = wb / wa;
                     }
                     // apply reflection to A[kl+i:m-1,i+1:n-1] from the left
-                    dgemv("Transpose", m-kl-i, n-i-1, ONE, &A[aind+lda], lda, &A[aind], 1, ZERO,
-                          work, 1);
-                    dger(m-kl-i, n-i-1, -tau, &A[aind], 1, work, 1, &A[aind+lda], lda);
+                    Blas<T>::dgemv("Transpose", m-kl-i, n-i-1, ONE, &A[aind+lda], lda, &A[aind], 1,
+                                   ZERO, work, 1);
+                    Blas<T>::dger(m-kl-i, n-i-1, -tau, &A[aind], 1, work, 1, &A[aind+lda], lda);
                     A[aind] = -wa;
                 }
             }
@@ -330,7 +331,7 @@ public:
         {
             // generate random reflection
             dlarnv(3, iseed, n-i, work);
-            wn = dnrm2(n-i, work, 1);
+            wn = Blas<T>::dnrm2(n-i, work, 1);
             wa = std::fabs(wn)*T((ZERO<=work[0])-(work[0]<ZERO));
             if (wn==ZERO)
             {
@@ -339,26 +340,26 @@ public:
             else
             {
                 wb = work[0]+wa;
-                dscal(n-i-1, ONE/wb, &work[1], 1);
+                Blas<T>::dscal(n-i-1, ONE/wb, &work[1], 1);
                 work[0] = ONE;
                 tau = wb/wa;
             }
             // apply random reflection to A[i:n-1,i:n-1] from the left and the right
             aind = i+lda*i;
             // compute  y := tau * A * u
-            dsymv("Lower", n-i, tau, &A[aind], lda, work, 1, ZERO, &work[n], 1);
+            Blas<T>::dsymv("Lower", n-i, tau, &A[aind], lda, work, 1, ZERO, &work[n], 1);
             // compute  v := y - 1/2 * tau * (y, u) * u
-            alpha = -HALF * tau * ddot(n-i, &work[n], 1, work, 1);
-            daxpy(n-i, alpha, work, 1, &work[n], 1);
+            alpha = -HALF * tau * Blas<T>::ddot(n-i, &work[n], 1, work, 1);
+            Blas<T>::daxpy(n-i, alpha, work, 1, &work[n], 1);
             // apply the transformation as a rank-2 update to A[i:n-1,i:n-1]
-            dsyr2("Lower", n-i, -ONE, work, 1, &work[n], 1, &A[aind], lda);
+            Blas<T>::dsyr2("Lower", n-i, -ONE, work, 1, &work[n], 1, &A[aind], lda);
         }
         // Reduce number of subdiagonals to K
         for (i=0; i<n-1-k; i++)
         {
             aind = k+i+lda*i;
             // generate reflection to annihilate A[k+i+1:n-1,i]
-            wn = dnrm2(n-k-i, &A[aind], 1);
+            wn = Blas<T>::dnrm2(n-k-i, &A[aind], 1);
             wa = std::fabs(wn)*T((ZERO<=A[aind])-(A[aind]<ZERO));
             if (wn==ZERO)
             {
@@ -367,21 +368,22 @@ public:
             else
             {
                 wb = A[aind]+wa;
-                dscal(n-k-i-1, ONE/wb, &A[1+aind], 1);
+                Blas<T>::dscal(n-k-i-1, ONE/wb, &A[1+aind], 1);
                 A[aind] = ONE;
                 tau = wb/wa;
             }
             // apply reflection to A[k+i:n-1,i+1:k+i-1] from the left
-            dgemv("Transpose", n-k-i, k-1, ONE, &A[aind+lda], lda, &A[aind], 1, ZERO, work, 1);
-            dger(n-k-i, k-1, -tau, &A[aind], 1, work, 1, &A[aind+lda], lda);
+            Blas<T>::dgemv("Transpose", n-k-i, k-1, ONE, &A[aind+lda], lda, &A[aind], 1, ZERO,
+                           work, 1);
+            Blas<T>::dger(n-k-i, k-1, -tau, &A[aind], 1, work, 1, &A[aind+lda], lda);
             // apply reflection to A[k+i:n-1,k+i:n-1] from the left and the right
             // compute  y := tau * A * u
-            dsymv('Lower', n-k-i, tau, &A[aind+lda*k], lda, &A[aind], 1, ZERO, work, 1);
+            Blas<T>::dsymv('Lower', n-k-i, tau, &A[aind+lda*k], lda, &A[aind], 1, ZERO, work, 1);
             // compute  v := y - 1/2 * tau * (y, u) * u
-            alpha = -HALF * tau * ddot(n-k-i, work, 1, &A[aind], 1);
-            daxpy(n-k-i, alpha, &A[aind], 1, work, 1);
+            alpha = -HALF * tau * Blas<T>::ddot(n-k-i, work, 1, &A[aind], 1);
+            Blas<T>::daxpy(n-k-i, alpha, &A[aind], 1, work, 1);
             // apply symmetric rank-2 update to A[k+i:n-1,k+i:n-1]
-            dsyr2("Lower", n-k-i, -ONE, &A[aind], 1, work, 1, &A[aind+lda*k], lda);
+            Blas<T>::dsyr2("Lower", n-k-i, -ONE, &A[aind], 1, work, 1, &A[aind+lda*k], lda);
             A[aind] = -wa;
             aind = lda*i;
             for (j=k+i+1; j<n; j++)
@@ -652,8 +654,8 @@ public:
             return;
         }
         // Rotate
-        drot(nl-nt, &A[ix], iinc, &A[iy], iinc, c, s);
-        drot(nt, xt, 1, yt, 1, c, s);
+        Blas<T>::drot(nl-nt, &A[ix], iinc, &A[iy], iinc, c, s);
+        Blas<T>::drot(nt, xt, 1, yt, 1, c, s);
         // Stuff values back into xleft, xright, etc.
         if (lleft)
         {
@@ -1229,7 +1231,7 @@ public:
                 info = 2;
                 return;
             }
-            dscal(mnmin, alpha, d, 1);
+            Blas<T>::dscal(mnmin, alpha, d, 1);
         }
         //
         // 3)    Generate Banded Matrix using Givens rotations. Also the special case of UUB=LLB=0
@@ -1268,7 +1270,7 @@ public:
         if (llb==0 && uub==0)
         {
             // Diagonal Matrix: We are done, unless it is to be stored SP/PP/TP (pack=='R' or 'C')
-            dcopy(mnmin, d, 1, &A[ioffst/*+lda*0*/], ilda+1);
+            Blas<T>::dcopy(mnmin, d, 1, &A[ioffst/*+lda*0*/], ilda+1);
             if (ipack<=2 || ipack>=5)
             {
                 ipackg = ipack;
@@ -1288,7 +1290,7 @@ public:
                 {
                     ipackg = 0;
                 }
-                dcopy(mnmin, d, 1, &A[ioffst/*+lda*0*/], ilda+1);
+                Blas<T>::dcopy(mnmin, d, 1, &A[ioffst/*+lda*0*/], ilda+1);
                 int ic, ir, jkl, jku;
                 if (topdwn)
                 {
@@ -1531,7 +1533,7 @@ public:
                     {
                         ipackg = 1;
                     }
-                    dcopy(mnmin, d, 1, &A[ioffg/*+lda*0*/], ilda+1);
+                    Blas<T>::dcopy(mnmin, d, 1, &A[ioffg/*+lda*0*/], ilda+1);
                     for (k=0; k<uub; k++)
                     {
                         itemp1 = k+2;
@@ -1623,7 +1625,7 @@ public:
                     {
                         ipackg = 2;
                     }
-                    dcopy(mnmin, d, 1, &A[ioffg/*+lda*0*/], ilda+1);
+                    Blas<T>::dcopy(mnmin, d, 1, &A[ioffg/*+lda*0*/], ilda+1);
                     for (k=0; k<uub; k++)
                     {
                         for (jc=n-2; jc>=0; jc--)

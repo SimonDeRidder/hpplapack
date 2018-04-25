@@ -1,4 +1,3 @@
-#include <limits>
 #include <iostream>
 #include <iomanip>
 #include <fstream>
@@ -1163,13 +1162,13 @@ public:
         }
         for (j=k; j<n; j++)
         {
-            dcopy(m, &Af[/*0+*/lda*j], 1, &work[j*m], 1);
+            Blas<T>::dcopy(m, &Af[/*0+*/lda*j], 1, &work[j*m], 1);
         }
         dormqr("Left","No transpose", m, n, k, Af, lda, tau, work, m, &work[m*n], lwork-m*n, info);
         for (j=0; j<n; j++)
         {
             // Compare i-th column of QR and jpvt[i]-th column of A
-            daxpy(m, -ONE, A[/*0+*/lda*jpvt[j]], 1, work[j*m], 1);
+            Blas<T>::daxpy(m, -ONE, A[/*0+*/lda*jpvt[j]], 1, work[j*m], 1);
         }
         T rwork[1];
         T dqpt01 = dlange("One-norm", m, n, work, m, rwork) / (T(m>n?m:n)*dlamch("Epsilon"));
@@ -1265,7 +1264,7 @@ public:
         {
             return ZERO;
         }
-        T nrmsvl = dnrm2(mn, s, 1);
+        T nrmsvl = Blas<T>::dnrm2(mn, s, 1);
         // Copy upper triangle of A into work
         dlaset("Full", m, n, ZERO, ZERO, work, m);
         int i, mj, ldaj;
@@ -1326,8 +1325,8 @@ public:
             }
         }
         // Compare s and singular values of work
-        daxpy(mn, -ONE, s, 1, &work[mtn], 1);
-        T dqrt12 = dasum(mn, &work[mtn], 1) / (dlamch("Epsilon")*T(maxmn));
+        Blas<T>::daxpy(mn, -ONE, s, 1, &work[mtn], 1);
+        T dqrt12 = Blas<T>::dasum(mn, &work[mtn], 1) / (dlamch("Epsilon")*T(maxmn));
         if (nrmsvl!=ZERO)
         {
             dqrt12 = dqrt12 / NRMSVL;

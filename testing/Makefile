@@ -29,7 +29,7 @@ Lapack_dyn.h: ../Lapack.h
 	sed -e 's/static //' -e 's/int ilaenv/virtual int ilaenv/' $< > $@
 
 clean:
-	$(RM) $(OBJDIR)/*.o *~ $(MAIN)
+	$(RM) $(OBJDIR)/*.o *~ $(MAIN) Lapack_dyn.h
 	rmdir $(OBJDIR)
 
 depend: $(SRCS)
