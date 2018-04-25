@@ -11,16 +11,17 @@
 #ifndef TESTING_MATGEN_HEADER
 #define TESTING_MATGEN_HEADER
 
-template<class T>
+template<class real>
 class Testing_matgen
 {
 public:
     // constants
 
-    static constexpr T ZERO = T(0.0);
-    static constexpr T ONE  = T(1.0);
-    static constexpr T TWO  = T(2.0);
-
+    static constexpr real ZERO  = real(0.0);
+    static constexpr real HALF  = real(0.5)
+    static constexpr real ONE   = real(1.0);
+    static constexpr real TWO   = real(2.0);
+    static constexpr real TWOPI = real(6.2831853071795864769252867663);
     // LAPACK TESTING MATGEN
 
     /* dlagge generates a real general m by n matrix A, by pre- and post- multiplying a real
@@ -47,8 +48,8 @@ public:
      *          Univ.of Colorado Denver
      *          NAG Ltd.
      * Date December 2016                                                                        */
-    static void dlagge(int m, int n, int kl, int ku, T const* d, T* A, int lda, int* iseed,
-                       T* work, int& info)
+    static void dlagge(int m, int n, int kl, int ku, real const* d, real* A, int lda, int* iseed,
+                       real* work, int& info)
     {
         // Test the input arguments
         info = 0;
@@ -96,7 +97,7 @@ public:
         {
             return;
         }
-        T tau, wa, wb, wn;
+        real tau, wa, wb, wn;
         // pre- and post-multiply A by random orthogonal matrices
         for (i=(m<n?m:n)-1; i>=0; i--)
         {
@@ -105,8 +106,8 @@ public:
             {
                 // generate random reflection
                 dlarnv(3, iseed, m-i, work);
-                wn = Blas<T>::dnrm2(m-i, work, 1);
-                wa = std::fabs(wn)*T((ZERO<=work[0])-(work[0]<ZERO));
+                wn = Blas<real>::dnrm2(m-i, work, 1);
+                wa = std::fabs(wn)*real((ZERO<=work[0])-(work[0]<ZERO));
                 if (wn==ZERO)
                 {
                     tau = ZERO;
@@ -114,21 +115,21 @@ public:
                 else
                 {
                     wb = work[0] + wa;
-                    Blas<T>::dscal(m-i-1, ONE/wb, &work[1], 1);
+                    Blas<real>::dscal(m-i-1, ONE/wb, &work[1], 1);
                     work[0] = ONE;
                     tau = wb / wa;
                 }
                 // multiply A[i:m-1,i:n-1] by random reflection from the left
-                Blas<T>::dgemv("Transpose", m-i, n-i, ONE, &A[aind], lda, work, 1, ZERO, &work[m],
-                               1);
-                Blas<T>::dger(m-i, n-i, -tau, work, 1, &work[m], 1, &A[aind], lda);
+                Blas<real>::dgemv("Transpose", m-i, n-i, ONE, &A[aind], lda, work, 1, ZERO,
+                                  &work[m], 1);
+                Blas<real>::dger(m-i, n-i, -tau, work, 1, &work[m], 1, &A[aind], lda);
             }
             if (i<n-1)
             {
                 // generate random reflection
                 dlarnv(3, iseed, n-i, work);
-                wn = Blas<T>::dnrm2(n-i, work, 1);
-                wa = std::fabs(wn)*T((ZERO<=work[0])-(work[0]<ZERO));
+                wn = Blas<real>::dnrm2(n-i, work, 1);
+                wa = std::fabs(wn) * real((ZERO<=work[0])-(work[0]<ZERO));
                 if (wn==ZERO)
                 {
                     tau = ZERO;
@@ -136,14 +137,14 @@ public:
                 else
                 {
                     wb = work[0] + wa;
-                    Blas<T>::dscal(n-i-1, ONE / wb, &work[1], 1);
+                    Blas<real>::dscal(n-i-1, ONE / wb, &work[1], 1);
                     work[0] = ONE;
                     tau = wb / wa;
                 }
                 // multiply A[i:m-1,i:n-1] by random reflection from the right
-                Blas<T>::dgemv("No transpose", m-i, n-i, ONE, &A[aind], lda, work, 1, ZERO,
-                               &work[n], 1);
-                Blas<T>::dger(m-i, n-i, -tau, &work[n], 1, work, 1, &A[aind], lda);
+                Blas<real>::dgemv("No transpose", m-i, n-i, ONE, &A[aind], lda, work, 1, ZERO,
+                                  &work[n], 1);
+                Blas<real>::dger(m-i, n-i, -tau, &work[n], 1, work, 1, &A[aind], lda);
             }
         }
         // Reduce number of subdiagonals to KL and number of superdiagonals to KU
@@ -156,8 +157,8 @@ public:
                 {
                     aind = kl+i+lda*i;
                     // generate reflection to annihilate A[kl+i+1:m-1,i]
-                    wn = Blas<T>::dnrm2(m-kl-i, &A[aind], 1);
-                    wa = std::fabs(wn)*T((ZERO<=A[aind])-(A[aind]<ZERO));
+                    wn = Blas<real>::dnrm2(m-kl-i, &A[aind], 1);
+                    wa = std::fabs(wn) * real((ZERO<=A[aind])-(A[aind]<ZERO));
                     if (wn==ZERO)
                     {
                         tau = ZERO;
@@ -165,22 +166,22 @@ public:
                     else
                     {
                         wb = A[aind] + wa;
-                        Blas<T>::dscal(m-1-kl-i, ONE/wb, &A[1+aind], 1);
+                        Blas<real>::dscal(m-1-kl-i, ONE/wb, &A[1+aind], 1);
                         A[aind] = ONE;
                         tau = wb / wa;
                     }
                     // apply reflection to A[kl+i:m-1,i+1:n-1] from the left
-                    Blas<T>::dgemv("Transpose", m-kl-i, n-i-1, ONE, &A[aind+lda], lda, &A[aind], 1,
-                                   ZERO, work, 1);
-                    Blas<T>::dger(m-kl-i, n-i-1, -tau, &A[aind], 1, work, 1, &A[aind+lda], lda);
+                    Blas<real>::dgemv("Transpose", m-kl-i, n-i-1, ONE, &A[aind+lda], lda, &A[aind],
+                                      1, ZERO, work, 1);
+                    Blas<real>::dger(m-kl-i, n-i-1, -tau, &A[aind], 1, work, 1, &A[aind+lda], lda);
                     A[kl+i+lda*i] = -wa;
                 }
                 if (i<n-1-ku && i<m)
                 {
                     aind = i+lda*(ku+i);
                     // generate reflection to annihilate A[i,ku+i+1:n-1]
-                    wn = Blas<T>::dnrm2(n-ku-i, &A[aind], lda);
-                    wa = std::fabs(wn)*T((ZERO<=A[aind])-(A[aind]<ZERO));
+                    wn = Blas<real>::dnrm2(n-ku-i, &A[aind], lda);
+                    wa = std::fabs(wn) * real((ZERO<=A[aind])-(A[aind]<ZERO));
                     if (wn==ZERO)
                     {
                         tau = ZERO
@@ -188,14 +189,14 @@ public:
                     else
                     {
                         wb = A[aind] + wa;
-                        Blas<T>::dscal(n-ku-i-1, ONE/wb, &A[aind+lda], lda);
+                        Blas<real>::dscal(n-ku-i-1, ONE/wb, &A[aind+lda], lda);
                         A[aind] = ONE;
                         tau = wb / wa;
                     }
                     // apply reflection to A[i+1:m-1,ku+i:n-1] from the right
-                    Blas<T>::dgemv("No transpose", m-i-1, n-ku-i, ONE, &A[1+aind], lda, &A[aind],
-                                   lda, ZERO, work, 1);
-                    Blas<T>::dger(m-i-1, n-ku-i, -tau, work, 1, &A[aind], lda, &A[1+aind], lda);
+                    Blas<real>::dgemv("No transpose", m-i-1, n-ku-i, ONE, &A[1+aind], lda,
+                                      &A[aind], lda, ZERO, work, 1);
+                    Blas<real>::dger(m-i-1, n-ku-i, -tau, work, 1, &A[aind], lda, &A[1+aind], lda);
                     A[aind] = -wa;
                 }
             }
@@ -206,8 +207,8 @@ public:
                 {
                     aind = i+lda*(ku+i);
                     // generate reflection to annihilate A[i,ku+i+1:n-1]
-                    wn = Blas<T>::dnrm2(n-ku-i, &A[aind], lda);
-                    wa = std::fabs(wn)*T((ZERO<=A[aind])-(A[aind]<ZERO));
+                    wn = Blas<real>::dnrm2(n-ku-i, &A[aind], lda);
+                    wa = std::fabs(wn) * real((ZERO<=A[aind])-(A[aind]<ZERO));
                     if (wn==ZERO)
                     {
                         tau = ZERO
@@ -215,22 +216,22 @@ public:
                     else
                     {
                         wb = A[aind] + wa;
-                        Blas<T>::dscal(n-ku-i-1, ONE/wb, &A[aind+lda], lda);
+                        Blas<real>::dscal(n-ku-i-1, ONE/wb, &A[aind+lda], lda);
                         A[aind] = ONE;
                         tau = wb / wa;
                     }
                     // apply reflection to A[i+1:m-1,ku+i:n-1] from the right
-                    Blas<T>::dgemv("No transpose", m-i-1, n-ku-i, ONE, &A[1+aind], lda, &A[aind],
-                                   lda, ZERO, work, 1);
-                    Blas<T>::dger(m-i-1, n-ku-i, -tau, work, 1, &A[aind], lda, &A[1+aind], lda);
+                    Blas<real>::dgemv("No transpose", m-i-1, n-ku-i, ONE, &A[1+aind], lda,
+                                      &A[aind], lda, ZERO, work, 1);
+                    Blas<real>::dger(m-i-1, n-ku-i, -tau, work, 1, &A[aind], lda, &A[1+aind], lda);
                     A[aind] = -wa;
                 }
                 if (i<m-1-kl && i<n)
                 {
                     aind = kl+i+lda*i;
                     // generate reflection to annihilate A[kl+i+1:m-1,i]
-                    wn = Blas<T>::dnrm2(m-kl-i, &A[aind], 1);
-                    wa = std::fabs(wn)*T((ZERO<=A[aind])-(A[aind]<ZERO));
+                    wn = Blas<real>::dnrm2(m-kl-i, &A[aind], 1);
+                    wa = std::fabs(wn) * real((ZERO<=A[aind])-(A[aind]<ZERO));
                     if (wn==ZERO)
                     {
                         tau = ZERO;
@@ -238,14 +239,14 @@ public:
                     else
                     {
                         wb = A[aind] + wa;
-                        Blas<T>::dscal(m-kl-i-1, ONE/wb, &A[1+aind], 1);
+                        Blas<real>::dscal(m-kl-i-1, ONE/wb, &A[1+aind], 1);
                         A[aind] = ONE;
                         tau = wb / wa;
                     }
                     // apply reflection to A[kl+i:m-1,i+1:n-1] from the left
-                    Blas<T>::dgemv("Transpose", m-kl-i, n-i-1, ONE, &A[aind+lda], lda, &A[aind], 1,
-                                   ZERO, work, 1);
-                    Blas<T>::dger(m-kl-i, n-i-1, -tau, &A[aind], 1, work, 1, &A[aind+lda], lda);
+                    Blas<real>::dgemv("Transpose", m-kl-i, n-i-1, ONE, &A[aind+lda], lda, &A[aind],
+                                      1, ZERO, work, 1);
+                    Blas<real>::dger(m-kl-i, n-i-1, -tau, &A[aind], 1, work, 1, &A[aind+lda], lda);
                     A[aind] = -wa;
                 }
             }
@@ -289,9 +290,9 @@ public:
      *          Univ.of Colorado Denver
      *          NAG Ltd.
      * Date December 2016                                                                        */
-    static void dlagsy(int n, int k, T const* d, T* A, int lda, int* iseed, T* work, int& info)
+    static void dlagsy(int n, int k, real const* d, real* A, int lda, int* iseed, real* work,
+                       int& info)
     {
-        const T HALF = 0.5;
         // Test the input arguments
         info = 0;
         if (n<0)
@@ -326,13 +327,13 @@ public:
             A[i+lda*i] = d[i];
         }
         // Generate lower triangle of symmetric matrix
-        T alpha, tau, wa, wb, wn;
+        real alpha, tau, wa, wb, wn;
         for (i=n-2; i>=0; i--)
         {
             // generate random reflection
             dlarnv(3, iseed, n-i, work);
-            wn = Blas<T>::dnrm2(n-i, work, 1);
-            wa = std::fabs(wn)*T((ZERO<=work[0])-(work[0]<ZERO));
+            wn = Blas<real>::dnrm2(n-i, work, 1);
+            wa = std::fabs(wn) * real((ZERO<=work[0])-(work[0]<ZERO));
             if (wn==ZERO)
             {
                 tau = ZERO;
@@ -340,27 +341,27 @@ public:
             else
             {
                 wb = work[0]+wa;
-                Blas<T>::dscal(n-i-1, ONE/wb, &work[1], 1);
+                Blas<real>::dscal(n-i-1, ONE/wb, &work[1], 1);
                 work[0] = ONE;
                 tau = wb/wa;
             }
             // apply random reflection to A[i:n-1,i:n-1] from the left and the right
             aind = i+lda*i;
             // compute  y := tau * A * u
-            Blas<T>::dsymv("Lower", n-i, tau, &A[aind], lda, work, 1, ZERO, &work[n], 1);
+            Blas<real>::dsymv("Lower", n-i, tau, &A[aind], lda, work, 1, ZERO, &work[n], 1);
             // compute  v := y - 1/2 * tau * (y, u) * u
-            alpha = -HALF * tau * Blas<T>::ddot(n-i, &work[n], 1, work, 1);
-            Blas<T>::daxpy(n-i, alpha, work, 1, &work[n], 1);
+            alpha = -HALF * tau * Blas<real>::ddot(n-i, &work[n], 1, work, 1);
+            Blas<real>::daxpy(n-i, alpha, work, 1, &work[n], 1);
             // apply the transformation as a rank-2 update to A[i:n-1,i:n-1]
-            Blas<T>::dsyr2("Lower", n-i, -ONE, work, 1, &work[n], 1, &A[aind], lda);
+            Blas<real>::dsyr2("Lower", n-i, -ONE, work, 1, &work[n], 1, &A[aind], lda);
         }
         // Reduce number of subdiagonals to K
         for (i=0; i<n-1-k; i++)
         {
             aind = k+i+lda*i;
             // generate reflection to annihilate A[k+i+1:n-1,i]
-            wn = Blas<T>::dnrm2(n-k-i, &A[aind], 1);
-            wa = std::fabs(wn)*T((ZERO<=A[aind])-(A[aind]<ZERO));
+            wn = Blas<real>::dnrm2(n-k-i, &A[aind], 1);
+            wa = std::fabs(wn) * real((ZERO<=A[aind])-(A[aind]<ZERO));
             if (wn==ZERO)
             {
                 tau = ZERO;
@@ -368,22 +369,23 @@ public:
             else
             {
                 wb = A[aind]+wa;
-                Blas<T>::dscal(n-k-i-1, ONE/wb, &A[1+aind], 1);
+                Blas<real>::dscal(n-k-i-1, ONE/wb, &A[1+aind], 1);
                 A[aind] = ONE;
                 tau = wb/wa;
             }
             // apply reflection to A[k+i:n-1,i+1:k+i-1] from the left
-            Blas<T>::dgemv("Transpose", n-k-i, k-1, ONE, &A[aind+lda], lda, &A[aind], 1, ZERO,
-                           work, 1);
-            Blas<T>::dger(n-k-i, k-1, -tau, &A[aind], 1, work, 1, &A[aind+lda], lda);
+            Blas<real>::dgemv("Transpose", n-k-i, k-1, ONE, &A[aind+lda], lda, &A[aind], 1, ZERO,
+                              work, 1);
+            Blas<real>::dger(n-k-i, k-1, -tau, &A[aind], 1, work, 1, &A[aind+lda], lda);
             // apply reflection to A[k+i:n-1,k+i:n-1] from the left and the right
             // compute  y := tau * A * u
-            Blas<T>::dsymv('Lower', n-k-i, tau, &A[aind+lda*k], lda, &A[aind], 1, ZERO, work, 1);
+            Blas<real>::dsymv('Lower', n-k-i, tau, &A[aind+lda*k], lda, &A[aind], 1, ZERO, work,
+                              1);
             // compute  v := y - 1/2 * tau * (y, u) * u
-            alpha = -HALF * tau * Blas<T>::ddot(n-k-i, work, 1, &A[aind], 1);
-            Blas<T>::daxpy(n-k-i, alpha, &A[aind], 1, work, 1);
+            alpha = -HALF * tau * Blas<real>::ddot(n-k-i, work, 1, &A[aind], 1);
+            Blas<real>::daxpy(n-k-i, alpha, &A[aind], 1, work, 1);
             // apply symmetric rank-2 update to A[k+i:n-1,k+i:n-1]
-            Blas<T>::dsyr2("Lower", n-k-i, -ONE, &A[aind], 1, work, 1, &A[aind+lda*k], lda);
+            Blas<real>::dsyr2("Lower", n-k-i, -ONE, &A[aind], 1, work, 1, &A[aind+lda*k], lda);
             A[aind] = -wa;
             aind = lda*i;
             for (j=k+i+1; j<n; j++)
@@ -419,16 +421,16 @@ public:
      *     Math. Comp. 189, pp 331-344, 1990).
      *     48-bit integers are stored in 4 integer array elements with 12 bits per element. Hence
      *     the routine is portable across machines with integers of 32 bits or more.             */
-    static T dlaran(int* iseed)
+    static real dlaran(int* iseed)
     {
         const int M1 = 494;
         const int M2 = 322;
         const int M3 = 2508;
         const int M4 = 2549;
         const int IPW2 = 4096;
-        const T R = ONE / IPW2;
+        const real R = ONE / IPW2;
         int it1, it2, it3, it4;
-        T rndout;
+        real rndout;
         do
         {
             // multiply the seed by the multiplier modulo 2^48
@@ -449,7 +451,7 @@ public:
             iseed[2] = it3;
             iseed[3] = it4;
             // convert 48-bit integer to a real number in the interval (0,1)
-            rndout = R*(T(it1)+R*(T(it2)+R*(T(it3)+R*(T(it4)))));
+            rndout = R*(real(it1)+R*(real(it2)+R*(real(it3)+R*(real(it4)))));
             // If a real number has n bits of precision, and the first n bits of the 48-bit integer
             // above happen to be all 1 (which will occur about once every 2^n calls), then dlaran
             // will be rounded to exactly 1.0. Since DLARAN is not supposed to return exactly 0.0
@@ -478,11 +480,10 @@ public:
      *     This routine calls the auxiliary routine dlaran to generate a random real number from a
      *     uniform (0,1) distribution. The Box-Muller method is used to transform numbers from a
      *     uniform to a normal distribution.                                                     */
-    static T dlarnd(int idist, int* iseed)
+    static real dlarnd(int idist, int* iseed)
     {
-        const T TWOPI = T(6.2831853071795864769252867663);
         // Generate a real random number from a uniform (0,1) distribution
-        T t1 = dlaran(iseed);
+        real t1 = dlaran(iseed);
         if (idist==1)
         {
             // uniform (0,1)
@@ -496,7 +497,7 @@ public:
         else if (idist==3)
         {
             // normal (0,1)
-            T t2 = dlaran(iseed);
+            real t2 = dlaran(iseed);
             return std::sqrt(-TWO*std::log(t1))*std::cos(TWOPI*t2);
         }
     }
@@ -602,8 +603,8 @@ public:
      *          Univ.of Colorado Denver
      *          NAG Ltd.
      * Date December 2016                                                                        */
-    static void dlarot(bool lrows, bool lleft, bool lright, int nl, T c, T s, T* A, int lda,
-                       T& xleft, T& xright)
+    static void dlarot(bool lrows, bool lleft, bool lright, int nl, real c, real s, real* A,
+                       int lda, real& xleft, real& xright)
     {
         // Set up indices, arrays for ends
         int iinc, inext;
@@ -618,8 +619,8 @@ public:
             inext = lda;
         }
         int ix, iy, nt;
-        T xt[2];
-        T yt[2];
+        real xt[2];
+        real yt[2];
         if (lleft)
         {
             nt = 1;
@@ -654,8 +655,8 @@ public:
             return;
         }
         // Rotate
-        Blas<T>::drot(nl-nt, &A[ix], iinc, &A[iy], iinc, c, s);
-        Blas<T>::drot(nt, xt, 1, yt, 1, c, s);
+        Blas<real>::drot(nl-nt, &A[ix], iinc, &A[iy], iinc, c, s);
+        Blas<real>::drot(nt, xt, 1, yt, 1, c, s);
         // Stuff values back into xleft, xright, etc.
         if (lleft)
         {
@@ -717,7 +718,8 @@ public:
      *          Univ.of Colorado Denver
      *          NAG Ltd.
      * Date December 2016                                                                        */
-    static void dlatm1(int mode, T cond, int irsign, int idist, int* iseed, T* d, int n, int& info)
+    static void dlatm1(int mode, real cond, int irsign, int idist, int* iseed, real* d, int n,
+                       int& info)
     {
         // Decode and Test the input parameters. Initialize flags & seed.
         info = 0;
@@ -756,7 +758,7 @@ public:
         if (mode!=0)
         {
             int i;
-            T alpha, temp;
+            real alpha, temp;
             switch (std::abs(mode))
             {
                 case 1:
@@ -780,10 +782,10 @@ public:
                     d[0] = ONE;
                     if (n>1)
                     {
-                        alpha = std::pow(cond, (-ONE/T(n-1)));
+                        alpha = std::pow(cond, (-ONE/real(n-1)));
                         for (i=1; i<n; i++)
                         {
-                            d[i] = std::pow(alpha, T(i))
+                            d[i] = std::pow(alpha, real(i))
                         }
                     }
                     break;
@@ -793,10 +795,10 @@ public:
                     if (n>1)
                     {
                         temp = ONE / cond;
-                        alpha = (ONE-temp) / T(n-1);
+                        alpha = (ONE-temp) / real(n-1);
                         for (i=1; i<n; i++)
                         {
-                            d[i] = T(n-1-i)*alpha + temp;
+                            d[i] = real(n-1-i)*alpha + temp;
                         }
                     }
                     break;
@@ -819,7 +821,7 @@ public:
                 for (i=0; i<n; i++)
                 {
                     temp = dlaran(iseed);
-                    if (temp>T(0.5))
+                    if (temp>HALF)
                     {
                         d[i] = -d[i];
                     }
@@ -989,11 +991,10 @@ public:
      *          Univ.of Colorado Denver
      *          NAG Ltd.
      * Date December 2016                                                                        */
-    static void dlatms(int m, int n, const char* dist, int* iseed, const char* sym, T* d, int mode,
-                       T cond, T dmax, int kl, int ku, char const* pack, T* A, int lda, T* work,
-                       int& info)
+    static void dlatms(int m, int n, const char* dist, int* iseed, const char* sym, real* d,
+                       int mode, real cond, real dmax, int kl, int ku, char const* pack, real* A,
+                       int lda, real* work, int& info)
     {
-        const T TWOPI = 6.2831853071795864769252867663;
         //
         // 1)    Decode and Test the input parameters. Initialize flags & seed.
         //
@@ -1110,7 +1111,7 @@ public:
         bool givens = false;
         if (isym==1)
         {
-            if (T(llb+uub)<T(0.3)*T(1>mr+nc?1:mr+nc))
+            if (real(llb+uub) < real(0.3)*real(1>mr+nc?1:mr+nc))
             {
                 givens = true;
             }
@@ -1209,7 +1210,7 @@ public:
         {
             topdwn = false;
         }
-        T alpha, temp, temp2;
+        real alpha, temp, temp2;
         if (mode!=0 && std::abs(mode)!=6)
         {
             // Scale by dmax
@@ -1231,7 +1232,7 @@ public:
                 info = 2;
                 return;
             }
-            Blas<T>::dscal(mnmin, alpha, d, 1);
+            Blas<real>::dscal(mnmin, alpha, d, 1);
         }
         //
         // 3)    Generate Banded Matrix using Givens rotations. Also the special case of UUB=LLB=0
@@ -1266,11 +1267,11 @@ public:
         dlaset("Full", lda, n, ZERO, ZERO, A, lda);
         bool ilextr, iltemp;
         int icol, il, irow, itemp1, itemp2, jc, jch, jr;
-        T angle, c, dummy, extra, s;
+        real angle, c, dummy, extra, s;
         if (llb==0 && uub==0)
         {
             // Diagonal Matrix: We are done, unless it is to be stored SP/PP/TP (pack=='R' or 'C')
-            Blas<T>::dcopy(mnmin, d, 1, &A[ioffst/*+lda*0*/], ilda+1);
+            Blas<real>::dcopy(mnmin, d, 1, &A[ioffst/*+lda*0*/], ilda+1);
             if (ipack<=2 || ipack>=5)
             {
                 ipackg = ipack;
@@ -1290,7 +1291,7 @@ public:
                 {
                     ipackg = 0;
                 }
-                Blas<T>::dcopy(mnmin, d, 1, &A[ioffst/*+lda*0*/], ilda+1);
+                Blas<real>::dcopy(mnmin, d, 1, &A[ioffst/*+lda*0*/], ilda+1);
                 int ic, ir, jkl, jku;
                 if (topdwn)
                 {
@@ -1533,7 +1534,7 @@ public:
                     {
                         ipackg = 1;
                     }
-                    Blas<T>::dcopy(mnmin, d, 1, &A[ioffg/*+lda*0*/], ilda+1);
+                    Blas<real>::dcopy(mnmin, d, 1, &A[ioffg/*+lda*0*/], ilda+1);
                     for (k=0; k<uub; k++)
                     {
                         itemp1 = k+2;
@@ -1625,7 +1626,7 @@ public:
                     {
                         ipackg = 2;
                     }
-                    Blas<T>::dcopy(mnmin, d, 1, &A[ioffg/*+lda*0*/], ilda+1);
+                    Blas<real>::dcopy(mnmin, d, 1, &A[ioffg/*+lda*0*/], ilda+1);
                     for (k=0; k<uub; k++)
                     {
                         for (jc=n-2; jc>=0; jc--)

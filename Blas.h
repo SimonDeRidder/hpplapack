@@ -4,13 +4,13 @@
 #ifndef BLAS_HEADER
 #define BLAS_HEADER
 
-template<class T> class Blas
+template<class real> class Blas
 {
 public:
     // constants
 
-    static constexpr T ZERO = T(0.0);
-    static constexpr T ONE  = T(1.0);
+    static constexpr real ZERO = real(0.0);
+    static constexpr real ONE  = real(1.0);
 
     // BLAS SRC (alphabetically)
 
@@ -23,14 +23,14 @@ public:
      *          Univ.of Colorado Denver
      *          NAG Ltd.
      * Date November 2017                                                                        */
-    static T dasum(int n, T const* dx, int incx)
+    static real dasum(int n, real const* dx, int incx)
     {
         if (n<=0 || incx<=0)
         {
             return ZERO;
         }
         int i;
-        T dtemp = ZERO;
+        real dtemp = ZERO;
         if (incx==1)
         {
             // code for increment equal to 1
@@ -78,7 +78,7 @@ public:
      *          Univ.of Colorado Denver
      *          NAG Ltd.
      * Date: November 2017                                                                       */
-    static void daxpy(int n, T da, T const* dx, int incx, T* dy, int incy)
+    static void daxpy(int n, real da, real const* dx, int incx, real* dy, int incy)
     {
         if (n<=0)
         {
@@ -141,7 +141,7 @@ public:
      *          Univ.of California Berkeley
      *          Univ.of Colorado Denver
      *          NAG Ltd.                                   */
-    static void dcopy(int n, T const* dx, int incx, T* dy, int incy)
+    static void dcopy(int n, real const* dx, int incx, real* dy, int incy)
     {
         if (n < 0)
         {
@@ -208,14 +208,14 @@ public:
      *          Univ.of Colorado Denver
      *          NAG Ltd.
      * Date: November 2017                                                                       */
-    static T ddot(int n, T const* dx, int incx, T const* dy, int incy)
+    static real ddot(int n, real const* dx, int incx, real const* dy, int incy)
     {
         if (n<=0)
         {
             return ZERO;
         }
         int i;
-        T dtemp = ZERO;
+        real dtemp = ZERO;
         if (incx==1 && incy==1)
         {
             // code for both increments equal to 1
@@ -302,14 +302,16 @@ public:
      *             C: an array of DIMENSION(ldc, n).
      *                Before entry, the leading m by n part of the array C must contain the
      *                matrix C, except when beta is zero, in which case C need not be set on entry.
-     *                On exit, the array C is overwritten by the m by n matrix (alpha*op(A)*op(B) + beta*C).
+     *                On exit, the array C is overwritten by the m by n matrix
+     *                         (alpha*op(A)*op(B) + beta*C).
      *             ldc: On entry, ldc specifies the first dimension of C as declared in the
      *                  calling (sub)program. ldc must be at least max(1, m).
      * Authors: Univ.of Tennessee
      *          Univ.of California Berkeley
      *          Univ.of Colorado Denver
      *          NAG Ltd.                                                                                      */
-    static void dgemm(char const* transa, char const* transb, int m, int n, int k, T alpha, T const* A, int lda, T const* B, int ldb, T beta, T* C, int ldc)
+    static void dgemm(char const* transa, char const* transb, int m, int n, int k, real alpha,
+                      real const* A, int lda, real const* B, int ldb, real beta, real* C, int ldc)
     {
         // Set nota and notb as true if A and B respectively are not transposed and set nrowa
         // and nrowb as the number of rows and columns of A and the number of rows of B respectively.
@@ -398,7 +400,7 @@ public:
             return;
         }
         // Start the operations.
-        T TEMP;
+        real TEMP;
         if (notb)
         {
             if (nota)
@@ -538,21 +540,24 @@ public:
      *                contain the matrix of coefficients.
      *             lda: specifies the first dimension of A as declared in the calling function.
      *                  lda must be at least max(1, m).
-     *             x: an array of DIMENSION at least (1 + (n - 1)*abs(incx)) when trans = 'N' or 'n'
+     *             x: an array of DIMENSION at least (1 + (n - 1)*abs(incx)) when trans=='N' or 'n'
      *                                  and at least (1 + (m - 1)*abs(incx)) otherwise.
      *                Before entry, the incremented array x must contain the vector x.
      *             incx: specifies the increment for the elements of x. incx must not be zero.
-     *             beta: specifies the scalar beta. When beta is supplied as zero then y need not be set on input.
-     *             y: an array of DIMENSION at least (1 + (m - 1)*abs(incy)) when trans = 'N' or 'n'
+     *             beta: specifies the scalar beta. When beta is supplied as zero then y need not
+     *                   be set on input.
+     *             y: an array of DIMENSION at least (1 + (m - 1)*abs(incy)) when trans=='N' or 'n'
      *                                  and at least (1 + (n - 1)*abs(incy)) otherwise.
-     *                Before entry with beta non - zero, the incremented array y must contain the vector y.
+     *                Before entry with beta non - zero, the incremented array y must contain the
+     *                vector y.
      *                On exit, y is overwritten by the updated vector y.
      *             incy: specifies the increment for the elements of y. incy must not be zero.
      * Authors: Univ.of Tennessee
      *          Univ.of California Berkeley
      *          Univ.of Colorado Denver
      *          NAG Ltd.                                                           */
-    static void dgemv(char const* trans, int m, int n, T alpha, T const* A, int lda, T const* x, int incx, T beta, T* y, int incy)
+    static void dgemv(char const* trans, int m, int n, real alpha, real const* A, int lda,
+                      real const* x, int incx, real beta, real* y, int incy)
     {
         // Test the input parameters.
         int info = 0;
@@ -586,7 +591,8 @@ public:
         {
             return;
         }
-        // Set lenx and leny, the lengths of the vectors x and y, and set up the start points in x and y.
+        // Set lenx and leny, the lengths of the vectors x and y, and set up the start points
+        // in x and y.
         int kx, ky, lenx, leny;
         if (uptrans == 'N')
         {
@@ -611,7 +617,8 @@ public:
         {
             ky = -(leny - 1) * incy;
         }
-        // Start the operations. In this version the elements of A are accessed sequentially with one pass through A.
+        // Start the operations. In this version the elements of A are accessed sequentially with
+        // one pass through A.
         int i, iy;
         // First form  y : = beta*y.
         if (beta != ONE)
@@ -656,7 +663,7 @@ public:
             return;
         }
         int ix, j, jx, jy, colj;
-        T temp;
+        real temp;
         if (uptrans == 'N')
         {
             // Form  y : = alpha*A*x + y.
@@ -726,28 +733,35 @@ public:
 
     /* dger performs the rank 1 operation
      *     A : = alpha*x*y^T + A,
-     * where alpha is a scalar, x is an m element vector, y is an n element vector and A is an m by n matrix.
-     * Parameters: m: On entry, m specifies the number of rows of the matrix A. m must be at least zero.
-     *             n: On entry, n specifies the number of columns of the matrix A. n must be at least zero.
+     * where alpha is a scalar, x is an m element vector, y is an n element vector and A is an m by
+     * n matrix.
+     * Parameters: m: On entry, m specifies the number of rows of the matrix A. m must be at least
+     *                zero.
+     *             n: On entry, n specifies the number of columns of the matrix A. n must be at
+     *                least zero.
      *             alpha: On entry, alpha specifies the scalar alpha.
      *             x: an array of dimension at least (1 + (m - 1)*abs(incx)).
      *                Before entry, the incremented array x must contain the m element vector x.
-     *             incx: On entry, incx specifies the increment for the elements of x. incx must not be zero.
+     *             incx: On entry, incx specifies the increment for the elements of x. incx must
+     *                   not be zero.
      *             y: an array of dimension at least (1 + (n - 1)*abs(incy)).
      *                Before entry, the incremented array y must contain the n element vector y.
-     *             incy: On entry, incy specifies the increment for the elements of y. incy must not be zero.
+     *             incy: On entry, incy specifies the increment for the elements of y. incy must
+     *                   not be zero.
      *             A: an array of DIMENSION(lda, n).
-     *                Before entry, the leading m by n part of the array A must contain the matrix of coefficients.
+     *                Before entry, the leading m by n part of the array A must contain the matrix
+     *                of coefficients.
      *                On exit, A is overwritten by the updated matrix.
-     *             lda: On entry, lda specifies the first dimension of A as declared in the calling(sub) program.
-     *                  lda must be at least max(1, m).
+     *             lda: On entry, lda specifies the first dimension of A as declared in the calling
+     *                  (sub)program. lda must be at least max(1, m).
      * Authors: Univ.of Tennessee
      *          Univ.of California Berkeley
      *          Univ.of Colorado Denver
      *          NAG Ltd.                                                                                           */
-    static void dger(int m, int n, T alpha, T const* x, int incx, T const* y, int incy, T* A, int lda)
+    static void dger(int m, int n, real alpha, real const* x, int incx, real const* y, int incy,
+                     real* A, int lda)
     {
-        T temp;
+        real temp;
         // Test the input parameters.
         int info = 0;
         if (m < 0)
@@ -834,9 +848,9 @@ public:
      *          Univ.of California Berkeley
      *          Univ.of Colorado Denver
      *          NAG Ltd.										*/
-    static T dnrm2(int n, T const* x, int incx)
+    static real dnrm2(int n, real const* x, int incx)
     {
-        T absxi, norm, scale, ssq;
+        real absxi, norm, scale, ssq;
         int ix;
         if (n < 1 || incx < 0)
         {
@@ -883,13 +897,13 @@ public:
      *          Univ.of Colorado Denver
      *          NAG Ltd.
      * Date: November 2017                                                                       */
-    static void drot(int n, T* dx, int incx, T* dy, int incy, T c, T s)
+    static void drot(int n, real* dx, int incx, real* dy, int incy, real c, real s)
     {
         if (n<=0)
         {
             return;
         }
-        T dtemp;
+        real dtemp;
         int i;
         if (incx==1 && incy==1)
         {
@@ -930,7 +944,7 @@ public:
      *          Univ.of California Berkeley
      *          Univ.of Colorado Denver
      *          NAG Ltd.																*/
-    static void dscal(int n, T da, T* dx, int incx)
+    static void dscal(int n, real da, real* dx, int incx)
     {
         int i;
         if (n < 0 || incx < 0)
@@ -982,13 +996,13 @@ public:
      *          Univ.of California Berkeley
      *          Univ.of Colorado Denver
      *          NAG Ltd.                                                                                      */
-    static void dswap(int n, T* dx, int incx, T* dy, int incy)
+    static void dswap(int n, real* dx, int incx, real* dy, int incy)
     {
         if (n <= 0)
         {
             return;
         }
-        T dtemp;
+        real dtemp;
         int i;
         if (incx == 1 && incy == 1)
         {
@@ -1087,8 +1101,8 @@ public:
      *        Jeremy Du Croz, Nag Central Office.
      *        Sven Hammarling, Nag Central Office.
      *        Richard Hanson, Sandia National Labs.                                              */
-    static void dsymv(char const* uplo, int n, T alpha, T const* A, int lda, T const* x, int incx,
-                      T beta, T* y, int incy)
+    static void dsymv(char const* uplo, int n, real alpha, real const* A, int lda, real const* x,
+                      int incx, real beta, real* y, int incy)
     {
         // Test the input parameters.
         int info = 0;
@@ -1190,7 +1204,7 @@ public:
             return;
         }
         int ix, j, jx, jy, ldaj;
-        T temp1, temp2;
+        real temp1, temp2;
         if (upuplo=='U')
         {
             // Form y when A is stored in upper triangle.
@@ -1321,8 +1335,8 @@ public:
      *        Jeremy Du Croz, Nag Central Office.
      *        Sven Hammarling, Nag Central Office.
      *        Richard Hanson, Sandia National Labs.                                              */
-    static void dsyr2(char const* uplo, int n, T alpha, T const* x, int incx, T const* y, int incy,
-                      T* A, int lda)
+    static void dsyr2(char const* uplo, int n, real alpha, real const* x, int incx, real const* y,
+                      int incy, real* A, int lda)
     {
         // Test the input parameters.
         int info = 0;
@@ -1382,7 +1396,7 @@ public:
         }
         // Start the operations. In this version the elements of A are accessed sequentially with
         // one pass through the triangular part of A.
-        T temp1, temp2;
+        real temp1, temp2;
         int i, ix, iy, j, ldaj;
         if (upuplo=='U')
         {
@@ -1516,7 +1530,8 @@ public:
      *          Univ.of California Berkeley
      *          Univ.of Colorado Denver
      *          NAG Ltd.                                                                                      */
-    static void dtrmm(char const* side, char const* uplo, char const* transa, char const* diag, int m, int n, T alpha, T const* A, int lda, T* B, int ldb)
+    static void dtrmm(char const* side, char const* uplo, char const* transa, char const* diag,
+                      int m, int n, real alpha, real const* A, int lda, real* B, int ldb)
     {
         // Test the input parameters.
         bool lside = (toupper(side[0]) == 'L');
@@ -1581,7 +1596,7 @@ public:
             }
             return;
         }
-        T temp;
+        real temp;
         int k, acolk, bcolj;
         // Start the operations.
         if (lside)
@@ -1816,36 +1831,42 @@ public:
 
     /* dtrmv performs one of the matrix-vector operations
      *     x : = A*x, or x : = A^T*x,
-     * where x is an n element vector and A is an n by n unit, or non-unit, upper or lower triangular matrix.
-     * Parameters: uplo: On entry, uplo specifies whether the matrix is an upper or lower triangular matrix as follows:
-     *                   uplo = 'U' or 'u'   A is an upper triangular matrix.
-     *                   uplo = 'L' or 'l'   A is a lower triangular matrix.
+     * where x is an n element vector and A is an n by n unit, or non-unit, upper or lower
+     * triangular matrix.
+     * Parameters: uplo: On entry, uplo specifies whether the matrix is an upper or lower
+     *                             triangular matrix as follows:
+     *                   uplo=='U' or 'u'   A is an upper triangular matrix.
+     *                   uplo=='L' or 'l'   A is a lower triangular matrix.
      *             trans: On entry, trans specifies the operation to be performed as follows:
-     *                    trans = 'N' or 'n'   x : = A*x.
-     *                    trans = 'T' or 't'   x : = A^T*x.
-     *                    trans = 'C' or 'c'   x : = A^T*x.
+     *                    trans=='N' or 'n' x := A*x.
+     *                    trans=='T' or 't' x := A^T*x.
+     *                    trans=='C' or 'c' x := A^T*x.
      *             diag: On entry, diag specifies whether or not A is unit triangular as follows:
-     *                   diag = 'U' or 'u'   A is assumed to be unit triangular.
-     *                   diag = 'N' or 'n'   A is not assumed to be unit triangular.
+     *                   diag=='U' or 'u': A is assumed to be unit triangular.
+     *                   diag=='N' or 'n': A is not assumed to be unit triangular.
      *             n: On entry, n specifies the order of the matrix A. n must be at least zero.
      *             A: an array of DIMENSION(lda, n).
-     *                Before entry with  uplo = 'U' or 'u', the leading n by n upper triangular part of the array A must
-     *                contain the upper triangular matrix and the strictly lower triangular part of A is not referenced.
-     *                Before entry with uplo = 'L' or 'l', the leading n by n lower triangular part of the array A must
-     *                contain the lower triangular matrix and the strictly upper triangular part of A is not referenced.
-     *                Note that when  diag = 'U' or 'u', the diagonal elements of A are not referenced either,
-     *                but are assumed to be unity.
-     *             lda: On entry, lda specifies the first dimension of A as declared in the calling(sub) program.
-     *                  lda must be at least max(1, n).
+     *                Before entry with uplo=='U' or 'u', the leading n by n upper triangular part
+     *                of the array A must contain the upper triangular matrix and the strictly
+     *                lower triangular part of A is not referenced.
+     *                Before entry with uplo=='L' or 'l', the leading n by n lower triangular part
+     *                of the array A must contain the lower triangular matrix and the strictly
+     *                upper triangular part of A is not referenced.
+     *                Note that when  diag=='U' or 'u', the diagonal elements of A are not
+     *                referenced either, but are assumed to be unity.
+     *             lda: On entry, lda specifies the first dimension of A as declared in the calling
+     *                  (sub)program. lda must be at least max(1, n).
      *             x: an array of dimension at least (1 + (n - 1)*abs(incx)).
      *                Before entry, the incremented array x must contain the n element vector x.
      *                On exit, x is overwritten with the tranformed vector x.
-     *             incx: On entry, incx specifies the increment for the elements of x. incx must not be zero.
+     *             incx: On entry, incx specifies the increment for the elements of x.incx must
+     *                   not be zero.
      * Authors: Univ.of Tennessee
      *          Univ.of California Berkeley
      *          Univ.of Colorado Denver
-     *          NAG Ltd.                                                                                         */
-    static void dtrmv(char const* uplo, char const* trans, char const* diag, int n, T const* A, int lda, T* x, int incx)
+     *          NAG Ltd.                                                                         */
+    static void dtrmv(char const* uplo, char const* trans, char const* diag, int n, real const* A,
+                      int lda, real* x, int incx)
     {
         // Test the input parameters.
         int info = 0;
@@ -1893,7 +1914,7 @@ public:
             kx = 0;
         }
         // Start the operations.In this version the elements of A are accessed sequentially with one pass through A.
-        T temp;
+        real temp;
         int i, ix, j, jx, colj;
         if (uptrans == 'N')
         {
@@ -2077,23 +2098,23 @@ public:
      *          Univ.of California Berkeley
      *          Univ.of Colorado Denver
      *          NAG Ltd.                                                                                      */
-    static int idamax(int n, T const* dx, int incx)
+    static int idamax(int n, real const* dx, int incx)
     {
-        if (n < 1 || incx <= 0)
+        if (n<1 || incx<=0)
         {
             return -1;
         }
-        if (n == 1)
+        if (n==1)
         {
             return 0;
         }
-        T dmax, dnext;
-        int i, ida = 0;
-        if (incx == 1)
+        real dmax, dnext;
+        int i, ida=0;
+        if (incx==1)
         {
             // code for increment equal to 1
             dmax = fabs(dx[0]);
-            for (i = 1; i < n; i++)
+            for (i=1; i<n; i++)
             {
                 dnext = fabs(dx[i]);
                 if (dnext > dmax)
@@ -2107,7 +2128,7 @@ public:
             // code for increment not equal to 1
             dmax = fabs(dx[0]);
             int ix = incx;
-            for (i = 1; i < n; i++)
+            for (i=1; i<n; i++)
             {
                 dnext = fabs(dx[ix]);
                 if (dnext > dmax)

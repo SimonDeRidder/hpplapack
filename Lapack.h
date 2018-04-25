@@ -12,18 +12,18 @@
 #ifndef LAPACK_HEADER
 #define LAPACK_HEADER
 
-template<class T>
+template<class real>
 class Lapack
 {
 public:
     // constants
 
-    static constexpr T ZERO  = T(0.0);
-    static constexpr T QURTR = T(0.25);
-    static constexpr T HALF  = T(0.5);
-    static constexpr T ONE   = T(1.0);
-    static constexpr T TWO   = T(2.0);
-    static constexpr T HNDRD = T(100.0);
+    static constexpr real ZERO  = real(0.0);
+    static constexpr real QURTR = real(0.25);
+    static constexpr real HALF  = real(0.5);
+    static constexpr real ONE   = real(1.0);
+    static constexpr real TWO   = real(2.0);
+    static constexpr real HNDRD = real(100.0);
 
     // LAPACK INSTALL (alphabetically)
 
@@ -45,27 +45,27 @@ public:
      *          Univ.of California Berkeley
      *          Univ.of Colorado Denver
      *          NAG Ltd.																*/
-    static T dlamch(char const* cmach)
+    static real dlamch(char const* cmach)
     {
-        T eps;
+        real eps;
         // Assume rounding, not chopping.Always.
-        T rnd = ONE;
+        real rnd = ONE;
         if (ONE==rnd)
         {
-            eps = std::numeric_limits<T>::epsilon() * HALF;
+            eps = std::numeric_limits<real>::epsilon() * HALF;
         }
         else
         {
-            eps = std::numeric_limits<T>::epsilon();
+            eps = std::numeric_limits<real>::epsilon();
         }
-        T sfmin, small;
+        real sfmin, small;
         switch (toupper(cmach[0]))
         {
             case 'E':
                 return eps;
             case 'S':
-                sfmin = std::numeric_limits<T>::min();
-                small = ONE / std::numeric_limits<T>::max();
+                sfmin = std::numeric_limits<real>::min();
+                small = ONE / std::numeric_limits<real>::max();
                 if (small>sfmin)
                 {
                     //Use SMALL plus a bit, to avoid the possibility of rounding
@@ -74,21 +74,21 @@ public:
                 }
                 return sfmin;
             case 'B':
-                return std::numeric_limits<T>::radix;
+                return std::numeric_limits<real>::radix;
             case 'P':
-                return eps * std::numeric_limits<T>::radix;
+                return eps * std::numeric_limits<real>::radix;
             case 'N':
-                return std::numeric_limits<T>::digits;
+                return std::numeric_limits<real>::digits;
             case 'R':
                 return rnd;
             case 'M':
-                return std::numeric_limits<T>::min_exponent;
+                return std::numeric_limits<real>::min_exponent;
             case 'U':
-                return std::numeric_limits<T>::min();
+                return std::numeric_limits<real>::min();
             case 'L':
-                return std::numeric_limits<T>::max_exponent;
+                return std::numeric_limits<real>::max_exponent;
             case 'O':
-                return std::numeric_limits<T>::max();
+                return std::numeric_limits<real>::max();
             default:
                 return ZERO;
         }
@@ -189,13 +189,14 @@ public:
      *          Univ.of Colorado Denver
      *          NAG Ltd.
      * Date June 2017                                                                            */
-    static void dbdsqr(char const* uplo, int n, int ncvt, int nru, int ncc, T* d, T* e, T* Vt,
-                       int ldvt, T* U, int ldu, T* C, int ldc, T* work, int& info)
+    static void dbdsqr(char const* uplo, int n, int ncvt, int nru, int ncc, real* d, real* e,
+                       real* Vt, int ldvt, real* U, int ldu, real* C, int ldc, real* work,
+                       int& info)
     {
-        const T NEGONE = T(-1.0);
-        const T MEIGTH = T(-0.125);
-        const T HNDRTH = T(0.01);
-        const T TEN    = T(10.0);
+        const real NEGONE = real(-1.0);
+        const real MEIGTH = real(-0.125);
+        const real HNDRTH = real(0.01);
+        const real TEN    = real(10.0);
         const int MAXITR = 6;
         // Test the input parameters.
         info = 0;
@@ -242,7 +243,7 @@ public:
             return;
         }
         int i;
-        T smin;
+        real smin;
         if (n!=1)
         {
             // rotate is true if any singular vectors desired, false otherwise
@@ -263,11 +264,11 @@ public:
             int nm13 = nm12 + nm1;
             int IDIR = 0;
             // Get machine constants
-            T eps = dlamch("Epsilon");
-            T unfl = dlamch("Safe minimum");
+            real eps = dlamch("Epsilon");
+            real unfl = dlamch("Safe minimum");
             // If matrix lower bidiagonal, rotate to be upper bidiagonal by applying
             // Givens rotations on the left
-            T cs, sn, r;
+            real cs, sn, r;
             if (lower)
             {
                 for (i=0; i<n-1; i++)
@@ -292,7 +293,7 @@ public:
             // Compute singular values to relative accuracy TOL (By setting TOL to be negative,
             // algorithm will compute singular values to absolute accuracy
             // abs(tol)*norm(input matrix))
-            T tolmul = std::pow(eps, MEIGTH);
+            real tolmul = std::pow(eps, MEIGTH);
             if (HNDRD<tolmul)
             {
                 tolmul = HNDRD;
@@ -301,9 +302,9 @@ public:
             {
                 tolmul = TEN;
             }
-            T tol = tolmul * eps;
+            real tol = tolmul * eps;
             // Compute approximate maximum, minimum singular values
-            T smax = ZERO, temp;
+            real smax = ZERO, temp;
             for (i=0; i<n; i++)
             {
                 temp = std::fabs(d[i]);
@@ -320,7 +321,7 @@ public:
                     smax = temp;
                 }
             }
-            T sminl = ZERO, sminoa, mu, thresh;
+            real sminl = ZERO, sminoa, mu, thresh;
             if (tol>=ZERO)
             {
                 // Relative accuracy desired
@@ -341,7 +342,7 @@ public:
                         }
                     }
                 }
-                sminoa = sminoa / std::sqrt(T(n));
+                sminoa = sminoa / std::sqrt(real(n));
                 temp = MAXITR * (n*(n*unfl));
                 thresh = tol * sminoa;
                 if (temp>thresh)
@@ -370,7 +371,8 @@ public:
             int m = n-1;
             // Begin main iteration loop
             int ll, lll;
-            T abse, abss, cosl, cosr, f, g, h, oldcs, oldsn, shift, sigmn, sigmx, sinl, sinr, sll;
+            real abse, abss, cosl, cosr, f, g, h, oldcs, oldsn, shift, sigmn, sigmx, sinl, sinr,
+                 sll;
             bool breakloop1 = false, breakloop2;
             while (true)
             {
@@ -448,16 +450,17 @@ public:
                     // Compute singular vectors, if desired
                     if (ncvt>0)
                     {
-                        Blas<T>::drot(ncvt, &Vt[m-1/*ldvt*0*/], ldvt, &Vt[m/*+ldvt*0*/], ldvt,
+                        Blas<real>::drot(ncvt, &Vt[m-1/*ldvt*0*/], ldvt, &Vt[m/*+ldvt*0*/], ldvt,
                                       cosr, sinr);
                     }
                     if (nru>0)
                     {
-                        Blas<T>::drot(nru, &U[/*0+*/ldu*(m-1)], 1, &U[/*0+*/ldu*m], 1, cosl, sinl);
+                        Blas<real>::drot(nru, &U[/*0+*/ldu*(m-1)], 1, &U[/*0+*/ldu*m], 1, cosl,
+                                         sinl);
                     }
                     if (ncc>0)
                     {
-                        Blas<T>::drot(ncc, &C[m-1/*+ldc*0*/], ldc, &C[m/*+ldc*0*/], ldc, cosl,
+                        Blas<real>::drot(ncc, &C[m-1/*+ldc*0*/], ldc, &C[m/*+ldc*0*/], ldc, cosl,
                                       sinl);
                     }
                     m -= 2;
@@ -686,7 +689,7 @@ public:
                         // Chase bulge from top to bottom
                         // Save cosines and sines for later singular vector updates
                         f = (std::fabs(d[ll]) - shift)
-                            * ((T(ZERO<=d[ll])-T(ZERO>d[ll])) + shift/d[ll]);
+                            * ((real(ZERO<=d[ll])-real(ZERO>d[ll])) + shift/d[ll]);
                         g = e[ll];
                         for (i=ll; i<m; i++)
                         {
@@ -740,7 +743,7 @@ public:
                     {
                         // Chase bulge from bottom to top
                         // Save cosines and sines for later singular vector updates
-                        f = (std::fabs(d[m])-shift) * ((T(ZERO<=d[m])-T(ZERO>d[m]))+shift/d[m]);
+                        f = (std::fabs(d[m])-shift) * ((real(ZERO<=d[m])-real(ZERO>d[m]))+shift/d[m]);
                         g = e[m-1];
                         for (i=m; i>ll; i--)
                         {
@@ -816,7 +819,7 @@ public:
                 // Change sign of singular vectors, if desired
                 if (ncvt>0)
                 {
-                    Blas<T>::dscal(ncvt, NEGONE, &Vt[i/*+lda*0*/], ldvt);
+                    Blas<real>::dscal(ncvt, NEGONE, &Vt[i/*+lda*0*/], ldvt);
                 }
             }
         }
@@ -843,15 +846,15 @@ public:
                 d[n-i-1] = smin;
                 if (ncvt>0)
                 {
-                    Blas<T>::dswap(ncvt, &Vt[isub/*+ldvt*0*/], ldvt, &Vt[n-i-1/*+ldvt*0*/], ldvt);
+                    Blas<real>::dswap(ncvt, &Vt[isub], ldvt, &Vt[n-i-1], ldvt);
                 }
                 if (nru>0)
                 {
-                    Blas<T>::dswap(nru, &U[/*0+*/ldu*isub], 1, &U[/*0+*/ldu*(n-i-1)], 1);
+                    Blas<real>::dswap(nru, &U[ldu*isub], 1, &U[ldu*(n-i-1)], 1);
                 }
                 if (ncc>0)
                 {
-                    Blas<T>::dswap(ncc, &C[isub/*+ldc*0*/], ldc, &C[n-i-1/*+ldc*0*/], ldc);
+                    Blas<real>::dswap(ncc, &C[isub], ldc, &C[n-i-1], ldc);
                 }
             }
         }
@@ -913,11 +916,11 @@ public:
      *     This subroutine is based on the EISPACK routine BALANC.
      *     Modified by Tzu-Yi Chen, Computer Science Division, University of California at
      *     Berkeley, USA                                                                         */
-    static void dgebal(char const* job, int n, T* A, int lda, int& ilo, int& ihi, T* scale,
+    static void dgebal(char const* job, int n, real* A, int lda, int& ilo, int& ihi, real* scale,
                        int& info)
     {
-        const T sclfac = TWO;
-        const T factor = T(0.95);
+        const real sclfac = TWO;
+        const real factor = real(0.95);
         // Test the input parameters
         info = 0;
         char upjob = toupper(job[0]);
@@ -973,8 +976,8 @@ public:
                     scale[m] = j+1;
                     if (j!=m)
                     {
-                        Blas<T>::dswap(l+1, &A[/*0+*/lda*j], 1, &A[/*0+*/lda*m], 1);
-                        Blas<T>::dswap(n-k, &A[j+lda*k], lda, &A[m+lda*k], lda);
+                        Blas<real>::dswap(l+1, &A[/*0+*/lda*j], 1, &A[/*0+*/lda*m], 1);
+                        Blas<real>::dswap(n-k, &A[j+lda*k], lda, &A[m+lda*k], lda);
                     }
                     if (iexc==1)
                     {
@@ -1063,7 +1066,7 @@ public:
         if (upjob!='P')
         {
             // Balance the submatrix in rows k to l.
-            T c, ca, f, g, r, ra, s, sfmax1, sfmax2, sfmin1, sfmin2;
+            real c, ca, f, g, r, ra, s, sfmax1, sfmax2, sfmin1, sfmin2;
             int ica, ira;
             // Iterative loop for norm reduction
             sfmin1 = dlamch("Safemin") / dlamch("Precision");
@@ -1076,11 +1079,11 @@ public:
                 noconv = false;
                 for (i=k; i<=l; i++)
                 {
-                    c = Blas<T>::dnrm2(l-k+1, &A[k+lda*i], 1);
-                    r = Blas<T>::dnrm2(l-k+1, &A[i+lda*k], lda);
-                    ica = Blas<T>::idamax(l+1, &A[/*0+*/lda*i], 1);
+                    c = Blas<real>::dnrm2(l-k+1, &A[k+lda*i], 1);
+                    r = Blas<real>::dnrm2(l-k+1, &A[i+lda*k], lda);
+                    ica = Blas<real>::idamax(l+1, &A[/*0+*/lda*i], 1);
                     ca = fabs(A[ica+lda*i]);
-                    ira = Blas<T>::idamax(n-k, &A[i+lda*k], lda);
+                    ira = Blas<real>::idamax(n-k, &A[i+lda*k], lda);
                     ra = fabs(A[i+lda*(ira+k)]);
                     // Guard against zero c or R due to underflow.
                     if (c==0.0 || r==0.0)
@@ -1140,8 +1143,8 @@ public:
                     g = ONE / f;
                     scale[i] *= f;
                     noconv = true;
-                    Blas<T>::dscal(n-k, g, &A[i+lda*k], lda);
-                    Blas<T>::dscal(l+1, f, &A[/*0+*/lda*i], 1);
+                    Blas<real>::dscal(n-k, g, &A[i+lda*k], lda);
+                    Blas<real>::dscal(l+1, f, &A[/*0+*/lda*i], 1);
                 }
             }
         }
@@ -1219,8 +1222,8 @@ public:
      *       (  v1  v2  v3  v4  v5 )
      *     where d and e denote diagonal and off-diagonal elements of B, vi denotes an element of
      *     the vector defining H(i), and ui an element of the vector defining G(i).              */
-    static void dgebd2(int m, int n, T* A, int lda, T* d, T* e, T* tauq, T* taup, T* work,
-                       int& info)
+    static void dgebd2(int m, int n, real* A, int lda, real* d, real* e, real* tauq, real* taup,
+                       real* work, int& info)
     {
         // Test the input parameters
         info = 0;
@@ -1358,7 +1361,7 @@ public:
      *         H(i) = I - tau * v * v^T
      *     where tau is a real scalar, and v is a real/complex vector with v[0:i-1]==0 and v[i]==1;
      *     v[i+1:m-1] is stored on exit in A[i+1:m-1, i], and tau in tau[i].                     */
-    static void dgeqp3(int m, int n, T* A, int lda, int* jpvt, T* tau, T* work, int lwork,
+    static void dgeqp3(int m, int n, real* A, int lda, int* jpvt, real* tau, real* work, int lwork,
                        int& info)
     {
         const int INB = 1, INBMIN = 2, IXOVER = 3;
@@ -1415,7 +1418,7 @@ public:
             {
                 if (j != nfxd-1)
                 {
-                    Blas<T>::dswap(m, &A[/*0+*/lda*j], 1, &A[/*0+*/lda*(nfxd-1)], 1);
+                    Blas<real>::dswap(m, &A[/*0+*/lda*j], 1, &A[/*0+*/lda*(nfxd-1)], 1);
                     jpvt[j] = jpvt[nfxd-1];
                     jpvt[nfxd-1] = j;
                 }
@@ -1471,7 +1474,8 @@ public:
                     iws = ((iws>minws) ? iws : minws);
                     if (lwork<minws)
                     {
-                        // Not enough workspace to use optimal nb: Reduce nb and determine the minimum value of nb.
+                        // Not enough workspace to use optimal nb: Reduce nb and determine the
+                        // minimum value of nb.
                         nb = (lwork-2*sn) / (sn+1);
                         nbmin = ilaenv(INBMIN, "DGEQRF", " ", sm, sn, -1, -1);
                         if (nbmin<2)
@@ -1481,10 +1485,11 @@ public:
                     }
                 }
             }
-            // Initialize partial column norms. The first n elements of work store the exact column norms.
+            // Initialize partial column norms. The first n elements of work store the exact column
+            // norms.
             for (j=nfxd; j<n; j++)
             {
-                work[j] = Blas<T>::dnrm2(sm, &A[nfxd+lda*j], 1);
+                work[j] = Blas<real>::dnrm2(sm, &A[nfxd+lda*j], 1);
                 work[n+j] = work[j];
             }
             if ((nb>=nbmin) && (nb<sminmn) && (nx<sminmn))
@@ -1549,10 +1554,10 @@ public:
      *         H(i) = I - tau * v * v^T
      *     where tau is a real scalar, and v is a real vector with v[0:i-1] = 0 and v[i] = 1;
      *     v[i+1:m-1] is stored on exit in A[i+1:m-1,i], and tau in tau[i].			 */
-    static void dgeqr2(int m, int n, T* A, int lda, T* tau, T* work, int& info)
+    static void dgeqr2(int m, int n, real* A, int lda, real* tau, real* work, int& info)
     {
         int i, k, coli;
-        T AII;
+        real AII;
         // Test the input arguments
         info = 0;
         if (m<0)
@@ -1625,7 +1630,7 @@ public:
      *         H(i) = I - tau * v * v^T
      *     where tau is a real scalar, and v is a real vector with v[0:i-1] = 0 and
      *     v[i] = 1; v[i+1:m-1] is stored on exit in A[i+1:m-1, i], and tau in tau[i].        */
-    static void dgeqrf(int m, int n, T* A, int lda, T* tau, T* work, int lwork, int& info)
+    static void dgeqrf(int m, int n, real* A, int lda, real* tau, real* work, int lwork, int& info)
     {
         // Test the input arguments
         info = 0;
@@ -1751,11 +1756,11 @@ public:
      *          Univ.of Colorado Denver
      *          NAG Ltd.
      * Date December 2016                                                                        */
-    static void dlabad(T& small, T& large)
+    static void dlabad(real& small, real& large)
     {
         // If it looks like we're on a Cray, take the square root of small and large to avoid
         // overflow and underflow problems.
-        if (std::log10(large)>T(2000.0))
+        if (std::log10(large)>real(2000.0))
         {
             small = std::sqrt(small);
             large = std::sqrt(large);
@@ -1782,7 +1787,7 @@ public:
      *          Univ.of Colorado Denver
      *          NAG Ltd.
      * Date: December 2016                                                                       */
-    static void dlacpy(char const* uplo, int m, int n, T const* A, int lda, T* B, int ldb)
+    static void dlacpy(char const* uplo, int m, int n, real const* A, int lda, real* B, int ldb)
     {
         int i, j, ldaj;
         if (toupper(uplo[0])=='U')
@@ -1844,10 +1849,10 @@ public:
      *          Univ.of Colorado Denver
      *          NAG Ltd.
      * Date: December 2016                                                                       */
-    static T dlange(char const* norm, int m, int n, T const* A, int lda, T* work)
+    static real dlange(char const* norm, int m, int n, real const* A, int lda, real* work)
     {
         int i, j, ldacol;
-        T scale, sum, dlange=ZERO, temp;
+        real scale, sum, dlange=ZERO, temp;
         char upNorm = toupper(norm[0]);
         if (m==0 || n==0)
         {
@@ -1932,9 +1937,9 @@ public:
      *          Univ.of California Berkeley
      *          Univ.of Colorado Denver
      *          NAG Ltd.																*/
-    static T dlapy2(T x, T Y)
+    static real dlapy2(real x, real Y)
     {
-        T w, xabs, yabs, z;
+        real w, xabs, yabs, z;
         xabs = fabs(x);
         yabs = fabs(Y);
         if (xabs>yabs)
@@ -1989,23 +1994,23 @@ public:
      *          Univ.of California Berkeley
      *          Univ.of Colorado Denver
      *          NAG Ltd.                                                                         */
-    static void dlaqp2(int m, int n, int offset, T* A, int lda, int* jpvt, T* tau, T* vn1, T* vn2,
-            T* work)
+    static void dlaqp2(int m, int n, int offset, real* A, int lda, int* jpvt, real* tau, real* vn1,
+                       real* vn2, real* work)
     {
         int mn = ((m-offset<n) ? m-offset : n);
-        T tol3z = sqrt(dlamch("Epsilon"));
+        real tol3z = sqrt(dlamch("Epsilon"));
         // Compute factorization.
         int i, itemp, j, offpi, pvt, acoli;
-        T aii, temp, temp2;
+        real aii, temp, temp2;
         for (i=0; i<mn; i++)
         {
             offpi = offset + i;
             // Determine ith pivot column and swap if necessary.
-            pvt = i + Blas<T>::idamax(n-i, &vn1[i], 1);
+            pvt = i + Blas<real>::idamax(n-i, &vn1[i], 1);
             acoli = lda*i;
             if (pvt!=i)
             {
-                Blas<T>::dswap(m, &A[lda*pvt], 1, &A[acoli], 1);
+                Blas<real>::dswap(m, &A[lda*pvt], 1, &A[acoli], 1);
                 itemp = jpvt[pvt];
                 jpvt[pvt] = jpvt[i];
                 jpvt[i] = itemp;
@@ -2045,7 +2050,7 @@ public:
                     {
                         if (offpi<m-1)
                         {
-                            vn1[j] = Blas<T>::dnrm2(m-offpi-1, &A[offpi+1+lda*j], 1);
+                            vn1[j] = Blas<real>::dnrm2(m-offpi-1, &A[offpi+1+lda*j], 1);
                             vn2[j] = vn1[j];
                         }
                         else
@@ -2099,27 +2104,27 @@ public:
      *          Univ.of California Berkeley
      *          Univ.of Colorado Denver
      *          NAG Ltd.                                                                         */
-    static void dlaqps(int m, int n, int offset, int nb, int& kb, T* A, int lda, int* jpvt, T* tau,
-                       T* vn1, T* vn2, T* auxv, T* F, int ldf)
+    static void dlaqps(int m, int n, int offset, int nb, int& kb, real* A, int lda, int* jpvt,
+                       real* tau, real* vn1, real* vn2, real* auxv, real* F, int ldf)
     {
         int lastrk = ((m<n+offset) ? m : n+offset);
         int lsticc = -1;
         int k = -1;
-        T tol3z = sqrt(dlamch("Epsilon"));
+        real tol3z = sqrt(dlamch("Epsilon"));
         // Beginning of while loop.
         int itemp, j, pvt, rk, acolk;
-        T akk, temp, temp2;
+        real akk, temp, temp2;
         while ((k+1<nb) && (lsticc==-1))
         {
             k++;
             rk = offset + k;
             acolk = lda*k;
             // Determine i-th pivot column and swap if necessary
-            pvt = k + Blas<T>::idamax(n-k, &vn1[k], 1);
+            pvt = k + Blas<real>::idamax(n-k, &vn1[k], 1);
             if (pvt!=k)
             {
-                Blas<T>::dswap(m, &A[lda*pvt], 1, &A[acolk], 1);
-                Blas<T>::dswap(k, &F[pvt], ldf, &F[k], ldf);
+                Blas<real>::dswap(m, &A[lda*pvt], 1, &A[acolk], 1);
+                Blas<real>::dswap(k, &F[pvt], ldf, &F[k], ldf);
                 itemp = jpvt[pvt];
                 jpvt[pvt] = jpvt[k];
                 jpvt[k] = itemp;
@@ -2130,7 +2135,7 @@ public:
             //     A[rk:m-1, k] -= A[rk:m-1, 0:k-1] * F[k, 0:k-1]^T.
             if (k>0)
             {
-                Blas<T>::dgemv("No transpose", m-rk, k, -ONE, &A[rk], lda, &F[k], ldf, ONE,
+                Blas<real>::dgemv("No transpose", m-rk, k, -ONE, &A[rk], lda, &F[k], ldf, ONE,
                                &A[rk+acolk], 1);
             }
             // Generate elementary reflector H(k).
@@ -2148,7 +2153,7 @@ public:
             // Compute  F[k+1:n-1, k] = tau[k] * A[rk:m-1, k+1:n-1]^T * A[rk:m-1, k].
             if (k<n-1)
             {
-                Blas<T>::dgemv("Transpose", m-rk, n-k-1, tau[k], &A[rk+acolk+lda], lda,
+                Blas<real>::dgemv("Transpose", m-rk, n-k-1, tau[k], &A[rk+acolk+lda], lda,
                                &A[rk+acolk], 1, ZERO, &F[k+1+ldf*k], 1);
             }
             // Padding F[0:k, k] with zeros.
@@ -2160,15 +2165,15 @@ public:
             // F[0:n-1, k] -= tau[k] * F[0:n-1, 0:k-1] * A[rk:m-1, 0:k-1]^T * A[rk:m-1, k].
             if (k>0)
             {
-                Blas<T>::dgemv("Transpose", m-rk, k, -tau[k], &A[rk], lda, &A[rk+acolk], 1, ZERO,
-                               auxv, 1);
-                Blas<T>::dgemv("No transpose", n, k, ONE, F, ldf, auxv, 1, ONE, &F[ldf*k], 1);
+                Blas<real>::dgemv("Transpose", m-rk, k, -tau[k], &A[rk], lda, &A[rk+acolk], 1,
+                                  ZERO, auxv, 1);
+                Blas<real>::dgemv("No transpose", n, k, ONE, F, ldf, auxv, 1, ONE, &F[ldf*k], 1);
             }
             // Update the current row of A:
             // A[rk, k+1:n-1] -= A[rk, 0:k] * F[k+1:n-1, 0:k]^T.
             if (k<n-1)
             {
-                Blas<T>::dgemv("No transpose", n-k-1, k+1, -ONE, &F[k+1], ldf, &A[rk], lda,
+                Blas<real>::dgemv("No transpose", n-k-1, k+1, -ONE, &F[k+1], ldf, &A[rk], lda,
                                ONE, &A[rk+acolk+lda], lda);
             }
             // Update partial column norms.
@@ -2187,7 +2192,7 @@ public:
                         temp2 = temp * temp2 * temp2;
                         if (temp2<=tol3z)
                         {
-                            vn2[j] = T(lsticc+1);
+                            vn2[j] = real(lsticc+1);
                             lsticc = j;
                         }
                         else
@@ -2205,7 +2210,7 @@ public:
         // A[offset+kb:m-1, kb:n-1] -= A[offset+kb:m-1, 0:kb-1] * F[kb:n-1, 0:kb-1]^T.
         if (kb < ((n<=m-offset)?n:m-offset))
         {
-            Blas<T>::dgemm("No transpose", "Transpose", m-rk-1, n-kb, kb, -ONE, &A[rk+1], lda,
+            Blas<real>::dgemm("No transpose", "Transpose", m-rk-1, n-kb, kb, -ONE, &A[rk+1], lda,
                            &F[kb], ldf, ONE, &A[rk+1+lda*kb], lda);
         }
         // Recomputation of difficult columns.
@@ -2213,7 +2218,7 @@ public:
         {
 
             itemp = int(vn2[lsticc]-HALF); // round vn2[lsticc]-1
-            vn1[lsticc] = Blas<T>::dnrm2(m-rk-1, &A[rk+1+lda*lsticc], 1);
+            vn1[lsticc] = Blas<real>::dnrm2(m-rk-1, &A[rk+1+lda*lsticc], 1);
             // NOTE: The computation of vn1[lsticc] relies on the fact that dnrm2 does not fail on
             // vectors with norm below the value of sqrt(dlamch("S"))
             vn2[lsticc] = vn1[lsticc];
@@ -2245,9 +2250,9 @@ public:
      * Authors: Univ.of Tennessee
      *          Univ.of California Berkeley
      *          Univ.of Colorado Denver
-     *          NAG Ltd.                                                                      */
-    static void dlarf(char const* side, int m, int n, T const* v, int incv, T tau, T* C, int ldc,
-                      T* work)
+     *          NAG Ltd.                                                                         */
+    static void dlarf(char const* side, int m, int n, real const* v, int incv, real tau, real* C,
+                      int ldc, real* work)
     {
         bool applyleft;
         int i, lastv=0, lastc=0;
@@ -2296,9 +2301,9 @@ public:
             if (lastv>0)
             {
                 // work[0:lastc-1] = C[0:lastv-1,0:last-1]^T * v[0:lastv-1]
-                Blas<T>::dgemv("Transpose", lastv, lastc, ONE, C, ldc, v, incv, ZERO, work, 1);
+                Blas<real>::dgemv("Transpose", lastv, lastc, ONE, C, ldc, v, incv, ZERO, work, 1);
                 // C[0:lastv-1,0:lastc-1] -= v[0:lastv-1] * work[0:lastc-1]^T
-                Blas<T>::dger(lastv, lastc, -tau, v, incv, work, 1, C, ldc);
+                Blas<real>::dger(lastv, lastc, -tau, v, incv, work, 1, C, ldc);
             }
         }
         else
@@ -2307,9 +2312,10 @@ public:
             if (lastv>0)
             {
                 // work[0:lastc-1] = C[0:lastc-1,0:lastv-1] * v[0:lastv-1]
-                Blas<T>::dgemv("No transpose", lastc, lastv, ONE, C, ldc, v, incv, ZERO, work, 1);
+                Blas<real>::dgemv("No transpose", lastc, lastv, ONE, C, ldc, v, incv, ZERO, work,
+                                  1);
                 // C[0:lastc-1,0:lastv-1] -= work[0:lastc-1] * v[0:lastv-1]^T
-                Blas<T>::dger(lastc, lastv, -tau, work, 1, v, incv, C, ldc);
+                Blas<real>::dger(lastc, lastv, -tau, work, 1, v, incv, C, ldc);
             }
         }
     }
@@ -2329,7 +2335,7 @@ public:
      *                     'R': Rowwise
      *             m: The number of rows of the matrix C.
      *             n: The number of columns of the matrix C.
-     *             k: The order of the matrix Tm(= the number of elementary reflectors
+     *             k: The order of the matrix T(= the number of elementary reflectors
      *                whose product defines the block reflector).
      *             V: an array, dimension (ldv, k) if storev = 'C'
      *                                    (ldv, m) if storev = 'R' and side = 'L'
@@ -2338,9 +2344,9 @@ public:
      *                  If storev = 'C' and side = 'L', ldv >= max(1, m);
      *                  if storev = 'C' and side = 'R', ldv >= max(1, n);
      *                  if storev = 'R', ldv >= k.
-     *             Tm: an array, dimension(ldt, k)
-     *                The triangular k by k matrix Tm in the representation of the block reflector.
-     *             ldt: The leading dimension of the array Tm. ldt >= k.
+     *             T: an array, dimension(ldt, k)
+     *                The triangular k by k matrix T in the representation of the block reflector.
+     *             ldt: The leading dimension of the array T. ldt >= k.
      *             C: an array, dimension(ldc, n)
      *                On entry, the m by n matrix C.
      *                On exit, C is overwritten by H * C or H^T * C or C * H or C * H^T.
@@ -2371,8 +2377,8 @@ public:
      *                      (1 v3)
      *                      (1)                                                                  */
     static void dlarfb(char const* side, char const* trans, char const* direct, char const* storev,
-                       int m, int n, int k, T* V, int ldv, T const* Tm, int ldt, T* C, int ldc,
-                       T* Work, int ldwork)
+                       int m, int n, int k, real* V, int ldv, real const* T, int ldt, real* C,
+                       int ldc, real* Work, int ldwork)
     {
         // Quick return if possible
         if (m<0 || n<0)
@@ -2407,30 +2413,30 @@ public:
                     // W = C1^T
                     for (j=0; j<k; j++)
                     {
-                        Blas<T>::dcopy(n, &C[j], ldc, &Work[ldwork*j], 1);
+                        Blas<real>::dcopy(n, &C[j], ldc, &Work[ldwork*j], 1);
                     }
                     // W : = W * V1
-                    Blas<T>::dtrmm("Right", "Lower", "No transpose", "Unit", n, k, ONE, V, ldv,
-                                   Work, ldwork);
+                    Blas<real>::dtrmm("Right", "Lower", "No transpose", "Unit", n, k, ONE, V, ldv,
+                                      Work, ldwork);
                     if (m>k)
                     {
                         // W = W + C2^T * V2
-                        Blas<T>::dgemm("Transpose", "No transpose", n, k, m-k, ONE, &C[k], ldc,
-                                       &V[k], ldv, ONE, Work, ldwork);
+                        Blas<real>::dgemm("Transpose", "No transpose", n, k, m-k, ONE, &C[k], ldc,
+                                          &V[k], ldv, ONE, Work, ldwork);
                     }
-                    // W = W * Tm^T or W * Tm
-                    Blas<T>::dtrmm("Right", "Upper", transt, "Non-unit", n, k, ONE, Tm, ldt, Work,
-                                   ldwork);
+                    // W = W * T^T or W * T
+                    Blas<real>::dtrmm("Right", "Upper", transt, "Non-unit", n, k, ONE, T, ldt,
+                                      Work, ldwork);
                     // C = C - V * W^T
                     if (m>k)
                     {
                         // C2 = C2 - V2 * W^T
-                        Blas<T>::dgemm("No transpose", "Transpose", m-k, n, k, -ONE, &V[k], ldv,
-                                       Work, ldwork, ONE, &C[k], ldc);
+                        Blas<real>::dgemm("No transpose", "Transpose", m-k, n, k, -ONE, &V[k], ldv,
+                                          Work, ldwork, ONE, &C[k], ldc);
                     }
                     // W = W * V1^T
-                    Blas<T>::dtrmm("Right", "Lower", "Transpose", "Unit", n, k, ONE, V, ldv, Work,
-                                   ldwork);
+                    Blas<real>::dtrmm("Right", "Lower", "Transpose", "Unit", n, k, ONE, V, ldv,
+                                      Work, ldwork);
                     // C1 = C1 - W^T
                     for (j=0; j<k; j++)
                     {
@@ -2448,30 +2454,30 @@ public:
                     // W = C1
                     for (j=0; j<k; j++)
                     {
-                        Blas<T>::dcopy(m, &C[ldc*j], 1, &Work[ldwork*j], 1);
+                        Blas<real>::dcopy(m, &C[ldc*j], 1, &Work[ldwork*j], 1);
                     }
                     // W = W * V1
-                    Blas<T>::dtrmm("Right", "Lower", "No transpose", "Unit", m, k, ONE, V, ldv,
-                                   Work, ldwork);
+                    Blas<real>::dtrmm("Right", "Lower", "No transpose", "Unit", m, k, ONE, V, ldv,
+                                      Work, ldwork);
                     if (n>k)
                     {
                         // W = W + C2 * V2
-                        Blas<T>::dgemm("No transpose", "No transpose", m, k, n-k, ONE, &C[ldc*k],
-                                       ldc, &V[k], ldv, ONE, Work, ldwork);
+                        Blas<real>::dgemm("No transpose", "No transpose", m, k, n-k, ONE,
+                                          &C[ldc*k], ldc, &V[k], ldv, ONE, Work, ldwork);
                     }
-                    // W = W * Tm or W * Tm^T
-                    Blas<T>::dtrmm("Right", "Upper", trans, "Non-unit", m, k, ONE, Tm, ldt, Work,
-                                   ldwork);
+                    // W = W * T or W * T^T
+                    Blas<real>::dtrmm("Right", "Upper", trans, "Non-unit", m, k, ONE, T, ldt,
+                                      Work, ldwork);
                     // C = C - W * V^T
                     if (n>k)
                     {
                         // C2 = C2 - W * V2^T
-                        Blas<T>::dgemm("No transpose", "Transpose", m, n-k, k, -ONE, Work, ldwork,
-                                       &V[k], ldv, ONE, &C[ldc*k], ldc);
+                        Blas<real>::dgemm("No transpose", "Transpose", m, n-k, k, -ONE, Work,
+                                          ldwork, &V[k], ldv, ONE, &C[ldc*k], ldc);
                     }
                     // W = W * V1^T
-                    Blas<T>::dtrmm("Right", "Lower", "Transpose", "Unit", m, k, ONE, V, ldv, Work,
-                                   ldwork);
+                    Blas<real>::dtrmm("Right", "Lower", "Transpose", "Unit", m, k, ONE, V, ldv,
+                                      Work, ldwork);
                     // C1 = C1 - W
                     for (j=0; j<k; j++)
                     {
@@ -2497,30 +2503,30 @@ public:
                     // W = C2^T
                     for (j=0; j<k; j++)
                     {
-                        Blas<T>::dcopy(n, &C[m-k+j], ldc, &Work[ldwork*j], 1);
+                        Blas<real>::dcopy(n, &C[m-k+j], ldc, &Work[ldwork*j], 1);
                     }
                     // W = W * V2
-                    Blas<T>::dtrmm("Right", "Upper", "No transpose", "Unit", n, k, ONE, &V[m-k],
-                                   ldv, Work, ldwork);
+                    Blas<real>::dtrmm("Right", "Upper", "No transpose", "Unit", n, k, ONE, &V[m-k],
+                                      ldv, Work, ldwork);
                     if (m>k)
                     {
                         // W = W + C1^T * V1
-                        Blas<T>::dgemm("Transpose", "No transpose", n, k, m-k, ONE, C, ldc, V, ldv,
-                                ONE, Work, ldwork);
+                        Blas<real>::dgemm("Transpose", "No transpose", n, k, m-k, ONE, C, ldc, V,
+                                          ldv, ONE, Work, ldwork);
                     }
-                    // W = W * Tm^T or W * Tm
-                    Blas<T>::dtrmm("Right", "Lower", transt, "Non-unit", n, k, ONE, Tm, ldt, Work,
-                                   ldwork);
+                    // W = W * T^T or W * T
+                    Blas<real>::dtrmm("Right", "Lower", transt, "Non-unit", n, k, ONE, T, ldt,
+                                      Work, ldwork);
                     // C = C - V * W^T
                     if (m>k)
                     {
                         // C1 = C1 - V1 * W^T
-                        Blas<T>::dgemm("No transpose", "Transpose", m-k, n, k, -ONE, V, ldv, Work,
-                                ldwork, ONE, C, ldc);
+                        Blas<real>::dgemm("No transpose", "Transpose", m-k, n, k, -ONE, V, ldv,
+                                          Work, ldwork, ONE, C, ldc);
                     }
                     // W = W * V2^T
-                    Blas<T>::dtrmm("Right", "Upper", "Transpose", "Unit", n, k, ONE, &V[m-k], ldv,
-                                   Work, ldwork);
+                    Blas<real>::dtrmm("Right", "Upper", "Transpose", "Unit", n, k, ONE, &V[m-k],
+                                      ldv, Work, ldwork);
                     // C2 = C2 - W^T
                     for (j=0; j<k; j++)
                     {
@@ -2540,30 +2546,30 @@ public:
                     ccol = ldc * (n-k);
                     for (j=0; j<k; j++)
                     {
-                        Blas<T>::dcopy(m, &C[ccol+ldc*j], 1, &Work[ldwork*j], 1);
+                        Blas<real>::dcopy(m, &C[ccol+ldc*j], 1, &Work[ldwork*j], 1);
                     }
                     // W = W * V2
-                    Blas<T>::dtrmm("Right", "Upper", "No transpose", "Unit", m, k, ONE, &V[n-k],
-                                   ldv, Work, ldwork);
+                    Blas<real>::dtrmm("Right", "Upper", "No transpose", "Unit", m, k, ONE, &V[n-k],
+                                      ldv, Work, ldwork);
                     if (n>k)
                     {
                         // W = W + C1 * V1
-                        Blas<T>::dgemm("No transpose", "No transpose", m, k, n-k, ONE, C, ldc, V,
-                                       ldv, ONE, Work, ldwork);
+                        Blas<real>::dgemm("No transpose", "No transpose", m, k, n-k, ONE, C, ldc,
+                                          V, ldv, ONE, Work, ldwork);
                     }
-                    // W : = W * Tm or W * Tm^T
-                    Blas<T>::dtrmm("Right", "Lower", trans, "Non-unit", m, k, ONE, Tm, ldt, Work,
-                                   ldwork);
+                    // W : = W * T or W * T^T
+                    Blas<real>::dtrmm("Right", "Lower", trans, "Non-unit", m, k, ONE, T, ldt,
+                                      Work, ldwork);
                     // C = C - W * V^T
                     if (n>k)
                     {
                         // C1 = C1 - W * V1^T
-                        Blas<T>::dgemm("No transpose", "Transpose", m, n-k, k, -ONE, Work, ldwork,
-                                       V, ldv, ONE, C, ldc);
+                        Blas<real>::dgemm("No transpose", "Transpose", m, n-k, k, -ONE, Work,
+                                          ldwork, V, ldv, ONE, C, ldc);
                     }
                     // W = W * V2^T
-                    Blas<T>::dtrmm("Right", "Upper", "Transpose", "Unit", m, k, ONE, &V[n-k], ldv,
-                                   Work, ldwork);
+                    Blas<real>::dtrmm("Right", "Upper", "Transpose", "Unit", m, k, ONE, &V[n-k],
+                                      ldv, Work, ldwork);
                     // C2 = C2 - W
                     for (j=0; j<k; j++)
                     {
@@ -2591,30 +2597,30 @@ public:
                     // W = C1^T
                     for (j=0; j<k; j++)
                     {
-                        Blas<T>::dcopy(n, &C[j], ldc, &Work[ldwork*j], 1);
+                        Blas<real>::dcopy(n, &C[j], ldc, &Work[ldwork*j], 1);
                     }
                     // W = W * V1^T
-                    Blas<T>::dtrmm("Right", "Upper", "Transpose", "Unit", n, k, ONE, V, ldv, Work,
-                                   ldwork);
+                    Blas<real>::dtrmm("Right", "Upper", "Transpose", "Unit", n, k, ONE, V, ldv,
+                                      Work, ldwork);
                     if (m>k)
                     {
                         // W = W + C2^T * V2^T
-                        Blas<T>::dgemm("Transpose", "Transpose", n, k, m-k, ONE, &C[k], ldc,
-                                       &V[ldv*k], ldv, ONE, Work, ldwork);
+                        Blas<real>::dgemm("Transpose", "Transpose", n, k, m-k, ONE, &C[k], ldc,
+                                          &V[ldv*k], ldv, ONE, Work, ldwork);
                     }
-                    // W = W * Tm^T or W * Tm
-                    Blas<T>::dtrmm("Right", "Upper", transt, "Non-unit", n, k, ONE, Tm, ldt, Work,
-                                   ldwork);
+                    // W = W * T^T or W * T
+                    Blas<real>::dtrmm("Right", "Upper", transt, "Non-unit", n, k, ONE, T, ldt,
+                                      Work, ldwork);
                     // C = C - V^T * W^T
                     if (m>k)
                     {
                         // C2 = C2 - V2^T * W^T
-                        Blas<T>::dgemm("Transpose", "Transpose", m-k, n, k, -ONE, &V[ldv*k], ldv,
-                                       Work, ldwork, ONE, &C[k], ldc);
+                        Blas<real>::dgemm("Transpose", "Transpose", m-k, n, k, -ONE, &V[ldv*k],
+                                          ldv, Work, ldwork, ONE, &C[k], ldc);
                     }
                     // W = W * V1
-                    Blas<T>::dtrmm("Right", "Upper", "No transpose", "Unit", n, k, ONE, V, ldv,
-                                   Work, ldwork);
+                    Blas<real>::dtrmm("Right", "Upper", "No transpose", "Unit", n, k, ONE, V, ldv,
+                                      Work, ldwork);
                     // C1 = C1 - W^T
                     for (j=0; j<k; j++)
                     {
@@ -2632,30 +2638,30 @@ public:
                     // W = C1
                     for (j=0; j<k; j++)
                     {
-                        Blas<T>::dcopy(m, &C[ldc*j], 1, &Work[ldwork*j], 1);
+                        Blas<real>::dcopy(m, &C[ldc*j], 1, &Work[ldwork*j], 1);
                     }
                     // W = W * V1^T
-                    Blas<T>::dtrmm("Right", "Upper", "Transpose", "Unit", m, k, ONE, V, ldv, Work,
-                                   ldwork);
+                    Blas<real>::dtrmm("Right", "Upper", "Transpose", "Unit", m, k, ONE, V, ldv,
+                                      Work, ldwork);
                     if (n>k)
                     {
                         // W = W + C2 * V2^T
-                        Blas<T>::dgemm("No transpose", "Transpose", m, k, n-k, ONE, &C[ldc*k], ldc,
-                                        &V[ldv*k], ldv, ONE, Work, ldwork);
+                        Blas<real>::dgemm("No transpose", "Transpose", m, k, n-k, ONE, &C[ldc*k],
+                                          ldc, &V[ldv*k], ldv, ONE, Work, ldwork);
                     }
-                    // W = W * Tm or W * Tm^T
-                    Blas<T>::dtrmm("Right", "Upper", trans, "Non-unit", m, k, ONE, Tm, ldt, Work,
-                                   ldwork);
+                    // W = W * T or W * T^T
+                    Blas<real>::dtrmm("Right", "Upper", trans, "Non-unit", m, k, ONE, T, ldt,
+                                      Work, ldwork);
                     // C = C - W * V
                     if (n>k)
                     {
                         // C2 = C2 - W * V2
-                        Blas<T>::dgemm("No transpose", "No transpose", m, n-k, k, -ONE, Work,
-                                       ldwork, &V[ldv*k], ldv, ONE, &C[ldc*k], ldc);
+                        Blas<real>::dgemm("No transpose", "No transpose", m, n-k, k, -ONE, Work,
+                                          ldwork, &V[ldv*k], ldv, ONE, &C[ldc*k], ldc);
                     }
                     // W = W * V1
-                    Blas<T>::dtrmm("Right", "Upper", "No transpose", "Unit", m, k, ONE, V, ldv,
-                                   Work, ldwork);
+                    Blas<real>::dtrmm("Right", "Upper", "No transpose", "Unit", m, k, ONE, V, ldv,
+                                      Work, ldwork);
                     // C1 = C1 - W
                     for (j=0; j<k; j++)
                     {
@@ -2680,30 +2686,30 @@ public:
                     // W = C2^T
                     for (j=0; j<k; j++)
                     {
-                        Blas<T>::dcopy(n, &C[m-k+j], ldc, &Work[ldwork*j], 1);
+                        Blas<real>::dcopy(n, &C[m-k+j], ldc, &Work[ldwork*j], 1);
                     }
                     // W = W * V2^T
-                    Blas<T>::dtrmm("Right", "Lower", "Transpose", "Unit", n, k, ONE, &V[ldv*(m-k)],
-                                   ldv, Work, ldwork);
+                    Blas<real>::dtrmm("Right", "Lower", "Transpose", "Unit", n, k, ONE,
+                                      &V[ldv*(m-k)], ldv, Work, ldwork);
                     if (m>k)
                     {
                         // W = W + C1^T * V1^T
-                        Blas<T>::dgemm("Transpose", "Transpose", n, k, m-k, ONE, C, ldc, V, ldv,
-                                       ONE, Work, ldwork);
+                        Blas<real>::dgemm("Transpose", "Transpose", n, k, m-k, ONE, C, ldc, V, ldv,
+                                          ONE, Work, ldwork);
                     }
-                    // W = W * Tm^T or W * Tm
-                    Blas<T>::dtrmm("Right", "Lower", transt, "Non-unit", n, k, ONE, Tm, ldt, Work,
-                                   ldwork);
+                    // W = W * T^T or W * T
+                    Blas<real>::dtrmm("Right", "Lower", transt, "Non-unit", n, k, ONE, T, ldt,
+                                      Work, ldwork);
                     // C = C - V^T * W^T
                     if (m>k)
                     {
                         // C1 = C1 - V1^T * W^T
-                        Blas<T>::dgemm("Transpose", "Transpose", m-k, n, k, -ONE, V, ldv, Work,
-                                       ldwork, ONE, C, ldc);
+                        Blas<real>::dgemm("Transpose", "Transpose", m-k, n, k, -ONE, V, ldv, Work,
+                                          ldwork, ONE, C, ldc);
                     }
                     // W = W * V2
-                    Blas<T>::dtrmm("Right", "Lower", "No transpose", "Unit", n, k, ONE,
-                                   &V[ldv*(m-k)], ldv, Work, ldwork);
+                    Blas<real>::dtrmm("Right", "Lower", "No transpose", "Unit", n, k, ONE,
+                                      &V[ldv*(m-k)], ldv, Work, ldwork);
                     // C2 = C2 - W^T
                     for (j=0; j<k; j++)
                     {
@@ -2723,30 +2729,30 @@ public:
                     ccol = ldc * (n-k);
                     for (j=0; j<k; j++)
                     {
-                        Blas<T>::dcopy(m, &C[ccol+ldc*j], 1, &Work[ldwork*j], 1);
+                        Blas<real>::dcopy(m, &C[ccol+ldc*j], 1, &Work[ldwork*j], 1);
                     }
                     // W = W * V2^T
-                    Blas<T>::dtrmm("Right", "Lower", "Transpose", "Unit", m, k, ONE, &V[ldv*(n-k)],
-                                   ldv, Work, ldwork);
+                    Blas<real>::dtrmm("Right", "Lower", "Transpose", "Unit", m, k, ONE,
+                                      &V[ldv*(n-k)], ldv, Work, ldwork);
                     if (n>k)
                     {
                         // W = W + C1 * V1^T
-                        Blas<T>::dgemm("No transpose", "Transpose", m, k, n-k, ONE, C, ldc, V, ldv,
-                                       ONE, Work, ldwork);
+                        Blas<real>::dgemm("No transpose", "Transpose", m, k, n-k, ONE, C, ldc, V,
+                                          ldv, ONE, Work, ldwork);
                     }
-                    // W = W * Tm or W * Tm^T
-                    Blas<T>::dtrmm("Right", "Lower", trans, "Non-unit", m, k, ONE, Tm, ldt, Work,
-                                   ldwork);
+                    // W = W * T or W * T^T
+                    Blas<real>::dtrmm("Right", "Lower", trans, "Non-unit", m, k, ONE, T, ldt,
+                                      Work, ldwork);
                     // C = C - W * V
                     if (n>k)
                     {
                         // C1 = C1 - W * V1
-                        Blas<T>::dgemm("No transpose", "No transpose", m, n-k, k, -ONE, Work,
-                                       ldwork, V, ldv, ONE, C, ldc);
+                        Blas<real>::dgemm("No transpose", "No transpose", m, n-k, k, -ONE, Work,
+                                          ldwork, V, ldv, ONE, C, ldc);
                     }
                     // W = W * V2
-                    Blas<T>::dtrmm("Right", "Lower", "No transpose", "Unit", m, k, ONE,
-                                   &V[ldv*(n-k)], ldv, Work, ldwork);
+                    Blas<real>::dtrmm("Right", "Lower", "No transpose", "Unit", m, k, ONE,
+                                      &V[ldv*(n-k)], ldv, Work, ldwork);
                     // C1 = C1 - W
                     for (j=0; j<k; j++)
                     {
@@ -2784,16 +2790,16 @@ public:
      *          Univ.of California Berkeley
      *          Univ.of Colorado Denver
      *          NAG Ltd.                                                                         */
-    static void dlarfg(int n, T& alpha, T* x, int incx, T& tau)
+    static void dlarfg(int n, real& alpha, real* x, int incx, real& tau)
     {
         int j, knt;
-        T beta, rsafmin, safmin, xnorm;
+        real beta, rsafmin, safmin, xnorm;
         if (n<=1)
         {
             tau = ZERO;
             return;
         }
-        xnorm = Blas<T>::dnrm2(n-1, x, incx);
+        xnorm = Blas<real>::dnrm2(n-1, x, incx);
         if (xnorm==ZERO)
         {
             // H = I
@@ -2802,7 +2808,7 @@ public:
         else
         {
             // general case
-            beta = -dlapy2(alpha, xnorm) * T((ZERO<=alpha) - (alpha<ZERO));
+            beta = -dlapy2(alpha, xnorm) * real((ZERO<=alpha) - (alpha<ZERO));
             safmin = dlamch("SafeMin") / dlamch("Epsilon");
             knt = 0;
             if (fabs(beta)<safmin)
@@ -2812,16 +2818,16 @@ public:
                 do
                 {
                     knt++;
-                    Blas<T>::dscal(n-1, rsafmin, x, incx);
+                    Blas<real>::dscal(n-1, rsafmin, x, incx);
                     beta *= rsafmin;
                     alpha *= rsafmin;
                 } while (fabs(beta)<safmin);
                 // New beta is at most 1, at least SAFMIN
-                xnorm = Blas<T>::dnrm2(n-1, x, incx);
-                beta = -dlapy2(alpha, xnorm) * T((ZERO<=alpha) - (alpha<ZERO));
+                xnorm = Blas<real>::dnrm2(n-1, x, incx);
+                beta = -dlapy2(alpha, xnorm) * real((ZERO<=alpha) - (alpha<ZERO));
             }
             tau = (beta-alpha) / beta;
-            Blas<T>::dscal(n-1, ONE/(alpha-beta), x, incx);
+            Blas<real>::dscal(n-1, ONE/(alpha-beta), x, incx);
             // If alpha is subnormal, it may lose relative accuracy
             for (j=0; j<knt; j++)
             {
@@ -2831,16 +2837,16 @@ public:
         }
     }
 
-    /* dlarft forms the triangular factor A of a real block reflector H
+    /* dlarft forms the triangular factor T of a real block reflector H
      * of order n, which is defined as a product of k elementary reflectors.
-     *     If direct = 'F', H = H(1) H(2) . ..H(k) and A is upper triangular;
-     *     If direct = 'B', H = H(k) . ..H(2) H(1) and A is lower triangular.
+     *     If direct = 'F', H = H(1) H(2) . ..H(k) and T is upper triangular;
+     *     If direct = 'B', H = H(k) . ..H(2) H(1) and T is lower triangular.
      *     If storev = 'C', the vector which defines the elementary reflector
      *                      H(i) is stored in the i - th column of the array V, and
-     *                      H = I - V * A * V^T
+     *                      H = I - V * T * V^T
      *     If storev = 'R', the vector which defines the elementary reflector
      *                      H(i) is stored in the i - th row of the array V, and
-     *                      H = I - V^T * A * V
+     *                      H = I - V^T * T * V
      * Parameters: direct:  Specifies the order in which the elementary reflectors are
      *                      multiplied to form the block reflector:
      *                      'F': H = H(1) H(2) . ..H(k) (Forward)
@@ -2850,7 +2856,7 @@ public:
      *                     'C': columnwise
      *                     'R': rowwise
      *             n: The order of the block reflector H. n >= 0.
-     *             k: The order of the triangular factor A(= the number of elementary reflectors).
+     *             k: The order of the triangular factor T(= the number of elementary reflectors).
      *                k >= 1.
      *             V: an array, dimension (ldv, k) if storev = 'C'
      *                                    (ldv, n) if storev = 'R'
@@ -2858,11 +2864,11 @@ public:
      *                  If storev = 'C', ldv >= max(1, n); if storev = 'R', ldv >= k.
      *             tau: an array, dimension(k)
      *                  tau(i) must contain the scalar factor of the elementary reflector H(i).
-     *             A: an array, dimension(lda, k)
-     *                The k by k triangular factor A of the block reflector.
-     *                If direct=='F', A is upper triangular;
-     *                if direct=='B', A is lower triangular. The rest of the array is not used.
-     *             lda: The leading dimension of the array A. lda >= k.
+     *             T: an array, dimension(lda, k)
+     *                The k by k triangular factor T of the block reflector.
+     *                If direct=='F', T is upper triangular;
+     *                if direct=='B', T is lower triangular. The rest of the array is not used.
+     *             lda: The leading dimension of the array T. lda >= k.
      * Authors: Univ.of Tennessee
      *          Univ.of California Berkeley
      *          Univ.of Colorado Denver
@@ -2883,8 +2889,8 @@ public:
      *                    (1 v2 v3)                      (v3 v3 v3 v3  1)
      *                    (1 v3)
      *                    (1)                                                                    */
-    static void dlarft(char const* direct, char const* storev, int n, int k, T const* V, int ldv,
-                       T const* tau, T* A, int lda)
+    static void dlarft(char const* direct, char const* storev, int n, int k, real const* V, int ldv,
+                       real const* tau, real* T, int lda)
     {
         // Quick return if possible
         if (n==0)
@@ -2909,7 +2915,7 @@ public:
                     // H(i) = I
                     for (j=0; j<=i; j++)
                     {
-                        A[j+tcoli] = ZERO;
+                        T[j+tcoli] = ZERO;
                     }
                 }
                 else
@@ -2928,12 +2934,12 @@ public:
                         }
                         for (j = 0; j<i; j++)
                         {
-                            A[j+tcoli] = -tau[i]*V[i+ldv*j];
+                            T[j+tcoli] = -tau[i]*V[i+ldv*j];
                         }
                         j = ((lastv<prevlastv) ? lastv : prevlastv);
                         // T[0:i-1, i] = -tau[i] * V[i:j, 0:i-1]^T * V[i:j, i]
-                        Blas<T>::dgemv("Transpose", j-i, i, -tau[i], &V[i+1], ldv, &V[i+1+vcol], 1,
-                                       ONE, &A[tcoli], 1);
+                        Blas<real>::dgemv("Transpose", j-i, i, -tau[i], &V[i+1], ldv, &V[i+1+vcol],
+                                          1, ONE, &T[tcoli], 1);
                     }
                     else
                     {
@@ -2948,16 +2954,17 @@ public:
                         vcol = ldv*i;
                         for (j=0; j<i; j++)
                         {
-                            A[j+tcoli] = -tau[i]*V[j+vcol];
+                            T[j+tcoli] = -tau[i]*V[j+vcol];
                         }
                         j = ((lastv<prevlastv) ? lastv : prevlastv);
                         // T[0:i-1, i] = -tau[i] * V[0:i-1, i:j] * V[i, i:j]^T
-                        Blas<T>::dgemv("No transpose", i, j-i, -tau[i], &V[vcol+ldv], ldv,
-                                       &V[i+vcol+ldv], ldv, ONE, &A[tcoli], 1);
+                        Blas<real>::dgemv("No transpose", i, j-i, -tau[i], &V[vcol+ldv], ldv,
+                                          &V[i+vcol+ldv], ldv, ONE, &T[tcoli], 1);
                     }
                     // T[0:i-1, i] = T[0:i-1, 0:i-1] * T[0:i-1, i]
-                    Blas<T>::dtrmv("Upper", "No transpose", "Non-unit", i, A, lda, &A[tcoli], 1);
-                    A[i+tcoli] = tau[i];
+                    Blas<real>::dtrmv("Upper", "No transpose", "Non-unit", i, T, lda, &T[tcoli],
+                                      1);
+                    T[i+tcoli] = tau[i];
                     if (i>0)
                     {
                         if (lastv>prevlastv)
@@ -2983,7 +2990,7 @@ public:
                     // H(i) = I
                     for (j=i; j<k; j++)
                     {
-                        A[j+tcoli] = ZERO;
+                        T[j+tcoli] = ZERO;
                     }
                 }
                 else
@@ -3005,12 +3012,12 @@ public:
                             vcol = n - k - i; // misuse: not a col, but a row
                             for (j=(i+1); j<k; j++)
                             {
-                                A[j+tcoli] = -tau[i] * V[vcol+ldv*j];
+                                T[j+tcoli] = -tau[i] * V[vcol+ldv*j];
                             }
                             j = ((lastv>prevlastv) ? lastv : prevlastv);
                             // T[i+1:k-1, i] = -tau[i] * V[j:n-k+i, i+1:k-1]^T * V[j:n-k+i, i]
                             dgemv("Transpose", vcol-j, k-1-i, -tau[i], &V[j+ldv*(i+1)], ldv,
-                                  &V[j+ldv*i], 1, ONE, &A[i+1+tcoli], 1);
+                                  &V[j+ldv*i], 1, ONE, &T[i+1+tcoli], 1);
                         }
                         else
                         {
@@ -3025,17 +3032,17 @@ public:
                             vcol = ldv * (n-k+i);
                             for (j=(i+1); j<k; j++)
                             {
-                                A[j+tcoli] = -tau[i]*V[j+vcol];
+                                T[j+tcoli] = -tau[i]*V[j+vcol];
                             }
                             j = ((lastv>prevlastv) ? lastv : prevlastv);
                             // T[i+1:k-1, i] = -tau[i] * V[i+1:k-1, j:n-k+i] * V[i, j:n-k+i]^T
                             vcol = ldv*j;
                             dgemv("No transpose", k-1-i, n-k+i-j, -tau[i], &V[i+1+vcol], ldv,
-                                  &V[i+vcol], ldv, ONE, &A[i+1+tcoli], 1);
+                                  &V[i+vcol], ldv, ONE, &T[i+1+tcoli], 1);
                         }
                         // T[i+1:k-1, i] = T[i+1:k-1, i+1:k-1] * T[i+1:k-1, i]
-                        Blas<T>::dtrmv("Lower", "No transpose", "Non-unit", k-i-1,
-                                       &A[i+1+lda*(i+1)], lda, &A[i+1+tcoli], 1);
+                        Blas<real>::dtrmv("Lower", "No transpose", "Non-unit", k-i-1,
+                                          &T[i+1+lda*(i+1)], lda, &T[i+1+tcoli], 1);
                         if (i>0)
                         {
                             if (lastv<prevlastv)
@@ -3049,7 +3056,7 @@ public:
                             prevlastv = lastv;
                         }
                     }
-                    A[i+tcoli] = tau[i];
+                    T[i+tcoli] = tau[i];
                 }
             }
         }
@@ -3076,12 +3083,12 @@ public:
      *     This routine calls the auxiliary routine dlaruv to generate random real numbers from a
      *     uniform (0,1) distribution, in batches of up to 128 using vectorisable code. The Box-
      *     Muller method is used to transform numbers from a uniform to a normal distribution.   */
-    static void dlarnv(int idist, int* iseed, int n, T* x)
+    static void dlarnv(int idist, int* iseed, int n, real* x)
     {
-        const T TWOPI = T(6.2831853071795864769252867663);
+        const real TWOPI = real(6.2831853071795864769252867663);
         const int LV = 128;
         int i, il, il2, iv;
-        T* u[LV];
+        real* u[LV];
         for (iv=0; iv<n; iv+=LV/2)
         {
             il = LV/2;
@@ -3148,15 +3155,15 @@ public:
      *          Univ.of Colorado Denver
      *          NAG Ltd.
      * Date December 2016                                                                        */
-    static void dlartg(T f, T g, T& cs, T& sn, T& r)
+    static void dlartg(real f, real g, real& cs, real& sn, real& r)
     {
         //static bool first = true;
-        /*static*/ T safmn2, safmx2;
+        /*static*/ real safmn2, safmx2;
         //if (first)
         //{
-        T safmin = dlamch("S");
-        T eps = dlamch("E");
-        T base = dlamch("B");
+        real safmin = dlamch("S");
+        real eps = dlamch("E");
+        real base = dlamch("B");
         safmn2 = std::pow(base, std::log(safmin/eps)/std::log(base)/TWO);
         safmx2 = ONE/safmn2;
         //first = false;
@@ -3175,9 +3182,9 @@ public:
         }
         else
         {
-            T f1 = f;
-            T g1 = g;
-            T scale = fabs(f1);
+            real f1 = f;
+            real g1 = g;
+            real scale = fabs(f1);
             scale = ((scale>fabs(g1)) ? scale : fabs(g1));
             int i, count = 0;
             if (scale>=safmx2)
@@ -3252,11 +3259,11 @@ public:
      *    Math. Comp. 189, pp 331-344, 1990).
      *    48-bit integers are stored in 4 integer array elements with 12 bits per element. Hence
      *    the routine is portable across machines with integers of 32 bits or more.              */
-    static void dlaruv(int* iseed, int n, T* x)
+    static void dlaruv(int* iseed, int n, real* x)
     {
         const int LV = 128;
         const int IPW2 = 4096;
-        const T R = ONE / IPW2;
+        const real R = ONE / IPW2;
         const int MM[4*LV] = {
             /*  0*/  494,  322, 2508, 2549,
             /*  1*/ 2637,  789, 3754, 1145,
@@ -3409,7 +3416,7 @@ public:
                 it1 = it1 + i1*MM[3+im4] + i2*MM[2+im4] + i3*MM[1+im4] + i4*MM[im4];
                 it1 = it1 % IPW2;
                 // Convert 48-bit integer to a real number in the interval (0,1)
-                x[i] = R*(T(it1)+R*(T(it2)+R*(T(it3)+R*T(it4))));
+                x[i] = R*(real(it1)+R*(real(it2)+R*(real(it3)+R*real(it4))));
                 if (x[i]==ONE)
                 {
                     // If a real number has n bits of precision, and the first n bits of the 48-bit
@@ -3455,12 +3462,12 @@ public:
      *     occur if the largest singular value is within a factor of 2 of overflow.)
      *     Underflow is harmless if underflow is gradual. Otherwise, results may correspond to a
      *     matrix modified by perturbations of size near the underflow threshold.                */
-    static void dlas2(T f, T g, T h, T& ssmin, T& ssmax)
+    static void dlas2(real f, real g, real h, real& ssmin, real& ssmax)
     {
-        T fa = fabs(f);
-        T ga = fabs(g);
-        T ha = fabs(h);
-        T fhmn, fhmx;
+        real fa = fabs(f);
+        real ga = fabs(g);
+        real ha = fabs(h);
+        real fhmn, fhmx;
         if (fa>ha)
         {
             fhmn = ha;
@@ -3494,7 +3501,7 @@ public:
         }
         else
         {
-            T as, at, au, c;
+            real as, at, au, c;
             if (ga<fhmx)
             {
                 as = ONE + fhmn/fhmx;
@@ -3565,8 +3572,8 @@ public:
      *          Univ.of Colorado Denver
      *          NAG Ltd.
      * Date June 2016                                                                            */
-    static void dlascl(char const* type, int kl, int ku, T cfrom, T cto, int m, int n, T* A,
-                       int lda, int& info)
+    static void dlascl(char const* type, int kl, int ku, real cfrom, real cto, int m, int n,
+                       real* A, int lda, int& info)
     {
         // Test the input arguments
         info = 0;
@@ -3655,12 +3662,12 @@ public:
             return;
         }
         // Get machine parameters
-        T smlnum = dlamch("S");
-        T bignum = ONE / smlnum;
-        T cfromc = cfrom;
-        T ctoc = cto;
+        real smlnum = dlamch("S");
+        real bignum = ONE / smlnum;
+        real cfromc = cfrom;
+        real ctoc = cto;
         int i, j, ldaj, k1, k2, k3, k4;
-        T cfrom1, cto1, mul;
+        real cfrom1, cto1, mul;
         bool done;
         do
         {
@@ -3816,7 +3823,7 @@ public:
      *          Univ.of Colorado Denver
      *          NAG Ltd.
      * Date December 2016                                                                        */
-    static void dlaset(char const* uplo, int m, int n, T alpha, T beta, T* A, int lda)
+    static void dlaset(char const* uplo, int m, int n, real alpha, real beta, real* A, int lda)
     {
         int i, j, ldaj;
         if (toupper(uplo[0])=='U')
@@ -3894,10 +3901,10 @@ public:
      *          Univ.of Colorado Denver
      *          NAG Ltd.
      * Date December 2016                                                                        */
-    static void dlasq1(int n, T* d, T* e, T* work, int& info)
+    static void dlasq1(int n, real* d, real* e, real* work, int& info)
     {
         int i, iinfo;
-        T eps, scale, safmin, sigmn, sigmx, temp;
+        real eps, scale, safmin, sigmn, sigmx, temp;
         info = 0
         if (n<0)
         {
@@ -3951,8 +3958,8 @@ public:
         eps = dlamch("Precision");
         safmin = dlamch("Safe minimum");
         scale = std::sqrt(eps/safmin);
-        Blas<T>::dcopy(n, d, 1, work[0], 2);
-        Blas<T>::dcopy(n-1, e, 1, work[1], 2);
+        Blas<real>::dcopy(n, d, 1, work[0], 2);
+        Blas<real>::dcopy(n-1, e, 1, work[1], 2);
         dlascl("G", 0, 0, sigmx, scale, 2*n-1, 1, work, 2*n-1, iinfo);
         // Compute the q's and e's.
         for (i=0; i<2*n-1; i++)
@@ -4021,13 +4028,14 @@ public:
      *     (alternates between 0 and 1).                                                         */
     static void dlasq2(int n, int Z, int& info)
     {
-        const T CBIAS = T(1.50);
-        const T FOUR  = T(4.0);
+        const real CBIAS = real(1.50);
+        const real FOUR  = real(4.0);
         bool ieee, loopbreak;
         int i0, i1, i4, iinfo, ipn4, iter, iwhila, iwhilb, k, kmin, n0, n1, nbig, ndiv, nfail, pp,
             splt, ttype;
-        T d, dee, deemin, desig, dmin, dmin1, dmin2, dn, dn1, dn2, e, emax, emin, eps, g, oldemn,
-          qmax, qmin, s, safmin, sigma, tt, tau, temp, tol, tol2, trace, zmax, tempe, tempq;
+        real d, dee, deemin, desig, dmin, dmin1, dmin2, dn, dn1, dn2, e, emax, emin, eps, g,
+             oldemn, qmax, qmin, s, safmin, sigma, tt, tau, temp, tol, tol2, trace, zmax, tempe,
+             tempq;
         // Test the input arguments. (in case dlasq2 is not called by dlasq1)
         info = 0;
         eps = dlamch("Precision");
@@ -4460,9 +4468,9 @@ public:
         // Store trace, sum(eigenvalues) and information on performance.
         Z[2*n] = trace;
         Z[2*n+1] = e;
-        Z[2*n+2] = T(iter);
-        Z[2*n+3] = T(NDIV) / T(n*n);
-        Z[2*n+4] = HNDRD * nfail / T(iter);
+        Z[2*n+2] = real(iter);
+        Z[2*n+3] = real(NDIV) / real(n*n);
+        Z[2*n+4] = HNDRD * nfail / real(iter);
         return;
     }
 
@@ -4497,17 +4505,18 @@ public:
      *          Univ.of Colorado Denver
      *          NAG Ltd.
      * Date June 2016                                                                            */
-    static void dlasq3(int i0, int& n0, T* Z, int& pp, T& dmin, T& sigma, T& desig, T qmax,
-                       int& nfail, int& iter, int& ndiv, bool ieee, int& ttype, T& dmin1, T& dmin2,
-                       T& dn, T& dn1, T& dn2, T& g, T& tau)
+    static void dlasq3(int i0, int& n0, real* Z, int& pp, real& dmin, real& sigma, real& desig,
+                       real qmax, int& nfail, int& iter, int& ndiv, bool ieee, int& ttype,
+                       real& dmin1, real& dmin2, real& dn, real& dn1, real& dn2, real& g,
+                       real& tau)
     {
-        const T CBIAS = T(1.50);
+        const real CBIAS = real(1.50);
         int n0in = n0;
-        T eps = dlamch("Precision");
-        T tol = eps*HNDRD;
-        T tol2 = tol*tol;
+        real eps = dlamch("Precision");
+        real tol = eps*HNDRD;
+        real tol2 = tol*tol;
         int ipn4, j4, nn;
-        T s, tt, temp;
+        real s, tt, temp;
         // Check for deflation.
         while (true)
         {
@@ -4706,13 +4715,13 @@ public:
      * Date June 2016
      * Further Details:
      *     CNST1 = 9/16                                                                          */
-    static void dlasq4(int i0, int n0, T const* Z, int pp, int n0in, T dmin, T dmin1, T dmin2,
-                       T dn, T dn1, T dn2, T& tau, int& ttype, T& g)
+    static void dlasq4(int i0, int n0, real const* Z, int pp, int n0in, real dmin, real dmin1,
+                       real dmin2, real dn, real dn1, real dn2, real& tau, int& ttype, real& g)
     {
-        const T CNST1 = T(0.563);
-        const T CNST2 = T(1.01);
-        const T CNST3 = T(1.05);
-        const T THIRD = T(0.333);
+        const real CNST1 = real(0.563);
+        const real CNST2 = real(1.01);
+        const real CNST3 = real(1.05);
+        const real THIRD = real(0.333);
         // A negative dmin forces the shift to take that absolute value
         // dn2 records the type of shift.
         if (dmin<=ZERO)
@@ -4722,7 +4731,7 @@ public:
         }
         int nn = 4*(n0+1) + pp;
         int i4, np;
-        T a2, b1, b2, gam, gap1, gap2, s, temp;
+        real a2, b1, b2, gam, gap1, gap2, s, temp;
         if (n0in==n0)
         {
             // No eigenvalues deflated.
@@ -5050,15 +5059,16 @@ public:
      *          Univ.of Colorado Denver
      *          NAG Ltd.
      * Date June 2017                                                                            */
-    static void dlasq5(int i0, int n0, T* Z, int pp, T tau, T sigma, T& dmin, T& dmin1, T& dmin2,
-                       T& dn, T& dnm1, T& dnm2, bool ieee, T eps)
+    static void dlasq5(int i0, int n0, real* Z, int pp, real tau, real sigma, real& dmin,
+                       real& dmin1, real& dmin2, real& dn, real& dnm1, real& dnm2, bool ieee,
+                       real eps)
     {
         if ((n0-i0-1)<=0)
         {
             return;
         }
         int j4, j4p2;
-        T d, emin, temp, dthresh;
+        real d, emin, temp, dthresh;
         dthresh = eps*(sigma+tau);
         if (tau<dthresh*HALF)
         {
@@ -5347,20 +5357,20 @@ public:
      *          Univ.of Colorado Denver
      *          NAG Ltd.
      * Date December 2016                                                                        */
-    static void dlasq6(int i0, int n0, T* Z, int pp, T& dmin, T& dmin1, T& dmin2, T& dn, T& dnm1,
-                       T& dnm2)
+    static void dlasq6(int i0, int n0, real* Z, int pp, real& dmin, real& dmin1, real& dmin2,
+                       real& dn, real& dnm1, real& dnm2)
     {
         if ((n0-i0-1)<=0)
         {
             return;
         }
-        T safmin = dlamch("Safe minimum");
+        real safmin = dlamch("Safe minimum");
         int j4 = 4*i0 + pp + 1;
-        T emin = Z[j4+4];
-        T d = Z[j4];
+        real emin = Z[j4+4];
+        real d = Z[j4];
         dmin = d;
         int j4p2;
-        T temp;
+        real temp;
         if (pp==0)
         {
             for (j4=4*i0+3; j4<4*(n0-2); j4+=4)
@@ -5551,10 +5561,10 @@ public:
      *          NAG Ltd.
      * Date December 2016                                                                        */
     static void dlasr(char const* side, char const* pivot, char const* direct, int m, int n,
-                      T const* c, T const* s, T* A, int lda)
+                      real const* c, real const* s, real* A, int lda)
     {
         int i, info, j, aind1, aind2, aind3, aind4;
-        T ctemp, stemp, temp;
+        real ctemp, stemp, temp;
         char upside = std::toupper(side[0]);
         char uppivot = std::toupper(pivot[0]);
         char updirect = std::toupper(direct[0]);
@@ -5887,7 +5897,7 @@ public:
      *          Univ.of Colorado Denver
      *          NAG Ltd.
      * Date June 2016                                                                            */
-    static void dlasrt(char const* id, int n, T* d, int& info)
+    static void dlasrt(char const* id, int n, real* d, int& info)
     {
         const int SELECT = 20;
         // Test the input parameters.
@@ -5921,7 +5931,7 @@ public:
         }
         int stack[2*32]; // stack[2, 32]
         int endd, i, j, start, stkpnt;
-        T d1, d2, d3, dmnmx, tmp;
+        real d1, d2, d3, dmnmx, tmp;
         stkpnt = 0;
         stack[0] = 0;     //stack[0,0]
         stack[1] = n - 1; //stack[1,0]
@@ -6125,11 +6135,11 @@ public:
      *          Univ.of Colorado Denver
      *          NAG Ltd.
      * Date: December 2016                                                                       */
-    static void dlassq(int n, T const* x, int incx, int& scale, int& sumsq)
+    static void dlassq(int n, real const* x, int incx, int& scale, int& sumsq)
     {
         if (n>0)
         {
-            T absxi, temp;
+            real absxi, temp;
             for (int ix=0; ix<=(n-1)*incx; ix++)
             {
                 absxi = fabs(x[ix]);
@@ -6184,11 +6194,12 @@ public:
      *     occur if the largest singular value is within a factor of 2 of overflow.)
      *   Underflow is harmless if underflow is gradual. Otherwise, results may correspond to a
      *     matrix modified by perturbations of size near the underflow threshold.                */
-    static void dlasv2(T f, T g, T h, T& ssmin, T& ssmax, T& snr, T& csr, T& snl, T& csl)
+    static void dlasv2(real f, real g, real h, real& ssmin, real& ssmax, real& snr, real& csr,
+                       real& snl, real& csl)
     {
         bool gasmal, swap;
         int pmax;
-        T a, clt, crt, d, fa, ft, ga, gt, ha, ht, l, m, mm, r, s, slt, srt, t, temp, tsign, tt;
+        real a, clt, crt, d, fa, ft, ga, gt, ha, ht, l, m, mm, r, s, slt, srt, t, temp, tsign, tt;
         ft = f;
         fa = std::fabs(ft);
         ht = h;
@@ -6278,7 +6289,7 @@ public:
                     r = std::sqrt(l*l+mm);
                 }
                 // Note that 0 <= r <= 1 + 1/macheps
-                a = T(0.5) * (s+r);
+                a = HALF * (s+r);
                 // Note that 1 <= a <= 1 + abs(M)
                 ssmin = ha / a;
                 ssmax = fa * a;
@@ -6287,18 +6298,18 @@ public:
                     // Note that m is very tiny
                     if (l==ZERO)
                     {
-                        t = T((ZERO<=ft)-(ft<ZERO)) * TWO * T((ZERO<=gt)-(gt<ZERO));
+                        t = real((ZERO<=ft)-(ft<ZERO)) * TWO * real((ZERO<=gt)-(gt<ZERO));
                     }
                     else
                     {
-                        t = gt / (T((ZERO<=ft)-(ft<ZERO))*std::fabs(d)) + m / t;
+                        t = gt / (real((ZERO<=ft)-(ft<ZERO))*std::fabs(d)) + m / t;
                     }
                 }
                 else
                 {
                     t = (m/(s+t) + m/(r+l)) * (ONE + a);
                 }
-                l = std::sqrt(t*t+T(4.0));
+                l = std::sqrt(t*t+real(4.0));
                 crt = TWO / l;
                 srt = t / l;
                 clt = (crt+srt*m) / a;
@@ -6322,18 +6333,21 @@ public:
         // Correct signs of SSMAX and SSMIN
         if (pmax==0)
         {
-            tsign = T((ZERO<=csr)-(csr<ZERO))*T((ZERO<=csl)-(csl<ZERO))*T((ZERO<=f)-(f<ZERO));
+            tsign = real((ZERO<=csr)-(csr<ZERO)) * real((ZERO<=csl)-(csl<ZERO))
+                  * real((ZERO<=f)-(f<ZERO));
         }
         if (pmax==1)
         {
-            tsign = T((ZERO<=snr)-(snr<ZERO))*T((ZERO<=csl)-(csl<ZERO))*T((ZERO<=g)-(g<ZERO));
+            tsign = real((ZERO<=snr)-(snr<ZERO)) * real((ZERO<=csl)-(csl<ZERO))
+                  * real((ZERO<=g)-(g<ZERO));
         }
         if (pmax==2)
         {
-            tsign = T((ZERO<=snr)-(snr<ZERO))*T((ZERO<=snl)-(snl<ZERO))*T((ZERO<=h)-(h<ZERO));
+            tsign = real((ZERO<=snr)-(snr<ZERO)) * real((ZERO<=snl)-(snl<ZERO))
+                  * real((ZERO<=h)-(h<ZERO));
         }
-        ssmax = tsign*std::fabs(ssmax);
-        ssmin = tsign*T((ZERO<=f)-(f<ZERO))*T((ZERO<=h)-(h<ZERO))*std::fabs(ssmin);
+        ssmax = tsign * std::fabs(ssmax);
+        ssmin = tsign * real((ZERO<=f)-(f<ZERO)) * real((ZERO<=h)-(h<ZERO)) * std::fabs(ssmin);
     }
 
     /* dorg2r generates an m by n real matrix Q with orthonormal columns,
@@ -6360,7 +6374,8 @@ public:
      *          Univ.of California Berkeley
      *          Univ.of Colorado Denver
      *          NAG Ltd.                                                                         */
-    static void dorg2r(int m, int n, int k, T* A, int lda, T const* tau, T* work, int& info)
+    static void dorg2r(int m, int n, int k, real* A, int lda, real const* tau, real* work,
+                       int& info)
     {
         // Test the input arguments
         info = 0;
@@ -6412,7 +6427,7 @@ public:
             }
             if (i<m-1)
             {
-                Blas<T>::dscal(m-i-1, -tau[i], &A[i+1+acoli], 1);
+                Blas<real>::dscal(m-i-1, -tau[i], &A[i+1+acoli], 1);
             }
             A[i+acoli] = ONE - tau[i];
             // Set A(1:i - 1, i) to zero
@@ -6453,8 +6468,8 @@ public:
      *          Univ.of California Berkeley
      *          Univ.of Colorado Denver
      *          NAG Ltd.                                                                         */
-    static void dorgqr(int m, int n, int k, T* A, int lda, T const* tau, T* work, int lwork,
-                       int& info)
+    static void dorgqr(int m, int n, int k, real* A, int lda, real const* tau, real* work,
+                       int lwork, int& info)
     {
         // Test the input arguments
         info = 0;
@@ -6634,8 +6649,8 @@ public:
      *          Univ.of California Berkeley
      *          Univ.of Colorado Denver
      *          NAG Ltd.                                                                                      */
-    static void dorm2r(char const* side, char const* trans, int m, int n, int k, T* A, int lda,
-                       T const* tau, T* C, int ldc, T* work, int& info)
+    static void dorm2r(char const* side, char const* trans, int m, int n, int k, real* A, int lda,
+                       real const* tau, real* C, int ldc, real* work, int& info)
     {
         // Test the input arguments
         bool left = (toupper(side[0])=='L');
@@ -6714,7 +6729,7 @@ public:
             ic = 0;
         }
         int i, aind;
-        T aii;
+        real aii;
         for (i=i1; i!=i2; i+=i3)
         {
             if (left)
@@ -6785,12 +6800,12 @@ public:
      *          Univ.of California Berkeley
      *          Univ.of Colorado Denver
      *          NAG Ltd.                                                                         */
-    static void dormqr(char const* side, char const* trans, int m, int n, int k, T* A, int lda,
-                       T const* tau, T* C, int ldc, T* work, int lwork, int& info)
+    static void dormqr(char const* side, char const* trans, int m, int n, int k, real* A, int lda,
+                       real const* tau, real* C, int ldc, real* work, int lwork, int& info)
     {
         const int NBMAX = 64;
         const int LDT = NBMAX + 1;
-        T* Tm = new T[LDT*NBMAX];
+        real* T = new real[LDT*NBMAX];
         // Test the input arguments
         info = 0;
         char upside = toupper(side[0]);
@@ -6938,7 +6953,7 @@ public:
                 // Form the triangular factor of the block reflector
                 aind = i + lda*i;
                 //     H = H(i) H(i + 1) . ..H(i + ib - 1)
-                dlarft("Forward", "Columnwise", nq-i, ib, &A[aind], lda, &tau[i], Tm, LDT);
+                dlarft("Forward", "Columnwise", nq-i, ib, &A[aind], lda, &tau[i], T, LDT);
                 if (left)
                 {
                     // H or H^T is applied to C[i:m-1, 0:n-1]
@@ -6952,12 +6967,12 @@ public:
                     jc = i;
                 }
                 // Apply H or H^T
-                dlarfb(side, trans, "Forward", "Columnwise", mi, ni, ib, &A[aind], lda, Tm, LDT,
+                dlarfb(side, trans, "Forward", "Columnwise", mi, ni, ib, &A[aind], lda, T, LDT,
                        &C[ic+ldc*jc], ldc, work, ldwork);
             }
         }
         work[0] = lwkopt;
-        delete[] Tm;
+        delete[] T;
     }
 
     /* ieeeck is called from the ilaenv to verify that Infinity and possibly NaN arithmetic is safe
@@ -6977,19 +6992,19 @@ public:
      *          Univ.of Colorado Denver
      *          NAG Ltd.
      * TODO: Check whether these checks are still valid in c++                                   */
-    static int ieeeck(int ispec, T Zero, T One)
+    static int ieeeck(int ispec, real Zero, real One)
     {
-        T posinf = One / Zero;
+        real posinf = One / Zero;
         if (posinf<One)
         {
             return 0;
         }
-        T neginf = -One / Zero;
+        real neginf = -One / Zero;
         if (neginf>=Zero)
         {
             return 0;
         }
-        T negzro = One / (neginf+One);
+        real negzro = One / (neginf+One);
         if (negzro!=Zero)
         {
             return 0;
@@ -6999,7 +7014,7 @@ public:
         {
             return 0;
         }
-        T newzro = negzro + Zero;
+        real newzro = negzro + Zero;
         if (newzro!=Zero)
         {
             return 0;
@@ -7024,12 +7039,12 @@ public:
         {
             return 1;
         }
-        T NaN1 = posinf + neginf;
-        T NaN2 = posinf / neginf;
-        T NaN3 = posinf / posinf;
-        T NaN4 = posinf * Zero;
-        T NaN5 = neginf * negzro;
-        T NaN6 = NaN5   * Zero;
+        real NaN1 = posinf + neginf;
+        real NaN2 = posinf / neginf;
+        real NaN3 = posinf / posinf;
+        real NaN4 = posinf * Zero;
+        real NaN5 = neginf * negzro;
+        real NaN6 = NaN5   * Zero;
         if (NaN1==NaN1)
         {
             return 0;
@@ -7067,7 +7082,7 @@ public:
      *          Univ.of California Berkeley
      *          Univ.of Colorado Denver
      *          NAG Ltd.                                                           */
-    static int iladlc(int m, int n, T const* A, int lda)
+    static int iladlc(int m, int n, real const* A, int lda)
     {
         int ila, lastcol=lda*(n-1);
         // Quick test for the common case where one corner is non - zero.
@@ -7108,7 +7123,7 @@ public:
      *          Univ.of California Berkeley
      *          Univ.of Colorado Denver
      *          NAG Ltd.                                                           */
-    static int iladlr(int m, int n, T const* A, int lda)
+    static int iladlr(int m, int n, real const* A, int lda)
     {
         int lastrow = m - 1;
         // Quick test for the common case where one corner is non - zero.
@@ -7710,7 +7725,7 @@ public:
                 break;
             case 6:
                 // ispec = 6: crossover point for SVD(used by xgelss and xgesvd)
-                return int(T((n1<n2)?n1:n2) * 1.6);
+                return int(real((n1<n2)?n1:n2) * real(1.6));
                 break;
             case 7:
                 // ispec = 7: number of processors (not used)

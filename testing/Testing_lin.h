@@ -11,14 +11,14 @@
 #ifndef TESTING_LIN_HEADER
 #define TESTING_LIN_HEADER
 
-template<class T>
+template<class real>
 class Testing_lin
 {
 public:
     // constants
 
-    static constexpr T ZERO = T(0.0);
-    static constexpr T ONE  = T(1.0);
+    static constexpr real ZERO = real(0.0);
+    static constexpr real ONE  = real(1.0);
 
     // LAPACK TESTING LIN (alphabetically)
 
@@ -859,18 +859,18 @@ public:
      *          NAG Ltd.
      * Date December 2016                                                                        */
     static void dchkq3(bool const* dotype, int nm, int const* mval, int nn, int const* nval,
-                       int nnb, int const* nbval, int const* nxval, T thresh, T* A, T* CopyA, T* S,
-                       T* TAU, T* WORK, int* IWORK, std::ostream& NOUT)
+                       int nnb, int const* nbval, int const* nxval, real thresh, real* A,
+                       real* CopyA, real* S, real* TAU, real* WORK, int* IWORK, std::ostream& NOUT)
     {
         const int NTYPES = 6;
         const int NTESTS = 3;
         char PATH[3] = {'D','Q','3'};
         int I, IHIGH, ILOW, IM, IMODE, IN, INB, INFO, ISTEP, K, LDA, LW, LWORK, M, MNMIN, MODE, N,
             NB, NERRS, NFAIL, NRUN, NX;
-        T EPS;
+        real EPS;
         int ISEED[4];
         int ISEEDY[4] = {1988, 1989, 1990, 1991};
-        T RESULT[NTESTS];
+        real RESULT[NTESTS];
         // Scalars in Common (TODO: pass as argument?)
         bool LERR, OK;
         char SRNAMT[32];
@@ -1043,10 +1043,10 @@ public:
      *          Univ.of Colorado Denver
      *          NAG Ltd.
      * Date December 2016                                                                        */
-    static void dlaord(char const* job, int n, T* x, int incx)
+    static void dlaord(char const* job, int n, real* x, int incx)
     {
         int i, ix, ixnext;
-        T temp;
+        real temp;
         int inc = abs(incx);
         if (toupper(job[0])=='I')
         {
@@ -1132,8 +1132,8 @@ public:
      *          Univ.of Colorado Denver
      *          NAG Ltd.
      * Date December 2016                                                                        */
-    static T dqpt01(int m, int n, int k, T const* A, T const* Af, int lda, T const* tau,
-                    int const* jpvt, T* work, int lwork)
+    static real dqpt01(int m, int n, int k, real const* A, real const* Af, int lda, real
+                       const* tau, int const* jpvt, real* work, int lwork)
     {
         // Test if there is enough workspace
         if (lwork<m*n+n)
@@ -1162,17 +1162,17 @@ public:
         }
         for (j=k; j<n; j++)
         {
-            Blas<T>::dcopy(m, &Af[/*0+*/lda*j], 1, &work[j*m], 1);
+            Blas<real>::dcopy(m, &Af[/*0+*/lda*j], 1, &work[j*m], 1);
         }
         dormqr("Left","No transpose", m, n, k, Af, lda, tau, work, m, &work[m*n], lwork-m*n, info);
         for (j=0; j<n; j++)
         {
             // Compare i-th column of QR and jpvt[i]-th column of A
-            Blas<T>::daxpy(m, -ONE, A[/*0+*/lda*jpvt[j]], 1, work[j*m], 1);
+            Blas<real>::daxpy(m, -ONE, A[/*0+*/lda*jpvt[j]], 1, work[j*m], 1);
         }
-        T rwork[1];
-        T dqpt01 = dlange("One-norm", m, n, work, m, rwork) / (T(m>n?m:n)*dlamch("Epsilon"));
-        T norma = dlange("One-norm", m, n, A, lda, rwork);
+        real rwork[1];
+        real dqpt01 = dlange("One-norm", m, n, work, m, rwork) / (real(m>n?m:n)*dlamch("Epsilon"));
+        real norma = dlange("One-norm", m, n, A, lda, rwork);
         if (norma!=ZERO)
         {
             dqpt01 /= norma;
@@ -1203,7 +1203,8 @@ public:
      *          Univ.of Colorado Denver
      *          NAG Ltd.
      * Date December 2016                                                                        */
-    static T dqrt11(int m, int k, T const* A, int lda, T const* tau, T* work, int lwork)
+    static real dqrt11(int m, int k, real const* A, int lda, real const* tau, real* work,
+                       int lwork)
     {
         // Test for sufficient workspace
         if (lwork<(m*m+m))
@@ -1226,8 +1227,8 @@ public:
         {
             work[j*m+j] -= ONE;
         }
-        T rdummy[1];
-        return dlange("One-norm", m, m, work, m, rdummy) / (T(m)*DLAMCH("Epsilon"));
+        real rdummy[1];
+        return dlange("One-norm", m, m, work, m, rdummy) / (real(m)*DLAMCH("Epsilon"));
     }
 
     /* dqrt12 computes the singular values 'svlues' of the upper trapezoid of A[0:m-1,0:n-1] and
@@ -1248,7 +1249,7 @@ public:
      *          Univ.of Colorado Denver
      *          NAG Ltd.
      * Date December 2016                                                                        */
-    static T dqrt12(int m, int n, T const* A, int lda, T const* s, T* work, int lwork)
+    static real dqrt12(int m, int n, real const* A, int lda, real const* s, real* work, int lwork)
     {
         // Test that enough workspace is supplied
         int mn = m<n?m:n;
@@ -1264,7 +1265,7 @@ public:
         {
             return ZERO;
         }
-        T nrmsvl = Blas<T>::dnrm2(mn, s, 1);
+        real nrmsvl = Blas<real>::dnrm2(mn, s, 1);
         // Copy upper triangle of A into work
         dlaset("Full", m, n, ZERO, ZERO, work, m);
         int i, mj, ldaj;
@@ -1278,12 +1279,12 @@ public:
             }
         }
         // Get machine parameters
-        T smlnum = dlamch("S") / dlamch("P");
-        T bignum = ONE / smlnum;
+        real smlnum = dlamch("S") / dlamch("P");
+        real bignum = ONE / smlnum;
         dlabad(smlnum, bignum);
         // Scale work if max entry outside range [SMLNUM,BIGNUM]
-        T dummy[1];
-        T anrm = dlange("M", m, n, work, m, dummy);
+        real dummy[1];
+        real anrm = dlange("M", m, n, work, m, dummy);
         int info;
         int iscl = 0;
         if (anrm>ZERO && anrm<smlnum)
@@ -1325,8 +1326,8 @@ public:
             }
         }
         // Compare s and singular values of work
-        Blas<T>::daxpy(mn, -ONE, s, 1, &work[mtn], 1);
-        T dqrt12 = Blas<T>::dasum(mn, &work[mtn], 1) / (dlamch("Epsilon")*T(maxmn));
+        Blas<real>::daxpy(mn, -ONE, s, 1, &work[mtn], 1);
+        real dqrt12 = Blas<real>::dasum(mn, &work[mtn], 1) / (dlamch("Epsilon")*real(maxmn));
         if (nrmsvl!=ZERO)
         {
             dqrt12 = dqrt12 / NRMSVL;

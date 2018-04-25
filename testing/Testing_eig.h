@@ -11,13 +11,13 @@
 #ifndef TESTING_EIG_HEADER
 #define TESTING_EIG_HEADER
 
-template<class T>
+template<class real>
 class Testing_eig
 {
 public:
     // constants
 
-    static constexpr T ZERO = T(0.0);
+    static constexpr real ZERO = real(0.0);
 
     // LAPACK TESTING EIG (alphabetically)
 
@@ -34,14 +34,14 @@ public:
     {
         const int lda = 20;
         int i, ihi, ihiin, ilo, iloin, info, j, knt, n, ninfo;
-        //T anorm, meps;
-        T rmax, sfmin, temp, temp2, vmax;
+        //real anorm, meps;
+        real rmax, sfmin, temp, temp2, vmax;
         int* lmax = new int[3];
-        T* A = new T[lda*lda];
-        T* AIN = new T[lda*lda];
-        T* dummy = new T[1];
-        T* scale = new T[lda];
-        T* scalin = new T[lda];
+        real* A = new real[lda*lda];
+        real* AIN = new real[lda*lda];
+        real* dummy = new real[1];
+        real* scale = new real[lda];
+        real* scalin = new real[lda];
         lmax[0] = 0;
         lmax[1] = 0;
         lmax[2] = 0;
