@@ -1,3 +1,6 @@
+#ifndef TESTING_EIG_HEADER
+#define TESTING_EIG_HEADER
+
 #include <iostream>
 #include <iomanip>
 #include <fstream>
@@ -7,17 +10,17 @@
 #include <cmath>
 
 #include "Blas.h"
-
-#ifndef TESTING_EIG_HEADER
-#define TESTING_EIG_HEADER
+#include "Lapack_dyn.h"
 
 template<class real>
-class Testing_eig
+class Testing_eig : public Lapack_dyn<real>
 {
 public:
+    virtual ~Testing_eig(){}
+
     // constants
 
-    static constexpr real ZERO = real(0.0);
+    const real ZERO = real(0.0);
 
     // LAPACK TESTING EIG (alphabetically)
 
@@ -30,10 +33,10 @@ public:
      *          Univ.of Colorado Denver
      *          NAG Ltd.
      * Date: December 2016                                                                       */
-    static void dchkbl(std::istream& nin, std::ostream& nout)
+    void dchkbl(std::istream& nin, std::ostream& nout)
     {
         const int lda = 20;
-        int i, ihi, ihiin, ilo, iloin, info, j, knt, n, ninfo;
+        int i, ihi=0, ihiin, ilo=0, iloin, info, j, knt, n, ninfo;
         //real anorm, meps;
         real rmax, sfmin, temp, temp2, vmax;
         int* lmax = new int[3];
@@ -49,7 +52,7 @@ public:
         knt = 0;
         rmax = ZERO;
         vmax = ZERO;
-        sfmin = dlamch("S");
+        sfmin = this->dlamch("S");
         std::string doubleStr;
         std::stringstream strStr;
         unsigned DInd;
@@ -105,7 +108,7 @@ public:
             }
             //anorm = dlange("M", n, n, A, lda, DUMMY);
             knt++;
-            dgebal("B", n, A, lda, ilo, ihi, scale, info);
+            this->dgebal("B", n, A, lda, ilo, ihi, scale, info);
             if (info!=0)
             {
                 ninfo++;
@@ -156,7 +159,7 @@ public:
         delete[] scalin;
     }
 
-    // TODO: xlaenv, ilaenv
-}
+    // TODO: xlaenv, ilaenv, xerbla
+};
 
 #endif

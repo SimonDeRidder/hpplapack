@@ -1,8 +1,8 @@
-#include <cstring>
-#include <cmath>
-
 #ifndef BLAS_HEADER
 #define BLAS_HEADER
+
+#include <cstring>
+#include <cmath>
 
 template<class real> class Blas
 {
@@ -50,7 +50,7 @@ public:
             for (i=m; i<n; i+=6)
             {
                 dtemp += fabs(dx[i])+fabs(dx[i+1])+fabs(dx[i+2])
-                        +fabs(dx[i+3]))+fabs(dx[i+4])+fabs(dx[i+5]);
+                        +fabs(dx[i+3])+fabs(dx[i+4])+fabs(dx[i+5]);
             }
         }
         else
@@ -910,9 +910,9 @@ public:
             // code for both increments equal to 1
             for (i=0; i<n; i++)
             {
-                DTEMP = c*dx[i] + s*dy[i];
+                dtemp = c*dx[i] + s*dy[i];
                 dy[i] = c*dy[i] - s*dx[i];
-                dx[i] = DTEMP;
+                dx[i] = dtemp;
             }
         }
         else
@@ -930,9 +930,9 @@ public:
             }
             for (i=0; i<n; i++)
             {
-                DTEMP  = c*dx[ix] + s*dy[iy];
+                dtemp  = c*dx[ix] + s*dy[iy];
                 dy[iy] = c*dy[iy] - s*dx[ix];
-                dx[ix] = DTEMP;
+                dx[ix] = dtemp;
                 ix += incx;
                 iy += incy;
             }
@@ -1236,7 +1236,7 @@ public:
                     iy = ky;
                     for (i=0; i<j; i++)
                     {
-                        y[iy] += temp1 * A[i+ldaj]:
+                        y[iy] += temp1 * A[i+ldaj];
                         temp2 += A[i+ldaj] * x[ix];
                         ix += incx;
                         iy += incy;
@@ -2097,7 +2097,7 @@ public:
      * Authors: Univ.of Tennessee
      *          Univ.of California Berkeley
      *          Univ.of Colorado Denver
-     *          NAG Ltd.                                                                                      */
+     *          NAG Ltd.                                                                         */
     static int idamax(int n, real const* dx, int incx)
     {
         if (n<1 || incx<=0)
@@ -2141,6 +2141,25 @@ public:
         }
         return ida;
     }
-}
+
+    /* xerbla is an error handler for the lapack routines. It is called by an lapack routine if an
+     * input parameter has an invalid value. A message is printed and execution stops.
+     * Installers may consider modifying the STOP statement in order to call system-specific
+     * exception-handling facilities.
+     * Parameters: srname: The name of the routine which called xerbla.
+     *             info: The position of the invalid parameter in the parameter list of the calling
+     *                   routine.
+     * Authors: Univ.of Tennessee
+     *          Univ.of California Berkeley
+     *          Univ.of Colorado Denver
+     *          NAG Ltd.
+     * Date: December 2016                                                                       */
+    static void xerbla(char const* srname, int info)
+    {
+        std::cout << " ** On entry to " << srname << " parameter number " <<  info
+                  << " had an illegal value";
+        throw info;
+    }
+};
 
 #endif

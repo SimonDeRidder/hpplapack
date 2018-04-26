@@ -1,3 +1,6 @@
+#ifndef LAPACK_HEADER
+#define LAPACK_HEADER
+
 #include <limits>
 #include <iostream>
 #include <iomanip>
@@ -9,8 +12,6 @@
 
 #include "Blas.h"
 
-#ifndef LAPACK_HEADER
-#define LAPACK_HEADER
 
 template<class real>
 class Lapack
@@ -200,8 +201,8 @@ public:
         const int MAXITR = 6;
         // Test the input parameters.
         info = 0;
-        bool lower = (std::toupper(UPLO[0])=='L');
-        if (!(std::toupper(UPLO[0])=='U') && !lower)
+        bool lower = (std::toupper(uplo[0])=='L');
+        if (!(std::toupper(uplo[0])=='U') && !lower)
         {
             info = -1;
         }
@@ -379,7 +380,7 @@ public:
                 // Check for convergence or exceeding iteration count
                 if (m<=0)
                 {
-                    break
+                    break;
                 }
                 if (iter>=n)
                 {
@@ -398,7 +399,7 @@ public:
                 }
                 smax = std::fabs(d[m]);
                 smin = smax;
-                loopbreak2 = false;
+                breakloop2 = false;
                 for (lll=0; lll<m; lll++)
                 {
                     ll = m - lll + 1;
@@ -410,7 +411,7 @@ public:
                     }
                     if (abse<=thresh)
                     {
-                        loopbreak2 = true;
+                        breakloop2 = true;
                         break;
                     }
                     if (abss<smin)
@@ -423,7 +424,7 @@ public:
                         smax = temp;
                     }
                 }
-                if (loopbreak2)
+                if (breakloop2)
                 {
                     e[ll] = ZERO;
                     // Matrix splits since E[ll] = 0
@@ -497,13 +498,13 @@ public:
                         // If relative accuracy desired, apply convergence criterion forward
                         mu = std::fabs(d[ll]);
                         sminl = mu;
-                        loopbreak2 = false;
+                        breakloop2 = false;
                         for (lll=ll; lll<m; lll++)
                         {
                             if (std::fabs(e[lll]<=tol*mu))
                             {
                                 e[lll] = ZERO;
-                                loopbreak2 = true;
+                                breakloop2 = true;
                                 break;
                             }
                             mu = std::fabs(d[lll+1]) * (mu/(mu+std::fabs(e[lll])));
@@ -512,7 +513,7 @@ public:
                                 sminl = mu;
                             }
                         }
-                        if (loopbreak2)
+                        if (breakloop2)
                         {
                             continue;
                         }
@@ -533,14 +534,14 @@ public:
                         // If relative accuracy desired, apply convergence criterion backward
                         mu = std::fabs(d[m]);
                         sminl = mu;
-                        loopbreak2 = false;
+                        breakloop2 = false;
                         for (lll=m-1; lll>=ll; lll--)
                         {
                             if (std::fabs(e[lll])<=tol*mu)
                             {
                                 e[lll] = ZERO;
-                                loopbreak2 = true;
-                                break
+                                breakloop2 = true;
+                                break;
                             }
                             mu = std::fabs(d[lll]) * (mu / (mu+std::fabs(e[lll])));
                             if (mu<sminl)
@@ -548,7 +549,7 @@ public:
                                 sminl = mu;
                             }
                         }
-                        if (loopbreak2)
+                        if (breakloop2)
                         {
                             continue;
                         }
@@ -662,7 +663,7 @@ public:
                         if (ncvt>0)
                         {
                             dlasr("L", "V", "B", m-ll+1, ncvt, &work[nm12], &work[nm13],
-                                  &Vt[ll/*+ldvt*0*/], ldvt)
+                                  &Vt[ll/*+ldvt*0*/], ldvt);
                         }
                         if (nru>0)
                         {
@@ -796,7 +797,7 @@ public:
                 }
                 // QR iteration finished, go back and check convergence
             }
-            if (loopbreak1)
+            if (breakloop1)
             {
                 // Maximum number of iterations exceeded, failure to converge
                 info = 0;
@@ -3210,12 +3211,12 @@ public:
                 do
                 {
                     count++;
-                    f1 *= safmx2
-                    g1 *= safmx2
+                    f1 *= safmx2;
+                    g1 *= safmx2;
                     scale = fabs(f1);
                     scale = ((scale>fabs(g1)) ? scale : fabs(g1));
-                } while (scale<=safmn2)
-                    r = std::sqrt(f1*f1+g1*g1);
+                } while (scale<=safmn2);
+                r = std::sqrt(f1*f1+g1*g1);
                 cs = f1 / r;
                 sn = g1 / r;
                 for (i=0; i<count; i++)
@@ -3397,7 +3398,7 @@ public:
         int i2 = iseed[1];
         int i3 = iseed[2];
         int i4 = iseed[3];
-        int i, imul4, it1, it2, it3, it4;
+        int i, im4, it1, it2, it3, it4;
         for (i=0; i<n && i<LV; i++)
         {
             im4 = 4*i;
@@ -3430,7 +3431,7 @@ public:
                     i3 += 2;
                     i4 += 2;
                 }
-            } while (x[i]==ONE)
+            } while (x[i]==ONE);
         }
         // Return final value of seed
         iseed[0] = it1;
@@ -3508,7 +3509,7 @@ public:
                 at = (fhmx-fhmn) / fhmx;
                 au = ga / fhmx;
                 au = au*au;
-                c = TWO / (srd::sqrt(as*as+au)+std::sqrt(at*at+au));
+                c = TWO / (std::sqrt(as*as+au)+std::sqrt(at*at+au));
                 ssmin = fhmn * c;
                 ssmax = fhmx / c;
             }
@@ -3798,7 +3799,7 @@ public:
                     }
                 }
             }
-        } while (!done)
+        } while (!done);
     }
 
     /* dlaset initializes an m-by-n matrix A to beta on the diagonal and alpha on the offdiagonals.
@@ -3841,7 +3842,7 @@ public:
         else if (toupper(uplo[0])=='L')
         {
             // Set the strictly lower triangular or trapezoidal part of the array to ALPHA.
-            for (j=0, j<m && j<n; j++)
+            for (j=0; j<m && j<n; j++)
             {
                 ldaj = lda*j;
                 for (i=j+1; i<m; i++)
@@ -3863,7 +3864,7 @@ public:
             }
         }
         // Set the first min(M,N) diagonal elements to BETA.
-        for (i=0, i<m && i<n; i++)
+        for (i=0; i<m && i<n; i++)
         {
             A[i+lda*i] = beta;
         }
@@ -3905,7 +3906,7 @@ public:
     {
         int i, iinfo;
         real eps, scale, safmin, sigmn, sigmx, temp;
-        info = 0
+        info = 0;
         if (n<0)
         {
             info = -1;
@@ -3933,7 +3934,7 @@ public:
         for (i=0; i<n-1; i++)
         {
             d[i] = fabs(d[i]);
-            temp = fabs(e[i]));
+            temp = fabs(e[i]);
             if (temp>sigmx)
             {
                 sigmx = temp;
@@ -4026,7 +4027,7 @@ public:
      *     Local Variables: i0:n0 defines a current unreduced segment of Z. The shifts are
      *     accumulated in SIGMA. Iteration count is in iter. Ping-pong is controlled by PP
      *     (alternates between 0 and 1).                                                         */
-    static void dlasq2(int n, int Z, int& info)
+    static void dlasq2(int n, real* Z, int& info)
     {
         const real CBIAS = real(1.50);
         const real FOUR  = real(4.0);
@@ -4157,7 +4158,7 @@ public:
         ieee = ilaenv(10, "DLASQ2", "N", 1, 2, 3, 4)==1
             && ilaenv(11, "DLASQ2", "N", 1, 2, 3, 4)==1;
         // Rearrange data for locality: Z=(q1,qq1,e1,ee1,q2,qq2,e2,ee2,...).
-        for (k=2*n-1; k>=1, k-=2)
+        for (k=2*n-1; k>=1; k-=2)
         {
             Z[2*k+1] = ZERO;
             Z[2*k]   = Z[k];
@@ -4250,7 +4251,7 @@ public:
         tau   = ZERO;
         iter = 2;
         nfail = 0;
-        NDIV = 2*(n0-i0);
+        ndiv = 2*(n0-i0);
         for (iwhila=0; iwhila<=n; iwhila++)
         {
             if (n0<0)
@@ -4365,7 +4366,7 @@ public:
                     break;
                 }
                 // While submatrix unfinished take a good dqds step.
-                dlasq3(i0, n0, Z, pp, dmin, sigma, desig, qmax, nfail, iter, NDIV, ieee, ttype,
+                dlasq3(i0, n0, Z, pp, dmin, sigma, desig, qmax, nfail, iter, ndiv, ieee, ttype,
                        dmin1, dmin2, dn, dn1, dn2, g, tau);
                 pp = 1 - pp;
                 // When EMIN is very small check for splits.
@@ -4469,7 +4470,7 @@ public:
         Z[2*n] = trace;
         Z[2*n+1] = e;
         Z[2*n+2] = real(iter);
-        Z[2*n+3] = real(NDIV) / real(n*n);
+        Z[2*n+3] = real(ndiv) / real(n*n);
         Z[2*n+4] = HNDRD * nfail / real(iter);
         return;
     }
@@ -5209,7 +5210,7 @@ public:
                 // Code for IEEE arithmetic.
                 if (pp==0)
                 {
-                    for (j4=4*i0+3; j4<4*(n0-2), j4+=4)
+                    for (j4=4*i0+3; j4<4*(n0-2); j4+=4)
                     {
                         Z[j4-2] = d + Z[j4-1];
                         temp = Z[j4+1] / Z[j4-2];
@@ -5569,7 +5570,7 @@ public:
         char uppivot = std::toupper(pivot[0]);
         char updirect = std::toupper(direct[0]);
         // Test the input parameters
-        info = 0
+        info = 0;
         if (!(upside=='L' || upside=='R'))
         {
             info = 1;
@@ -5590,7 +5591,7 @@ public:
         {
             info = 5;
         }
-        else if (lda<MAX(1, m))
+        else if (lda<1 || lda<m)
         {
             info = 9;
         }
@@ -7866,7 +7867,7 @@ public:
             }
             if (nh>=150)
             {
-                nstemp = nh / int(std::log(T(nh))/std::log(TWO));
+                nstemp = nh / int(std::log(real(nh))/std::log(TWO));
                 ns = ((10>nstemp) ? 10 : nstemp);
             }
             if (nh>=590)
@@ -7952,5 +7953,5 @@ public:
                   << " had an illegal value.";
         throw info;
     }
-}
+};
 #endif

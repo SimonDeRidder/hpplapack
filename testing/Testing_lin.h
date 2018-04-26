@@ -1,3 +1,6 @@
+#ifndef TESTING_LIN_HEADER
+#define TESTING_LIN_HEADER
+
 #include <iostream>
 #include <iomanip>
 #include <fstream>
@@ -7,18 +10,37 @@
 #include <cmath>
 
 #include "Blas.h"
-
-#ifndef TESTING_LIN_HEADER
-#define TESTING_LIN_HEADER
+#include "Lapack_dyn.h"
+#include "Testing_matgen.h"
 
 template<class real>
-class Testing_lin
+class Testing_lin : public Lapack_dyn<real>
 {
 public:
     // constants
 
-    static constexpr real ZERO = real(0.0);
-    static constexpr real ONE  = real(1.0);
+    const real ZERO = real(0.0);
+    const real ONE  = real(1.0);
+
+    // "Common" variables
+
+    struct infostruct
+    {
+        int info;
+        std::ostream& iounit;
+        bool ok;
+        bool lerr;
+    } infoc = {0, std::cout, true, false};
+
+    struct srnamstruct
+    {
+        char srnam[32];
+    } srnamc;
+
+    struct laenvstruct
+    {
+        int iparms[100];
+    } claenv;
 
     // LAPACK TESTING LIN (alphabetically)
 
@@ -72,7 +94,7 @@ public:
      *          Univ.of Colorado Denver
      *          NAG Ltd.
      * Date December 2016                                                                        */
-    static void alahd(std::ostream& iounit, char const* path)
+    void alahd(std::ostream& iounit, char const* path)
     {
         if (!iounit.good())
         {
@@ -147,7 +169,7 @@ public:
         char const* str9991 = " indefinite packed matrices, partial (Bunch-Kaufman) pivoting";
         char const* str9992 = " indefinite matrices, partial (Bunch-Kaufman) pivoting";
         char const* str9995 = " positive definite packed matrices";
-        if (std::strncmpi(p2, "GE", 2)==0)
+        if (std::strncmp(p2, "GE", 2)==0)
         {
             // GE: General dense
             iounit << "\n " << pathcopy << ":  General dense matrices\n";
@@ -164,7 +186,7 @@ public:
             iounit << "    8" << str9955 << '\n';
             iounit << " Messages:" << std::endl;
         }
-        else if (std::strncmpi(p2, "GB", 2)==0)
+        else if (std::strncmp(p2, "GB", 2)==0)
         {
             iounit << "\n " << pathcopy << ":  General band matrices\n";
             iounit << " Matrix types:\n";
@@ -182,7 +204,7 @@ public:
             iounit << "    7" << str9955 << '\n';
             iounit << " Messages:" << std::endl;
         }
-        else if (std::strncmpi(p2, "GT", 2)==0)
+        else if (std::strncmp(p2, "GT", 2)==0)
         {
             // GT: General tridiagonal
             iounit << "\n " << pathcopy << ":  General tridiagonal\n";
@@ -203,7 +225,7 @@ public:
             iounit << "    7" << str9955 << '\n';
             iounit << " Messages:" << std::endl;
         }
-        else if (std::strncmpi(p2, "PO", 2)==0 || std::strncmpi(p2, "PP", 2)==0)
+        else if (std::strncmp(p2, "PO", 2)==0 || std::strncmp(p2, "PP", 2)==0)
         {
             // PO: Positive definite full
             // PP: Positive definite packed
@@ -242,7 +264,7 @@ public:
             iounit << "    8" << str9955 << '\n';
             iounit << " Messages:" << std::endl;
         }
-        else if (std::strncmpi(p2, "PS", 2)==0)
+        else if (std::strncmp(p2, "PS", 2)==0)
         {
             // PS: Positive semi-definite full
             if (sord)
@@ -279,7 +301,7 @@ public:
                       "   norm( P * L * L' * P' - A ) / ( N * norm(A) * EPS )\n";
             iounit << " Messages:" << std::endl;
         }
-        else if (std::strncmpi(p2, "PB", 2)==0)
+        else if (std::strncmp(p2, "PB", 2)==0)
         {
             // PB: Positive definite band
             if (sord)
@@ -306,7 +328,7 @@ public:
             iounit << "    7" << str9955 << '\n';
             iounit << " Messages:" << std::endl;
         }
-        else if (std::strncmpi(p2, "PT", 2)==0)
+        else if (std::strncmp(p2, "PT", 2)==0)
         {
             // PT: Positive definite tridiagonal
             if (sord)
@@ -335,7 +357,7 @@ public:
             iounit << "    7" << str9955 << '\n';
             iounit << " Messages:" << std::endl;
         }
-        else if (std::strncmpi(p2, "SY", 2)==0)
+        else if (std::strncmp(p2, "SY", 2)==0)
         {
             // SY: Symmetric indefinite full, with partial (Bunch-Kaufman) pivoting algorithm
             if (c3=='Y')
@@ -367,7 +389,7 @@ public:
             iounit << "    9" << str9955 << '\n';
             iounit << " Messages:" << std::endl;
         }
-        else if (std::strncmpi(p2, "SR", 2)==0 || std::strncmpi(p2, "SK", 2)==0)
+        else if (std::strncmp(p2, "SR", 2)==0 || std::strncmp(p2, "SK", 2)==0)
         {
             // SR: Symmetric indefinite full, with rook (bounded Bunch-Kaufman) pivoting algorithm
             // SK: Symmetric indefinite full, with rook (bounded Bunch-Kaufman) pivoting algorithm,
@@ -395,7 +417,7 @@ public:
             iounit << "    7" << str9955 << '\n';
             iounit << " Messages:" << std::endl;
         }
-        else if (std::strncmpi(p2, "SP", 2)==0)
+        else if (std::strncmp(p2, "SP", 2)==0)
         {
             // SP: Symmetric indefinite packed, with partial (Bunch-Kaufman) pivoting algorithm
             if (c3=='Y')
@@ -426,7 +448,7 @@ public:
             iounit << "    8" << str9955 << '\n';
             iounit << " Messages:" << std::endl;
         }
-        else if (std::strncmpi(p2, "HA", 2)==0)
+        else if (std::strncmp(p2, "HA", 2)==0)
         {
             // HA: Hermitian, with Assen Algorithm
             iounit << "\n " << pathcopy << ":  Hermitian" << str9992 << '\n';
@@ -444,7 +466,7 @@ public:
             iounit << "    9" << str9955 << '\n';
             iounit << " Messages:" << std::endl;
         }
-        else if (std::strncmpi(p2, "HE", 2)==0)
+        else if (std::strncmp(p2, "HE", 2)==0)
         {
             // HE: Hermitian indefinite full, with partial (Bunch-Kaufman) pivoting algorithm
             iounit << "\n " << pathcopy << ":  Hermitian" << str9992 << '\n';
@@ -462,7 +484,7 @@ public:
             iounit << "    9" << str9955 << '\n';
             iounit << " Messages:" << std::endl;
         }
-        else if (std::strncmpi(p2, "HR", 2)==0)
+        else if (std::strncmp(p2, "HR", 2)==0)
         {
             // HR: Hermitian indefinite full, with rook (bounded Bunch-Kaufman) pivoting algorithm
             // (new storage format for factors:
@@ -482,7 +504,7 @@ public:
             iounit << "    7" << str9955 << '\n';
             iounit << " Messages:" << std::endl;
         }
-        else if (std::strncmpi(p2, "HP", 2)==0)
+        else if (std::strncmp(p2, "HP", 2)==0)
         {
             // HP: Hermitian indefinite packed, with partial (Bunch-Kaufman) pivoting algorithm
             if (c3=='E')
@@ -506,7 +528,7 @@ public:
             iounit << "    8" << str9955 << '\n';
             iounit << " Messages:" << std::endl;
         }
-        else if (std::strncmpi(p2, "TR", 2)==0 || std::strncmpi(p2, "TP", 2)==0)
+        else if (std::strncmp(p2, "TR", 2)==0 || std::strncmp(p2, "TP", 2)==0)
         {
             // TR: Triangular full
             // TP: Triangular packed
@@ -544,7 +566,7 @@ public:
             iounit << " Test ratio for " << pathcopy[0] << ":\n    8" << str9951 << '\n';
             iounit << " Messages:" << std::endl;
         }
-        else if (std::strncmpi(p2, "TB", 2)==0)
+        else if (std::strncmp(p2, "TB", 2)==0)
         {
             // TB: Triangular band
             iounit << "\n " << pathcopy << ":  Triangular band matrices\n";
@@ -573,7 +595,7 @@ public:
             iounit << " Test ratio for " << pathcopy[0] << ":\n    7" << str9951 << '\n';
             iounit << " Messages:" << std::endl;
         }
-        else if (std::strncmpi(p2, "QR", 2)==0)
+        else if (std::strncmp(p2, "QR", 2)==0)
         {
             // QR decomposition of rectangular matrices
             iounit << "\n " << pathcopy << ":  QR" << str9987 << '\n';
@@ -591,7 +613,7 @@ public:
             iounit << "    9" << ": diagonal is not non-negative\n";
             iounit << " Messages:" << std::endl;
         }
-        else if (std::strncmpi(p2, "LQ", 2)==0)
+        else if (std::strncmp(p2, "LQ", 2)==0)
         {
             // LQ decomposition of rectangular matrices
             iounit << "\n " << pathcopy << ":  LQ" << str9987 << '\n';
@@ -607,7 +629,7 @@ public:
             iounit << "    7" << str9960 << '\n';
             iounit << " Messages:" << std::endl;
         }
-        else if (std::strncmpi(p2, "QL", 2)==0)
+        else if (std::strncmp(p2, "QL", 2)==0)
         {
             // QL decomposition of rectangular matrices
             iounit << "\n " << pathcopy << ":  QL" << str9987 << '\n';
@@ -623,7 +645,7 @@ public:
             iounit << "    7" << str9960 << '\n';
             iounit << " Messages:" << std::endl;
         }
-        else if (std::strncmpi(p2, "RQ", 2)==0)
+        else if (std::strncmp(p2, "RQ", 2)==0)
         {
             // RQ decomposition of rectangular matrices
             iounit << "\n " << pathcopy << ":  RQ" << str9987 << '\n';
@@ -639,7 +661,7 @@ public:
             iounit << "    7" << str9960 << '\n';
             iounit << " Messages:" << std::endl;
         }
-        else if (std::strncmpi(p2, "QP", 2)==0)
+        else if (std::strncmp(p2, "QP", 2)==0)
         {
             // QR decomposition with column pivoting
             iounit << "\n " << pathcopy << ":  QR factorization with column pivoting\n";
@@ -653,7 +675,7 @@ public:
             iounit << "    3" << str9938 << '\n';
             iounit << " Messages:" << std::endl;
         }
-        else if (std::strncmpi(p2, "TZ", 2)==0)
+        else if (std::strncmp(p2, "TZ", 2)==0)
         {
             // TZ:  Trapezoidal
             iounit << "\n " << pathcopy << ":  RQ factorization of trapezoidal matrix\n";
@@ -668,7 +690,7 @@ public:
             iounit << "    3" << str9938 << '\n';
             iounit << " Messages:" << std::endl;
         }
-        else if (std::strncmpi(p2, "LS", 2)==0)
+        else if (std::strncmp(p2, "LS", 2)==0)
         {
             // LS:  Least Squares driver routines for LS, LSD, LSS, LSX and LSY.
             iounit << "\n " << pathcopy << ":  Least squares driver routines\n";
@@ -681,7 +703,7 @@ public:
             iounit << "    1" << str9935 << '\n';
             iounit << "    2: norm( (A*X-B)' *A ) / ( max(M,N,NRHS) * norm(A) * norm(B) * EPS )\n"
                       "       if TRANS='N' and M>=N or TRANS='T' and M<N, otherwise check if X\n"
-                      "       is in the row space of A or A' (overdetermined case)\n"
+                      "       is in the row space of A or A' (overdetermined case)\n";
             iounit << "    3: norm(svd(A)-svd(R)) / ( min(M,N) * norm(svd(R)) * EPS )\n";
             iounit << "    4" << str9935 << '\n';
             iounit << "    5: norm( (A*X-B)' *A ) / ( max(M,N,NRHS) * norm(A) * norm(B) * EPS )\n";
@@ -689,7 +711,7 @@ public:
             iounit << "    7-10: same as 3-6    11-14: same as 3-6\n";
             iounit << " Messages:" << std::endl;
         }
-        else if (std::strncmpi(p2, "LU", 2)==0)
+        else if (std::strncmp(p2, "LU", 2)==0)
         {
             // LU factorization variants
             iounit << "\n " << pathcopy << ":  LU factorization variants\n";
@@ -699,7 +721,7 @@ public:
             iounit << "    1" << str9962 << '\n';
             iounit << " Messages:" << std::endl;
         }
-        else if (std::strncmpi(p2, "CH", 2)==0)
+        else if (std::strncmp(p2, "CH", 2)==0)
         {
             // Cholesky factorization variants
             iounit << "\n " << pathcopy << ":  Cholesky factorization variants\n";
@@ -714,7 +736,7 @@ public:
             iounit << "    1" << str9954 << '\n';
             iounit << " Messages:" << std::endl;
         }
-        else if (std::strncmpi(p2, "QS", 2)==0)
+        else if (std::strncmp(p2, "QS", 2)==0)
         {
             // QR factorization variants
             iounit << "\n " << pathcopy << ":  QR factorization variants\n";
@@ -722,7 +744,7 @@ public:
             iounit << str9970 << '\n';
             iounit << " Test ratios:" << std::endl;
         }
-        else if (std::strncmpi(p2, "QT", 2)==0)
+        else if (std::strncmp(p2, "QT", 2)==0)
         {
             // QRT (general matrices)
             iounit << "\n " << pathcopy << ":  QRT factorization for general matrices\n";
@@ -734,7 +756,7 @@ public:
             iounit << "    5: norm( C*Q - C*Q ) / ( M * norm(C) * EPS )\n";
             iounit << "    6: norm( C*Q' - C*Q' ) / ( M * norm(C) * EPS )" << std::endl;
         }
-        else if (std::strncmpi(p2, "QX", 2)==0)
+        else if (std::strncmp(p2, "QX", 2)==0)
         {
             // QRT (triangular-pentagonal)
             iounit << "\n " << pathcopy;
@@ -747,7 +769,7 @@ public:
             iounit << "    5: norm( C*Q - C*Q ) / ( (M+N) * norm(C) * EPS )\n";
             iounit << "    6: norm( C*Q' - C*Q' ) / ( (M+N) * norm(C) * EPS )" << std::endl;
         }
-        else if (std::strncmpi(p2, "TQ", 2)==0)
+        else if (std::strncmp(p2, "TQ", 2)==0)
         {
             // QRT (triangular-pentagonal)
             iounit << "\n " << pathcopy << ":  LQT factorization for general matrices\n";
@@ -759,7 +781,7 @@ public:
             iounit << "    5: norm( C*Q - C*Q ) / ( (M+N) * norm(C) * EPS )\n";
             iounit << "    6: norm( C*Q' - C*Q' ) / ( (M+N) * norm(C) * EPS )" << std::endl;
         }
-        else if (std::strncmpi(p2, "XQ", 2)==0)
+        else if (std::strncmp(p2, "XQ", 2)==0)
         {
             // QRT (triangular-pentagonal)
             iounit << "\n " << pathcopy;
@@ -772,7 +794,7 @@ public:
             iounit << "    5: norm( C*Q - C*Q ) / ( (M+N) * norm(C) * EPS )\n";
             iounit << "    6: norm( C*Q' - C*Q' ) / ( (M+N) * norm(C) * EPS )" << std::endl;
         }
-        else if (std::strncmpi(p2, "TS", 2)==0)
+        else if (std::strncmp(p2, "TS", 2)==0)
         {
             // QRT (triangular-pentagonal)
             iounit << "\n " << pathcopy;
@@ -803,7 +825,7 @@ public:
      *          Univ.of Colorado Denver
      *          NAG Ltd.
      * Date December 2016                                                                        */
-    static void alasum(char const* type, std::ostream& nout, int nfail, int nrun, int nerrs)
+    void alasum(char const* type, std::ostream& nout, int nfail, int nrun, int nerrs)
     {
         char typecopy[4];
         strncpy(typecopy, type, 3);
@@ -843,191 +865,189 @@ public:
      *             nxval: an integer array, dimension (nnb)
      *                    The values of the crossover point NX.
      *             thresh: The threshold value for the test ratios. A result is included in the
-     *                     output file if RESULT>=thresh. To have every test ratio printed, use
+     *                     output file if result>=thresh. To have every test ratio printed, use
      *                     thresh=0.
      *             A: an array, dimension (MMAX*NMAX) where MMAX is the maximum value of M in mval
      *                and NMAX is the maximum value of N in nval.
      *             CopyA: an array, dimension (MMAX*NMAX)
      *             S: an array, dimension min(MMAX,NMAX))
      *             tau: an array, dimension (MMAX)
-     *             WORK: an array, dimension (MMAX*NMAX + 4*NMAX + MMAX)
-     *             IWORK: an integer array, dimension (2*NMAX)
-     *             NOUT: The output stream.
+     *             work: an array, dimension (MMAX*NMAX + 4*NMAX + MMAX)
+     *             iwork: an integer array, dimension (2*NMAX)
+     *             nout: The output stream.
      * Authors: Univ.of Tennessee
      *          Univ.of California Berkeley
      *          Univ.of Colorado Denver
      *          NAG Ltd.
      * Date December 2016                                                                        */
-    static void dchkq3(bool const* dotype, int nm, int const* mval, int nn, int const* nval,
+    void dchkq3(bool const* dotype, int nm, int const* mval, int nn, int const* nval,
                        int nnb, int const* nbval, int const* nxval, real thresh, real* A,
-                       real* CopyA, real* S, real* TAU, real* WORK, int* IWORK, std::ostream& NOUT)
+                       real* CopyA, real* S, real* tau, real* work, int* iwork, std::ostream& nout)
     {
         const int NTYPES = 6;
         const int NTESTS = 3;
-        char PATH[3] = {'D','Q','3'};
-        int I, IHIGH, ILOW, IM, IMODE, IN, INB, INFO, ISTEP, K, LDA, LW, LWORK, M, MNMIN, MODE, N,
-            NB, NERRS, NFAIL, NRUN, NX;
-        real EPS;
-        int ISEED[4];
-        int ISEEDY[4] = {1988, 1989, 1990, 1991};
-        real RESULT[NTESTS];
-        // Scalars in Common (TODO: pass as argument?)
-        bool LERR, OK;
-        char SRNAMT[32];
-        int INFOT, IOUNIT;
-        // Common blocks (TODO: remove)
-        //COMMON             / INFOC / INFOT, IOUNIT, OK, LERR
-        //COMMON             / SRNAMC / SRNAMT
+        const char PATH[3] = {'D','Q','3'};
         // Initialize constants and the random number seed.
-        NRUN = 0;
-        NFAIL = 0;
-        NERRS = 0;
-        for (I=1; I<=4; I++)
-        {
-            ISEED(I) = ISEEDY(I);
-        }
-        EPS = dlamch("Epsilon");
-        INFOT = 0;
-        for (IM=1; IM<=nm; IM++)//90
+        int nrun = 0;
+        int nfail = 0;
+        int nerrs = 0;
+        int iseed[4] = {1988, 1989, 1990, 1991};
+        int i, ihigh, ilow, im, imode, in, inb, info, istep, k, lda, lw, lwork, m, mnmin, mode, n,
+            nb, nx, temp;
+        real result[NTESTS];
+        real eps = this->dlamch("Epsilon");
+        infoc.info = 0;
+        for (im=0; im<nm; im++)
         {
             // Do for each value of M in mval.
-            M = mval[IM-1];
-            LDA = ((1>M) ? 1 : M);
-            for (IN=1; IN<=nn; IN++)//80
+            m = mval[im];
+            lda = ((1>m) ? 1 : m);
+            for (in=0; in<nn; in++)
             {
                 // Do for each value of N in nval.
-                N = nval[IN-1];
-                MNMIN = ((M<N) ? M : N);
-                LWORK = ((M>N) ? M : N);
-                LWORK = M*LWORK + 4*MNMIN + LWORK;
-                if (LWORK<(M*N + 2*MNMIN + 4*N))
+                n = nval[in];
+                if (m>n)
                 {
-                    LWORK = M*N + 2*MNMIN + 4*N;
+                    mnmin = n;
+                    temp = m;
                 }
-                if (LWORK<1)
+                else
                 {
-                    LWORK = 1;
+                    mnmin = m;
+                    temp = n;
                 }
-                for (IMODE=1; IMODE<=NTYPES; IMODE++)//70
+                lwork = m*temp + 4*mnmin + temp;
+                temp = m*n + 2*mnmin + 4*n;
+                if (lwork<temp)
                 {
-                    if (!dotype[IMODE-1])
+                    lwork = temp;
+                }
+                if (lwork<1)
+                {
+                    lwork = 1;
+                }
+                for (imode=0; imode<NTYPES; imode++)
+                {
+                    if (!dotype[imode])
                     {
                         continue;
                     }
                     // Do for each type of matrix
-                    //   1:  zero matrix
-                    //   2:  one small singular value
-                    //   3:  geometric distribution of singular values
-                    //   4:  first n/2 columns fixed
-                    //   5:  last n/2 columns fixed
-                    //   6:  every second column fixed
-                    MODE = IMODE;
-                    if (IMODE>3)
+                    //   0:  zero matrix
+                    //   1:  one small singular value
+                    //   2:  geometric distribution of singular values
+                    //   3:  first n/2 columns fixed
+                    //   4:  last n/2 columns fixed
+                    //   5:  every second column fixed
+                    mode = imode+1;
+                    if (imode>2)
                     {
-                        MODE = 1;
+                        mode = 1;
                     }
                     // Generate test matrix of size m by n using singular value distribution
                     // indicated by 'mode'.
-                    for (I=1; I<=N; I++)
+                    for (i=0; i<n; i++)
                     {
-                        IWORK(I) = 0;
+                        iwork[i] = 0;
                     }
-                    if (IMODE==1){
-                        dlaset("Full", M, N, ZERO, ZERO, CopyA, LDA);
-                        for (I=1; I<=MNMIN; I++)
+                    if (imode==0)
+                    {
+                        dlaset("Full", m, n, ZERO, ZERO, CopyA, lda);
+                        for (i=0; i<mnmin; i++)
                         {
-                            S[I-1] = ZERO;
+                            S[i] = ZERO;
                         }
                     }
                     else
                     {
-                        dlatms(M, N, "Uniform", ISEED, "Nonsymm", S, MODE, ONE / EPS, ONE, M, N,
-                               "No packing", CopyA, LDA, WORK, INFO);
-                        if (IMODE>=4)
+                        Testing_matgen<real>::dlatms(m, n, "Uniform", iseed, "Nonsymm", S, mode,
+                                                     ONE/eps, ONE, m, n, "No packing", CopyA, lda,
+                                                     work, info);
+                        if (imode>=3)
                         {
-                            if (IMODE==4)
+                            if (imode==3)
                             {
-                                ILOW = 1;
-                                ISTEP = 1;
-                                IHIGH = N / 2;
-                                if (IHIGH<1)
+                                ilow = 0;
+                                istep = 1;
+                                ihigh = n / 2;
+                                if (ihigh<1)
                                 {
-                                    IHIGH = 1;
+                                    ihigh = 1;
                                 }
                             }
-                            else if (IMODE==5)
+                            else if (imode==4)
                             {
-                                ILOW = N / 2;
-                                if (ILOW<1)
+                                ilow = n / 2 - 1;
+                                if (ilow<0)
                                 {
-                                    ILOW = 1;
+                                    ilow = 0;
                                 }
-                                ISTEP = 1;
-                                IHIGH = N;
+                                istep = 1;
+                                ihigh = n;
                             }
-                            else if (IMODE==6)
+                            else if (imode==5)
                             {
-                               ILOW = 1;
-                               ISTEP = 2;
-                               IHIGH = N;
+                               ilow = 0;
+                               istep = 2;
+                               ihigh = n;
                             }
-                            for (I=ILOW; I<=IHIGH; I+=ISTEP)
+                            for (i=ilow; i<ihigh; i+=istep)
                             {
-                                IWORK(I) = 1;
+                                iwork[i] = 1;
                             }
                         }
-                        dlaord("Decreasing", MNMIN, S, 1);
+                        dlaord("Decreasing", mnmin, S, 1);
                     }
-                    for (INB=1; INB<=nnb; INB++)//60
+                    for (inb=0; inb<nnb; inb++)
                     {
                         // Do for each pair of values (NB,NX) in nbval and nxval.
-                        NB = nbval[INB-1];
-                        //xlaenv(1, NB);
-                        NX = nxval[INB-1];
-                        //xlaenv(3, NX);
-                        // Get a working copy of CopyA into A and a copy of vector IWORK.
-                        dlacpy("All", M, N, CopyA, LDA, A, LDA);
-                        icopy(N, &IWORK[0], 1, &IWORK[N], 1);
+                        nb = nbval[inb];
+                        xlaenv(1, nb);
+                        nx = nxval[inb];
+                        xlaenv(3, nx);
+                        // Get a working copy of CopyA into A and a copy of vector iwork.
+                        dlacpy("All", m, n, CopyA, lda, A, lda);
+                        icopy(n, &iwork[0], 1, &iwork[n], 1);
                         // Compute the QR factorization with pivoting of A
-                        LW = 2*N + NB*(N+1);
-                        if (LW<1)
+                        lw = 2*n + nb*(n+1);
+                        if (lw<1)
                         {
-                            LW = 1;
+                            lw = 1;
                         }
                         // Compute the QP3 factorization of A
-                        std::strncpy(SRNAMT,"DGEQP3", 7);
-                        dgeqp3(M, N, A, LDA, &IWORK[N], TAU, WORK, LW, INFO);
+                        std::strncpy(srnamc.srnam,"DGEQP3", 7);
+                        dgeqp3(m, n, A, lda, &iwork[n], tau, work, lw, info);
                         // Compute norm(svd(A) - svd(R))
-                        RESULT[0] = dqrt12(M, N, A, LDA, S, WORK, LWORK);
+                        result[0] = dqrt12(m, n, A, lda, S, work, lwork);
                         // Compute norm(A*P - Q*R)
-                        RESULT[1] = dqpt01(M, N, MNMIN, CopyA, A, LDA, TAU, &IWORK[N], WORK,
-                                           LWORK);
+                        result[1] = dqpt01(m, n, mnmin, CopyA, A, lda, tau, &iwork[n], work,
+                                           lwork);
                         // Compute Q'*Q
-                        RESULT[2] = dqrt11(M, MNMIN, A, LDA, TAU, WORK, LWORK);
+                        result[2] = dqrt11(m, mnmin, A, lda, tau, work, lwork);
                         // Print information about the tests that did not pass the threshold.
-                        for (K=1; K<=NTESTS; K++)
+                        for (k=0; k<NTESTS; k++)
                         {
-                            if (RESULT(K)>=thresh)
+                            if (result[k]>=thresh)
                             {
-                                if (NFAIL==0 && NERRS==0)
+                                if (nfail==0 && nerrs==0)
                                 {
-                                    alahd(NOUT, PATH);
+                                    alahd(nout, PATH);
                                 }
-                                NOUT << " DGEQP3 M =" << std::setw(5) << M << ", N ="
-                                     << std::setw(5) << N << ", NB =" << std::setw(4) << NB
-                                     << ", type " << std::setw(2) << IMODE << ", test "
-                                     << std::setw(2) << K << ", ratio =" << std::setw(12)
-                                     << std::setprecision(5) << RESULT(K) << std::endl;
-                                NFAIL++;
+                                nout << " DGEQP3 M =" << std::setw(5) << m << ", N ="
+                                     << std::setw(5) << n << ", NB =" << std::setw(4) << nb
+                                     << ", type " << std::setw(2) << imode+1 << ", test "
+                                     << std::setw(2) << k+1 << ", ratio =" << std::setw(12)
+                                     << std::setprecision(5) << result[k] << std::endl;
+                                nfail++;
                             }
                         }
-                        NRUN += NTESTS;
+                        nrun += NTESTS;
                     }
                 }
             }
         }
         // Print a summary of the results.
-        alasum(PATH, NOUT, NFAIL, NRUN, NERRS);
+        alasum(PATH, nout, nfail, nrun, nerrs);
     }
 
     /* dlaord sorts the elements of a vector x in increasing or decreasing order.
@@ -1043,7 +1063,7 @@ public:
      *          Univ.of Colorado Denver
      *          NAG Ltd.
      * Date December 2016                                                                        */
-    static void dlaord(char const* job, int n, real* x, int incx)
+    void dlaord(char const* job, int n, real* x, int incx)
     {
         int i, ix, ixnext;
         real temp;
@@ -1132,7 +1152,7 @@ public:
      *          Univ.of Colorado Denver
      *          NAG Ltd.
      * Date December 2016                                                                        */
-    static real dqpt01(int m, int n, int k, real const* A, real const* Af, int lda, real
+    real dqpt01(int m, int n, int k, real const* A, real const* Af, int lda, real
                        const* tau, int const* jpvt, real* work, int lwork)
     {
         // Test if there is enough workspace
@@ -1171,7 +1191,7 @@ public:
             Blas<real>::daxpy(m, -ONE, A[/*0+*/lda*jpvt[j]], 1, work[j*m], 1);
         }
         real rwork[1];
-        real dqpt01 = dlange("One-norm", m, n, work, m, rwork) / (real(m>n?m:n)*dlamch("Epsilon"));
+        real dqpt01 = dlange("One-norm", m, n, work, m, rwork) / (real(m>n?m:n)*this->dlamch("Epsilon"));
         real norma = dlange("One-norm", m, n, A, lda, rwork);
         if (norma!=ZERO)
         {
@@ -1203,7 +1223,7 @@ public:
      *          Univ.of Colorado Denver
      *          NAG Ltd.
      * Date December 2016                                                                        */
-    static real dqrt11(int m, int k, real const* A, int lda, real const* tau, real* work,
+    real dqrt11(int m, int k, real const* A, int lda, real const* tau, real* work,
                        int lwork)
     {
         // Test for sufficient workspace
@@ -1228,7 +1248,7 @@ public:
             work[j*m+j] -= ONE;
         }
         real rdummy[1];
-        return dlange("One-norm", m, m, work, m, rdummy) / (real(m)*DLAMCH("Epsilon"));
+        return dlange("One-norm", m, m, work, m, rdummy) / (real(m)*this->dlamch("Epsilon"));
     }
 
     /* dqrt12 computes the singular values 'svlues' of the upper trapezoid of A[0:m-1,0:n-1] and
@@ -1249,7 +1269,7 @@ public:
      *          Univ.of Colorado Denver
      *          NAG Ltd.
      * Date December 2016                                                                        */
-    static real dqrt12(int m, int n, real const* A, int lda, real const* s, real* work, int lwork)
+    real dqrt12(int m, int n, real const* A, int lda, real const* s, real* work, int lwork)
     {
         // Test that enough workspace is supplied
         int mn = m<n?m:n;
@@ -1279,7 +1299,7 @@ public:
             }
         }
         // Get machine parameters
-        real smlnum = dlamch("S") / dlamch("P");
+        real smlnum = this->dlamch("S") / this->dlamch("P");
         real bignum = ONE / smlnum;
         dlabad(smlnum, bignum);
         // Scale work if max entry outside range [SMLNUM,BIGNUM]
@@ -1327,10 +1347,10 @@ public:
         }
         // Compare s and singular values of work
         Blas<real>::daxpy(mn, -ONE, s, 1, &work[mtn], 1);
-        real dqrt12 = Blas<real>::dasum(mn, &work[mtn], 1) / (dlamch("Epsilon")*real(maxmn));
+        real dqrt12 = Blas<real>::dasum(mn, &work[mtn], 1) / (this->dlamch("Epsilon")*real(maxmn));
         if (nrmsvl!=ZERO)
         {
-            dqrt12 = dqrt12 / NRMSVL;
+            dqrt12 = dqrt12 / nrmsvl;
         }
         return dqrt12;
     }
@@ -1349,7 +1369,7 @@ public:
      *          Univ.of Colorado Denver
      *          NAG Ltd.
      * Date December 2016                                                                        */
-    static void icopy(int n, int const* sx, int incx, int* sy, int incy)
+    void icopy(int n, int const* sx, int incx, int* sy, int incy)
     {
         if (n<=0)
         {
@@ -1402,5 +1422,213 @@ public:
             sy[i+6] = sx[i+6];
         }
     }
-}
+
+    /* ilaenv returns problem-dependent parameters for the local environment. See ispec for a
+     * description of the parameters.
+     * In this version, the problem-dependent parameters are contained in the integer array iparms
+     * in the struct claenv and the value with index ispec is copied to ilaenv. This version of
+     * ilaenv is to be used in conjunction with xlaenv in testing and timing.
+     * Paramters: ispec: Specifies the parameter to be returned as the value of ilaenv.
+     *                   == 1: the optimal blocksize; if this value is 1, an unblocked algorithm
+     *                         will give the best performance.
+     *                   == 2: the minimum block size for which the block routine should be used;
+     *                         if the usable block size is less than this value, an unblocked
+     *                         routine should be used.
+     *                   == 3: the crossover point (in a block routine, for N less than this value,
+     *                         an unblocked routine should be used)
+     *                   == 4: the number of shifts, used in the nonsymmetric eigenvalue routines
+     *                   == 5: the minimum column dimension for blocking to be used; rectangular
+     *                         blocks must have dimension at least k by m, where k is given by
+     *                         ilaenv(2,...) and m by ilaenv(5,...)
+     *                   == 6: the crossover point for the SVD (when reducing an m by n matrix to
+     *                         bidiagonal form, if max(m,n)/min(m,n) exceeds this value, a QR
+     *                         factorization is used first to reduce the matrix to a triangular
+     *                         form.)
+     *                   == 7: the number of processors
+     *                   == 8: the crossover point for the multishift QR and QZ methods for
+     *                         nonsymmetric eigenvalue problems.
+     *                   == 9: maximum size of the subproblems at the bottom of the computation
+     *                         tree in the divide-and-conquer algorithm
+     *                   ==10: ieee NaN arithmetic can be trusted not to trap
+     *                   ==11: infinity arithmetic can be trusted not to trap
+     *                   Other specifications (up to 100) can be added later.
+     *             name: The name of the calling subroutine.
+     *             opts: The character options to the subroutine name, concatenated into a single
+     *                   character string. For example, UPLO=='U', TRANS=='T', and DIAG=='N' for a
+     *                   triangular routine would be specified as opts = 'UTN'.
+     *             N1,
+     *             N2,
+     *             N3,
+     *             N4: Problem dimensions for the subroutine name; these may not all be required.
+     * Returns: >= 0: the value of the parameter specified by ispec
+     *           < 0: if ==-k, the k-th argument had an illegal value.
+     * Authors: Univ.of Tennessee
+     *          Univ.of California Berkeley
+     *          Univ.of Colorado Denver
+     *          NAG Ltd.
+     * Date November 2017
+     * Further Details:
+     *     The following conventions have been used when calling ilaenv from the lapack routines:
+     *     1) opts is a concatenation of all of the character options to subroutine name, in the
+     *        same order that they appear in the argument list for name, even if they are not used
+     *        in determining the value of the parameter specified by ispec.
+     *     2) The problem dimensions N1, N2, N3, N4 are specified in the order that they appear in
+     *        the argument list for name. N1 is used first, N2 second, and so on, and unused
+     *        problem dimensions are passed a value of -1.
+     *     3) The parameter value returned by ilaenv is checked for validity in the calling
+     *        subroutine. For example, ilaenv is used to retrieve the optimal blocksize for STRTRI
+     *        as follows:
+     *            NB = ilaenv(1, 'STRTRI', UPLO // DIAG, N, -1, -1, -1 )
+     *            if (NB<=1) NB = MAX(1, N)                                                      */
+    virtual int ilaenv(int ispec, char const* name, char const* opts, int n1, int n2, int n3,
+                       int n4)
+    {
+        if (ispec>=1 && ispec<=5)
+        {
+            // Return a value from the common block.
+            char upname[4];
+            upname[0] = std::toupper(name[1]);
+            upname[1] = std::toupper(name[2]);
+            upname[2] = std::toupper(name[3]);
+            upname[3] = std::toupper(name[4]);
+            if (std::strncmp(upname,"GEQR",4)==0)
+            {
+                if (n3==2)
+                {
+                    return claenv.iparms[1];
+                }
+                else
+                {
+                    return claenv.iparms[0];
+                }
+            }
+            else if (std::strncmp(upname,"GELQ",4)==0)
+            {
+                if (n3==2)
+                {
+                    return claenv.iparms[1];
+                }
+                else
+                {
+                    return claenv.iparms[0];
+                }
+            }
+            else
+            {
+                return claenv.iparms[ispec-1];
+            }
+        }
+        else if (ispec==6)
+        {
+            // Compute SVD crossover point.
+            return int(real((n1<n2?n1:n2))*real(1.6E0));
+        }
+        else if (ispec>=7 && ispec<=9)
+        {
+            // Return a value from the common block.
+            return claenv.iparms[ispec-1];
+        }
+        else if (ispec==10)
+        {
+            // IEEE NaN arithmetic can be trusted not to trap
+            //return 0;
+            return ieeeck(1, ZERO, ONE);
+        }
+        else if (ispec==11)
+        {
+            // Infinity arithmetic can be trusted not to trap
+            // return 0;
+            return ieeeck(0, ZERO, ONE);
+        }
+        else
+        {
+            // Invalid value for ISPEC
+            return -1;
+        }
+    }
+
+    /* This is a special version of xerbla to be used only as part of the test program for testing
+     * error exits from the LAPACK routines. Error messages are printed if info!=infoc.info or if
+     * srname!=snramc.snram.
+     * Parameters: srname: The name of the subroutine calling xerbla. This name should match the
+     *                     struct field snramc.snram.
+     *             info: The error return code from the calling subroutine. info should equal the
+     *                   struct field infoc.info.
+     * Authors: Univ.of Tennessee
+     *          Univ.of California Berkeley
+     *          Univ.of Colorado Denver
+     *          NAG Ltd.
+     * Date December 2016
+     * Further Details:
+     *     The following variables are passed via the struct fields infoc and srnamc:
+     *     infoc.info   int           Expected integer return code
+     *     infoc.iounit std::ostream& Unit number for printing error messages
+     *     infoc.ok     bool          Set to true if info==infoc.info and srname==snramc.srnam,
+     *                                otherwise set to false
+     *     infoc.lerr   bool          Set to true, indicating that XERBLA was called
+     *     snramc.srnam char*         Expected name of calling subroutine                              */
+    virtual void xerbla(const char* srname, int info)
+    {
+        infoc.lerr = true;
+        if (info!=infoc.info)
+        {
+            if (infoc.info!=0)
+            {
+                infoc.iounit << " *** XERBLA was called from " << srnamc.srnam << " with INFO = "
+                             << info << " instead of " << infoc.info << " ***" << std::endl;
+            }
+            else
+            {
+                infoc.iounit << " *** On entry to " << srname << " parameter number " << info
+                             << " had an illegal value ***" << std::endl;
+            }
+            infoc.ok = false;
+        }
+        if (std::strcmp(srname,srnamc.srnam)!=0)
+        {
+            infoc.iounit << " *** XERBLA was called with SRNAME = " << srname << " instead of "
+                         << std::setw(9) << srnamc.srnam << " ***" << std::endl;
+            infoc.ok = false;
+        }
+    }
+
+    /* xlaenv sets certain machine- and problem-dependent quantities which will later be retrieved
+     * by ilaenv.
+     * Parameters: ispec: Specifies the parameter to be set in the field array IPARMS.
+     *                    ==1: the optimal blocksize; if this value is 1, an unblocked algorithm
+     *                         will give the best performance.
+     *                    ==2: the minimum block size for which the block routine should be used;
+     *                         if the usable block size is less than this value, an unblocked
+     *                         routine should be used.
+     *                    ==3: the crossover point (in a block routine, for N less than this value,
+     *                         an unblocked routine should be used)
+     *                    ==4: the number of shifts, used in the nonsymmetric eigenvalue routines
+     *                    ==5: the minimum column dimension for blocking to be used; rectangular
+     *                         blocks must have dimension at least k by m, where k is given by
+     *                         ilaenv(2,...) and m by ilaenv(5,...)
+     *                    ==6: the crossover point for the SVD (when reducing an m by n matrix to
+     *                         bidiagonal form, if max(m,n)/min(m,n) exceeds this value, a QR
+     *                         factorization is used first to reduce the matrix to a triangular
+     *                         form)
+     *                    ==7: the number of processors
+     *                    ==8: another crossover point, for the multishift QR and QZ methods for
+     *                         nonsymmetric eigenvalue problems.
+     *                    ==9: maximum size of the subproblems at the bottom of the computation
+     *                         tree in the divide-and-conquer algorithm (used by xGELSD and xGESDD)
+     *                   ==10: ieee NaN arithmetic can be trusted not to trap
+     *                   ==11: infinity arithmetic can be trusted not to trap
+     *             nvalue: The value of the parameter specified by ispec.
+     * Authors: Univ.of Tennessee
+     *          Univ.of California Berkeley
+     *          Univ.of Colorado Denver
+     *          NAG Ltd.
+     * Date December 2016                                                                        */
+    void xlaenv(int ispec, int nvalue)
+    {
+        if (ispec>=1 && ispec<=9)
+        {
+            claenv.iparms[ispec-1] = nvalue;
+        }
+    }
+};
 #endif

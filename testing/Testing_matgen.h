@@ -1,3 +1,6 @@
+#ifndef TESTING_MATGEN_HEADER
+#define TESTING_MATGEN_HEADER
+
 #include <iostream>
 #include <iomanip>
 #include <fstream>
@@ -7,21 +10,19 @@
 #include <cmath>
 
 #include "Blas.h"
-
-#ifndef TESTING_MATGEN_HEADER
-#define TESTING_MATGEN_HEADER
+#include "Lapack_dyn.h"
 
 template<class real>
-class Testing_matgen
+class Testing_matgen : public Lapack_dyn<real>
 {
 public:
     // constants
 
-    static constexpr real ZERO  = real(0.0);
-    static constexpr real HALF  = real(0.5)
-    static constexpr real ONE   = real(1.0);
-    static constexpr real TWO   = real(2.0);
-    static constexpr real TWOPI = real(6.2831853071795864769252867663);
+    const real ZERO  = real(0.0);
+    const real HALF  = real(0.5);
+    const real ONE   = real(1.0);
+    const real TWO   = real(2.0);
+    const real TWOPI = real(6.2831853071795864769252867663);
     // LAPACK TESTING MATGEN
 
     /* dlagge generates a real general m by n matrix A, by pre- and post- multiplying a real
@@ -48,7 +49,7 @@ public:
      *          Univ.of Colorado Denver
      *          NAG Ltd.
      * Date December 2016                                                                        */
-    static void dlagge(int m, int n, int kl, int ku, real const* d, real* A, int lda, int* iseed,
+    void dlagge(int m, int n, int kl, int ku, real const* d, real* A, int lda, int* iseed,
                        real* work, int& info)
     {
         // Test the input arguments
@@ -75,7 +76,7 @@ public:
         }
         if (info<0)
         {
-            xerbla("DLAGGE", -info);
+            this->xerbla("DLAGGE", -info);
             return;
         }
         int i, j, aind;
@@ -184,7 +185,7 @@ public:
                     wa = std::fabs(wn) * real((ZERO<=A[aind])-(A[aind]<ZERO));
                     if (wn==ZERO)
                     {
-                        tau = ZERO
+                        tau = ZERO;
                     }
                     else
                     {
@@ -211,7 +212,7 @@ public:
                     wa = std::fabs(wn) * real((ZERO<=A[aind])-(A[aind]<ZERO));
                     if (wn==ZERO)
                     {
-                        tau = ZERO
+                        tau = ZERO;
                     }
                     else
                     {
@@ -290,7 +291,7 @@ public:
      *          Univ.of Colorado Denver
      *          NAG Ltd.
      * Date December 2016                                                                        */
-    static void dlagsy(int n, int k, real const* d, real* A, int lda, int* iseed, real* work,
+    void dlagsy(int n, int k, real const* d, real* A, int lda, int* iseed, real* work,
                        int& info)
     {
         // Test the input arguments
@@ -309,7 +310,7 @@ public:
         }
         if (info<0)
         {
-            xerbla("DLAGSY", -info);
+            this->xerbla("DLAGSY", -info);
             return;
         }
         int i, j, aind;
@@ -379,7 +380,7 @@ public:
             Blas<real>::dger(n-k-i, k-1, -tau, &A[aind], 1, work, 1, &A[aind+lda], lda);
             // apply reflection to A[k+i:n-1,k+i:n-1] from the left and the right
             // compute  y := tau * A * u
-            Blas<real>::dsymv('Lower', n-k-i, tau, &A[aind+lda*k], lda, &A[aind], 1, ZERO, work,
+            Blas<real>::dsymv("Lower", n-k-i, tau, &A[aind+lda*k], lda, &A[aind], 1, ZERO, work,
                               1);
             // compute  v := y - 1/2 * tau * (y, u) * u
             alpha = -HALF * tau * Blas<real>::ddot(n-k-i, work, 1, &A[aind], 1);
@@ -397,7 +398,7 @@ public:
         for (j=0; j<n; j++)
         {
             aind = lda*j;
-            for (i=j+1; i<n; u++)
+            for (i=j+1; i<n; i++)
             {
                 A[j+lda*i] = A[i+aind];
             }
@@ -421,7 +422,7 @@ public:
      *     Math. Comp. 189, pp 331-344, 1990).
      *     48-bit integers are stored in 4 integer array elements with 12 bits per element. Hence
      *     the routine is portable across machines with integers of 32 bits or more.             */
-    static real dlaran(int* iseed)
+    real dlaran(int* iseed)
     {
         const int M1 = 494;
         const int M2 = 322;
@@ -480,7 +481,7 @@ public:
      *     This routine calls the auxiliary routine dlaran to generate a random real number from a
      *     uniform (0,1) distribution. The Box-Muller method is used to transform numbers from a
      *     uniform to a normal distribution.                                                     */
-    static real dlarnd(int idist, int* iseed)
+    real dlarnd(int idist, int* iseed)
     {
         // Generate a real random number from a uniform (0,1) distribution
         real t1 = dlaran(iseed);
@@ -603,7 +604,7 @@ public:
      *          Univ.of Colorado Denver
      *          NAG Ltd.
      * Date December 2016                                                                        */
-    static void dlarot(bool lrows, bool lleft, bool lright, int nl, real c, real s, real* A,
+    void dlarot(bool lrows, bool lleft, bool lright, int nl, real c, real s, real* A,
                        int lda, real& xleft, real& xright)
     {
         // Set up indices, arrays for ends
@@ -646,12 +647,12 @@ public:
         // Check for errors
         if (nl<nt)
         {
-            xerbla("DLAROT", 4);
+            this->xerbla("DLAROT", 4);
             return;
         }
         if (lda<=0 || (!lrows && lda<nl-nt))
         {
-            xerbla("DLAROT", 8);
+            this->xerbla("DLAROT", 8);
             return;
         }
         // Rotate
@@ -718,7 +719,7 @@ public:
      *          Univ.of Colorado Denver
      *          NAG Ltd.
      * Date December 2016                                                                        */
-    static void dlatm1(int mode, real cond, int irsign, int idist, int* iseed, real* d, int n,
+    void dlatm1(int mode, real cond, int irsign, int idist, int* iseed, real* d, int n,
                        int& info)
     {
         // Decode and Test the input parameters. Initialize flags & seed.
@@ -751,7 +752,7 @@ public:
         }
         if (info!=0)
         {
-            xerbla("DLATM1", -info);
+            this->xerbla("DLATM1", -info);
             return;
         }
         // Compute d according to cond and mode
@@ -785,7 +786,7 @@ public:
                         alpha = std::pow(cond, (-ONE/real(n-1)));
                         for (i=1; i<n; i++)
                         {
-                            d[i] = std::pow(alpha, real(i))
+                            d[i] = std::pow(alpha, real(i));
                         }
                     }
                     break;
@@ -991,7 +992,7 @@ public:
      *          Univ.of Colorado Denver
      *          NAG Ltd.
      * Date December 2016                                                                        */
-    static void dlatms(int m, int n, const char* dist, int* iseed, const char* sym, real* d,
+    void dlatms(int m, int n, const char* dist, int* iseed, const char* sym, real* d,
                        int mode, real cond, real dmax, int kl, int ku, char const* pack, real* A,
                        int lda, real* work, int& info)
     {
@@ -1065,23 +1066,23 @@ public:
                 isympk = 1;
                 break;
             case 'C':
-                ipack = 3
-                isympk = 2
+                ipack = 3;
+                isympk = 2;
                 break;
             case 'R':
-                ipack = 4
-                isympk = 3
+                ipack = 4;
+                isympk = 3;
                 break;
             case 'B':
-                ipack = 5
-                isympk = 3
+                ipack = 5;
+                isympk = 3;
                 break;
             case 'Q':
-                ipack = 6
-                isympk = 2
+                ipack = 6;
+                isympk = 2;
                 break;
             case 'Z':
-                ipack = 7
+                ipack = 7;
                 break;
             default:
                 ipack = -1;
@@ -1175,7 +1176,7 @@ public:
         }
         if (info!=0)
         {
-            xerbla("DLATMS", -info);
+            this->xerbla("DLATMS", -info);
             return;
         }
         // Initialize random number generator
@@ -1501,7 +1502,7 @@ public:
                                 iltemp = ((jch+jkl+2) < m);
                                 temp = ZERO;
                                 dlarot(false, ilextr, iltemp, irow+2-ir, c, s,
-                                       &A[ir+ioffst+ldamiskm1*jch], ilda, extra, Stemp);
+                                       &A[ir+ioffst+ldamiskm1*jch], ilda, extra, temp);
                                 if (iltemp)
                                 {
                                     dlartg(A[irow+ioffst+ldamiskm1*jch], temp, c, s, dummy);
@@ -1869,5 +1870,5 @@ public:
             }
         }
     }
-}
+};
 #endif

@@ -9,11 +9,13 @@ using namespace std;
 
 int main(int argc, char* argv[])
 {
+    Testing_eig<double>* te = new Testing_eig<double>();
     // test dgebal
     ifstream f("data/dbal.in");
     char dummy[20];
     f.getline(dummy, 20);
-    Testing_eig<double>::dchkbl(f,cout);
+    te->dchkbl(f,cout);
     f.close();
+    delete te;
     // TODO: add all other tests
 }
