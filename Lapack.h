@@ -1261,7 +1261,7 @@ public:
                 // Apply H(i) to A[i:m-1,i+1:n-1] from the left
                 if (i<n-1)
                 {
-                    dlarf("Left", m-i, n-1-i, &A[ildai], 1, tauq[i], &A[ildai+lda], lda, &work);
+                    dlarf("Left", m-i, n-1-i, &A[ildai], 1, tauq[i], &A[ildai+lda], lda, work);
                 }
                 A[ildai] = d[i];
                 if (i<n-1)
@@ -1273,7 +1273,7 @@ public:
                     A[ildai+lda] = ONE;
                     // Apply G(i) to A[i+1:m-1,i+1:n-1] from the right
                     dlarf("Right", m-1-i, n-1-i, &A[ildai+lda], lda, taup[i], &A[1+ildai+lda], lda,
-                          &work);
+                          work);
                     A[ildai+lda] = e[i];
                 }
                 else
@@ -1297,7 +1297,7 @@ public:
                 // Apply G(i) to A[i+1:m-1,i:n-1] from the right
                 if (i<m-1)
                 {
-                    DLARF("Right", m-1-i, n-i, &A[ildai], lda, taup[i], &A[1+ildai], lda, &work);
+                    dlarf("Right", m-1-i, n-i, &A[ildai], lda, taup[i], &A[1+ildai], lda, work);
                 }
                 A[ildai] = d[i];
                 if (i<m-1)
@@ -1309,7 +1309,7 @@ public:
                     A[1+ildai] = ONE;
                     // Apply H(i) to A[i+1:m-1,i+1:n-1] from the left
                     dlarf("Left", m-1-i, n-1-i, &A[1+ildai], 1, tauq[i], &A[1+ildai+lda], lda,
-                            &work);
+                          work);
                     A[1+ildai] = e[i];
                 }
                 else
@@ -2217,8 +2217,7 @@ public:
         // Recomputation of difficult columns.
         while (lsticc>=0)
         {
-
-            itemp = int(vn2[lsticc]-HALF); // round vn2[lsticc]-1
+            itemp = std::round(vn2[lsticc]) - 1;
             vn1[lsticc] = Blas<real>::dnrm2(m-rk-1, &A[rk+1+lda*lsticc], 1);
             // NOTE: The computation of vn1[lsticc] relies on the fact that dnrm2 does not fail on
             // vectors with norm below the value of sqrt(dlamch("S"))
@@ -3017,8 +3016,8 @@ public:
                             }
                             j = ((lastv>prevlastv) ? lastv : prevlastv);
                             // T[i+1:k-1, i] = -tau[i] * V[j:n-k+i, i+1:k-1]^T * V[j:n-k+i, i]
-                            dgemv("Transpose", vcol-j, k-1-i, -tau[i], &V[j+ldv*(i+1)], ldv,
-                                  &V[j+ldv*i], 1, ONE, &T[i+1+tcoli], 1);
+                            Blas<real>::dgemv("Transpose", vcol-j, k-1-i, -tau[i], &V[j+ldv*(i+1)],
+                                              ldv, &V[j+ldv*i], 1, ONE, &T[i+1+tcoli], 1);
                         }
                         else
                         {
@@ -3038,8 +3037,9 @@ public:
                             j = ((lastv>prevlastv) ? lastv : prevlastv);
                             // T[i+1:k-1, i] = -tau[i] * V[i+1:k-1, j:n-k+i] * V[i, j:n-k+i]^T
                             vcol = ldv*j;
-                            dgemv("No transpose", k-1-i, n-k+i-j, -tau[i], &V[i+1+vcol], ldv,
-                                  &V[i+vcol], ldv, ONE, &T[i+1+tcoli], 1);
+                            Blas<real>::dgemv("No transpose", k-1-i, n-k+i-j, -tau[i],
+                                              &V[i+1+vcol], ldv, &V[i+vcol], ldv, ONE,
+                                              &T[i+1+tcoli], 1);
                         }
                         // T[i+1:k-1, i] = T[i+1:k-1, i+1:k-1] * T[i+1:k-1, i]
                         Blas<real>::dtrmv("Lower", "No transpose", "Non-unit", k-i-1,
@@ -3053,7 +3053,6 @@ public:
                         }
                         else
                         {
-
                             prevlastv = lastv;
                         }
                     }
@@ -3089,7 +3088,7 @@ public:
         const real TWOPI = real(6.2831853071795864769252867663);
         const int LV = 128;
         int i, il, il2, iv;
-        real* u[LV];
+        real u[LV];
         for (iv=0; iv<n; iv+=LV/2)
         {
             il = LV/2;
@@ -3398,7 +3397,7 @@ public:
         int i2 = iseed[1];
         int i3 = iseed[2];
         int i4 = iseed[3];
-        int i, im4, it1, it2, it3, it4;
+        int i, im4, it1=0, it2=0, it3=0, it4=0;
         for (i=0; i<n && i<LV; i++)
         {
             im4 = 4*i;
@@ -3668,7 +3667,7 @@ public:
         real cfromc = cfrom;
         real ctoc = cto;
         int i, j, ldaj, k1, k2, k3, k4;
-        real cfrom1, cto1, mul;
+        real cfrom1, cto1=0, mul;
         bool done;
         do
         {
@@ -3959,8 +3958,8 @@ public:
         eps = dlamch("Precision");
         safmin = dlamch("Safe minimum");
         scale = std::sqrt(eps/safmin);
-        Blas<real>::dcopy(n, d, 1, work[0], 2);
-        Blas<real>::dcopy(n-1, e, 1, work[1], 2);
+        Blas<real>::dcopy(n, d, 1, &work[0], 2);
+        Blas<real>::dcopy(n-1, e, 1, &work[1], 2);
         dlascl("G", 0, 0, sigmx, scale, 2*n-1, 1, work, 2*n-1, iinfo);
         // Compute the q's and e's.
         for (i=0; i<2*n-1; i++)
@@ -4219,7 +4218,7 @@ public:
                 }
                 else
                 {
-                    Z[i4-2*pp+3] = Z[i4+4] * (Z[i4+2]/Z(i4-2*pp+2));
+                    Z[i4-2*pp+3] = Z[i4+4] * (Z[i4+2]/Z[i4-2*pp+1]);
                     d = Z[i4+4] * (d/Z[i4-2*pp+1]);
                 }
                 if (emin>Z[i4-2*pp+3])
@@ -4229,7 +4228,7 @@ public:
             }
             Z[4*n0-pp+1] = d;
             // Now find qmax.
-            qmax = Z[4*n0-pp+1];
+            qmax = Z[4*i0-pp+1];
             for (i4=4*i0-pp+2; i4<=4*n0-pp-2; i4+=4)
             {
                 if (qmax<Z[i4+3])
@@ -4350,7 +4349,7 @@ public:
             dmin = TWO*std::sqrt(qmin)*std::sqrt(emax) - qmin;
             if (dmin>ZERO)
             {
-                dmin = ZERO;
+                dmin = -ZERO;
             }
             // Now i0:n0 is unreduced.
             // PP = 0 for ping, PP = 1 for pong.
@@ -4727,12 +4726,13 @@ public:
         // dn2 records the type of shift.
         if (dmin<=ZERO)
         {
+            tau = -dmin;
             ttype = -1;
             return;
         }
         int nn = 4*(n0+1) + pp;
         int i4, np;
-        real a2, b1, b2, gam, gap1, gap2, s, temp;
+        real a2, b1, b2, gam, gap1, gap2, s=ZERO, temp;
         if (n0in==n0)
         {
             // No eigenvalues deflated.
@@ -5337,7 +5337,7 @@ public:
             }
         }
         Z[j4+2] = dn;
-        Z(4*(n0+1)-pp) = emin;
+        Z[4*n0-pp+3] = emin;
     }
 
     /* dlasq6 computes one dqd (shift equal to zero) transform in ping-pong form, with protection
@@ -5475,7 +5475,7 @@ public:
         }
         dmin = ((dmin<dn) ? dmin : dn);
         Z[j4+2] = dn;
-        Z(4*n0+4-pp) = emin;
+        Z[4*n0-pp+3] = emin;
     }
 
     /* dlasr applies a sequence of plane rotations to a real matrix A, from either the left or the
@@ -6136,7 +6136,7 @@ public:
      *          Univ.of Colorado Denver
      *          NAG Ltd.
      * Date: December 2016                                                                       */
-    static void dlassq(int n, real const* x, int incx, int& scale, int& sumsq)
+    static void dlassq(int n, real const* x, int incx, real& scale, real& sumsq)
     {
         if (n>0)
         {
@@ -6865,9 +6865,7 @@ public:
         if (info==0)
         {
             // Determine the block size. nb may be at most NBMAX, where NBMAX is used to define the local array T.
-            {
-                nb = ilaenv(1, "DORMQR", opts, m, n, k, -1);
-            }
+            nb = ilaenv(1, "DORMQR", opts, m, n, k, -1);
             if (nb>NBMAX)
             {
                 nb = NBMAX;
@@ -6944,7 +6942,7 @@ public:
                 ic = 0;
             }
             int i, ib, aind;
-            for (i=i1; i!=i2+i3; i+=i3)
+            for (i=i1; (i3<0) ? (i>=i2) : (i<=i2); i+=i3)
             {
                 ib = k - i;
                 if (ib>nb)
@@ -7138,7 +7136,7 @@ public:
         }
         else
         {
-            int i, j, ipos;
+            int i, j;
             // Scan up each column tracking the last zero row seen.
             int colj, ila=0;
             for (j=0; j<n; j++)
@@ -7764,6 +7762,22 @@ public:
                 return -1;
         }
         return -1;
+    }
+
+    /* This subroutine returns the LAPACK version.
+     * Parameter: vers_major: return the lapack major version
+     *            vers_minor: return the lapack minor version from the major version.
+     *            vers_patch: return the lapack patch version from the minor version
+     * Authors: Univ.of Tennessee
+     *          Univ.of California Berkeley
+     *          Univ.of Colorado Denver
+     *          NAG Ltd.
+     * Date: June 2017                                                                           */
+    static void ilaver(int& vers_major, int& vers_minor, int& vers_patch)
+    {
+        vers_major = 3;
+        vers_minor = 8;
+        vers_patch = 0;
     }
 
     /* This program sets problem and machine dependent parameters useful for xHSEQR and its

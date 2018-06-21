@@ -571,7 +571,7 @@ public:
         } else if (n < 0)
         {
             info = 3;
-        } else if (lda < ((1 > m) ? 0 : (m - 1)))
+        } else if (lda < ((1>m) ? 1 : m)-1)
         {
             info = 6;
         } else if (incx == 0)
@@ -682,7 +682,7 @@ public:
                 }
             } else
             {
-                for (j = 1; j < n; j++)
+                for (j = 0; j < n; j++)
                 {
                     colj = lda*j;
                     temp = alpha * x[jx];

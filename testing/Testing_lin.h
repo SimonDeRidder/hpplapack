@@ -8,6 +8,7 @@
 #include <string>
 #include <sstream>
 #include <cmath>
+#include <ctime>
 
 #include "Blas.h"
 #include "Lapack_dyn.h"
@@ -41,6 +42,10 @@ public:
     {
         int iparms[100];
     } claenv;
+
+    // matgen instance
+
+    Testing_matgen<real> MatGen;
 
     // LAPACK TESTING LIN (alphabetically)
 
@@ -100,7 +105,7 @@ public:
         {
             return;
         }
-        char pathcopy[4], c1, c3, p2[2], *sym;
+        char pathcopy[4], c1, c3, p2[2], sym[10];
         strncpy(pathcopy, path, 3);
         pathcopy[3] = '\0';
         c1 = toupper(path[0]);
@@ -231,13 +236,13 @@ public:
             // PP: Positive definite packed
             if(sord)
             {
-                sym = "Symmetric";
+                std::strncpy(sym, "Symmetric", 10);
             }
             else
             {
-                sym = "Hermitian";
+                std::strncpy(sym, "Hermitian", 10);
             }
-            if (c3='O')
+            if (c3=='O')
             {
                 iounit << "\n " << pathcopy << ":  " << sym << " positive definite matrices\n";
             }
@@ -269,20 +274,20 @@ public:
             // PS: Positive semi-definite full
             if (sord)
             {
-                sym = "Symmetric";
+                std::strncpy(sym, "Symmetric", 10);
             }
             else
             {
-                sym = "Hermitian";
+                std::strncpy(sym, "Hermitian", 10);
             }
-            char* eigcnm;
+            char eigcnm[5];
             if (c1=='S' || c1=='C')
             {
-                eigcnm = "1E04";
+                std::strncpy(eigcnm, "1E04", 5);
             }
             else
             {
-                eigcnm = "1D12";
+                std::strncpy(eigcnm, "1D12", 5);
             }
             iounit << "\n " << pathcopy << ":  " << sym << str9995 << '\n';
             iounit << " Matrix types:\n";
@@ -814,6 +819,157 @@ public:
         }
     }
 
+    /* alareq handles input for the LAPACK test program. It is called to evaluate the input line
+     * which requested nmats matrix types for nin. The flow of control is as follows:
+     * If nmats = ntypes then
+     *     dotype[0:ntypes-1] = TRUE
+     * else
+     *     Read the next input line for nmats matrix types
+     *     Set dotype[I] = TRUE for each valid type I
+     * endif
+     * Parameters: nin: An LAPACK path name for testing.
+     *             nmats: The number of matrix types to be used in testing this path.
+     *             dotype: a boolean array, dimension (ntypes)
+     *                     The vector of flags indicating if each type will be tested.
+     *             ntypes: The maximum number of matrix types for this path.
+     *             ntypes: The input stream.
+     *             nout:The output stream.
+     * Authors: Univ.of Tennessee
+     *          Univ.of California Berkeley
+     *          Univ.of Colorado Denver
+     *          NAG Ltd.
+     * Date December 2016                                                                        */
+    void alareq(char const* path, int nmats, bool* dotype, int ntypes, std::istream& nin,
+                std::ostream& nout)
+    {
+        int i;
+        if (nmats>=ntypes)
+        {
+            // Test everything if nmats>=ntypes.
+            for (i=0; i<ntypes; i++)
+            {
+                dotype[i] = true;
+            }
+        }
+        else
+        {
+            for (i=0; i<ntypes; i++)
+            {
+                dotype[i] = false;
+            }
+            bool firstt = true;
+            int nreq[100];
+            // Read a line of matrix types if 0 < nmats < ntypes.
+            if (nmats>0)
+            {
+                char line[80];
+                nin >> std::setw(80) >> line;
+                if (nin.good())
+                {
+                    int lenp = std::strlen(line);
+                    i = -1;
+                    char c1;
+                    int i1, ic=0, j, k;
+                    char const INTSTR[10] = {'0','1','2','3','4','5','6','7','8','9'};
+                    char const* str9994 = " matrix types on this line or adjust NTYPES on previous"
+                                          " line";
+                    for (j=0; j<nmats; j++)
+                    {
+                        nreq[j] = 0;
+                        i1 = -1;
+                        while (true)
+                        {
+                            i++;
+                            if (i>=lenp)
+                            {
+                                if (j==nmats-1 && i1>=0)
+                                {
+                                    break;
+                                }
+                                else
+                                {
+                                    nout << "\n\n *** Not enough matrix types on input line\n"
+                                         << std::setw(79) << line << std::endl;
+                                    nout << " ==> Specify " << std::setw(4) << nmats << str9994
+                                         << std::endl;
+                                    return;
+                                }
+                            }
+                            if (line[i]!=' ' && line[i]!=',')
+                            {
+                                i1 = i;
+                                c1 = line[i1];
+                                // Check that a valid integer was read
+                                for (k=0; k<10; k++)
+                                {
+                                    if (c1==INTSTR[k])
+                                    {
+                                        ic = k;
+                                        break;
+                                    }
+                                }
+                                if (c1!=INTSTR[k])
+                                {
+                                    nout << "\n\n *** Invalid integer value in column "
+                                         << std::setw(2) << i+1 << " of input line:\n"
+                                         << std::setw(79) << line << std::endl;
+                                    nout << " ==> Specify " << std::setw(4) << nmats << str9994
+                                         << std::endl;
+                                    return;
+                                }
+                                nreq[j] = 10*nreq[j] + ic;
+                                continue;
+                            }
+                            else if (i1>=0)
+                            {
+                                break;
+                            }
+                            else
+                            {
+                                continue;
+                            }
+                        }
+                    }
+                }
+            }
+            if (nin.good())
+            {
+                int nt;
+                for (i=0; i<nmats; i++)
+                {
+                    nt = nreq[i]-1;
+                    if (nt>=0 && nt<ntypes)
+                    {
+                        if (dotype[nt])
+                        {
+                            if (firstt)
+                            {
+                                nout << std::endl;
+                            }
+                            firstt = false;
+                            nout << " *** Warning:  duplicate request of matrix type "
+                                 << std::setw(2) << nt+1 << " for " << std::setw(3) << path << std::endl;
+                        }
+                        dotype[nt] = true;
+                    }
+                    else
+                    {
+                        nout << " *** Invalid type request for " << std::setw(3) << path << ", type  "
+                             << std::setw(4) << nt+1 << ": must satisfy  1 <= type <= " << std::setw(2)
+                             << ntypes << std::endl;
+                    }
+                }
+            }
+        }
+        if (!nin.good())
+        {
+            nout << "\n *** End of file reached when trying to read matrix types for " << path
+                 << " *** Check that you are requesting the right number of types for each path\n"
+                 << '\n' << std::endl;
+        }
+        return;
+    }
+
     /* alasum prints a summary of results from one of the -CHK- routines.
      * Parameters: type: The LAPACK path name.
      *             nout: The output stream to which results are to be printed.
@@ -845,6 +1001,1116 @@ public:
             nout << "      " << std::setw(6) << nerrs << " error messages recorded\n";
         }
         nout.flush();
+    }
+
+    /* dchkaa is the main test program for the DOUBLE PRECISION LAPACK linear equation routines
+     * The program must be driven by a short data file. The first 15 records (not including the
+     * first comment line) specify problem dimensions and program options using list-directed
+     * input. The remaining lines specify the LAPACK test paths and the number of matrix types to
+     * use in testing. An annotated example of a data file can be obtained by deleting the first 3
+     * characters from the following 40 lines:
+     * Data file for testing DOUBLE PRECISION LAPACK linear eqn. routines
+     * 7                      Number of values of M
+     * 0 1 2 3 5 10 16        Values of M (row dimension)
+     * 7                      Number of values of N
+     * 0 1 2 3 5 10 16        Values of N (column dimension)
+     * 1                      Number of values of NRHS
+     * 2                      Values of NRHS (number of right hand sides)
+     * 5                      Number of values of NB
+     * 1 3 3 3 20             Values of NB (the blocksize)
+     * 1 0 5 9 1              Values of NX (crossover point)
+     * 3                      Number of values of RANK
+     * 30 50 90               Values of rank (as a % of N)
+     * 20.0                   Threshold value of test ratio
+     * T                      Put T to test the LAPACK routines
+     * T                      Put T to test the driver routines
+     * T                      Put T to test the error exits
+     * DGE   11               List types on next line if 0 < NTYPES < 11
+     * DGB    8               List types on next line if 0 < NTYPES <  8
+     * DGT   12               List types on next line if 0 < NTYPES < 12
+     * DPO    9               List types on next line if 0 < NTYPES <  9
+     * DPS    9               List types on next line if 0 < NTYPES <  9
+     * DPP    9               List types on next line if 0 < NTYPES <  9
+     * DPB    8               List types on next line if 0 < NTYPES <  8
+     * DPT   12               List types on next line if 0 < NTYPES < 12
+     * DSY   10               List types on next line if 0 < NTYPES < 10
+     * DSR   10               List types on next line if 0 < NTYPES < 10
+     * DSK   10               List types on next line if 0 < NTYPES < 10
+     * DSA   10               List types on next line if 0 < NTYPES < 10
+     * DS2   10               List types on next line if 0 < NTYPES < 10
+     * DSP   10               List types on next line if 0 < NTYPES < 10
+     * DTR   18               List types on next line if 0 < NTYPES < 18
+     * DTP   18               List types on next line if 0 < NTYPES < 18
+     * DTB   17               List types on next line if 0 < NTYPES < 17
+     * DQR    8               List types on next line if 0 < NTYPES <  8
+     * DRQ    8               List types on next line if 0 < NTYPES <  8
+     * DLQ    8               List types on next line if 0 < NTYPES <  8
+     * DQL    8               List types on next line if 0 < NTYPES <  8
+     * DQP    6               List types on next line if 0 < NTYPES <  6
+     * DTZ    3               List types on next line if 0 < NTYPES <  3
+     * DLS    6               List types on next line if 0 < NTYPES <  6
+     * DEQ
+     * DQT
+     * DQX
+     * Parameters: NMAX: The maximum allowable value for M and N.
+     *             MAXIN: The number of different values that can be used for each of M, N, NRHS,
+     *                    NB, NX and RANK
+     *             MAXRHS: The maximum number of right hand sides
+     *             MATMAX: The maximum number of matrix types to use for testing
+     *             nin: The input stream
+     *             nout: The output stream
+     * Authors: Univ.of Tennessee
+     *          Univ.of California Berkeley
+     *          Univ.of Colorado Denver
+     *          NAG Ltd.
+     * Date April 2012                                                                           */
+    void dchkaa(const int NMAX, const int MAXIN, const int MAXRHS, const int MATMAX,
+                std::istream& nin, std::ostream& nout)
+    {
+        /*
+        const int NMAX = 132;
+        const int MAXIN = 12;
+        const int MAXRHS = 16;
+        const int MATMAX = 30;
+        std::istream& nin = std::cin;
+        std::ostream& nout = std::cout;
+         */
+        const int KDMAX = NMAX+(NMAX+1) / 4;
+        const char INTSTR[10] = {'0','1','2','3','4','5','6','7','8','9'};
+        const real THREQ=real(2.0);
+        std::time_t s1, s2;
+        std::time(&s1);
+        // Read a dummy line.
+        {
+            char dummy[100];
+            nin.getline(dummy, 100);
+        }
+        // Report values of parameters.
+        int vers_major, vers_minor, vers_patch;
+        this->ilaver(vers_major, vers_minor, vers_patch);
+        nout << " Tests of the DOUBLE PRECISION LAPACK routines \n LAPACK VERSION " << std::setw(1)
+             << vers_major << '.' << std::setw(1) <<  vers_minor << '.' << std::setw(1)
+             << vers_patch << "\n\n The following parameter values will be used:" << std::endl;
+        // Read the values of M
+        char const* str99965 = " Invalid input value: ";
+        char const* str9995b = "; must be <=";
+        char const* str9996b = "; must be >=";
+        bool fatal = false;
+        int nm;
+        std::string dummy;
+        nin >> nm;
+        std::getline(nin, dummy);
+        if (nm<1)
+        {
+            nout << str99965 <<  " NM =" << std::setw(6) << nm << str9996b << std::setw(6) << 1
+                 << std::endl;
+            nm = 0;
+            fatal = true;
+        }
+        else if (nm>MAXIN)
+        {
+            nout << str99965 << " NM =" << std::setw(6) << nm << str9995b << std::setw(6) << MAXIN
+                 << std::endl;
+            nm = 0;
+            fatal = true;
+        }
+        int i;
+        int* mval = new int[MAXIN];
+        for (i=0; i<nm; i++)
+        {
+            nin >> mval[i];
+        }
+        std::getline(nin, dummy);
+        for (i=0; i<nm; i++)
+        {
+            if (mval[i]<0)
+            {
+                nout << str99965 << " M  =" << std::setw(6) << mval[i] << str9996b << std::setw(6)
+                     << 0 << std::endl;
+                fatal = true;
+            }
+            else if (mval[i]>NMAX)
+            {
+                nout << str99965 <<  " M  =" << std::setw(6) << mval[i] << str9995b
+                     << std::setw(6) << NMAX << std::endl;
+                fatal = true;
+            }
+        }
+        if (nm>0)
+        {
+            nout << "    M   :  ";
+            for (i=0; i<nm; i++)
+            {
+                nout << std::setw(6) << mval[i];
+                if (i%10==9 && i<nm-1)
+                {
+                    nout << "\n           ";
+                }
+            }
+            nout << std::endl;
+        }
+        // Read the values of N
+        int nn;
+        nin >> nn;
+        std::getline(nin, dummy);
+        if (nn<1)
+        {
+            nout << str99965 << " NN =" << std::setw(6) << nn << str9996b << std::setw(6) << 1
+                 << std::endl;
+            nn = 0;
+            fatal = true;
+        }
+        else if (nn>MAXIN)
+        {
+            nout << str99965 << " NN =" << std::setw(6) << nn << str9995b << std::setw(6) << MAXIN
+                 << std::endl;
+            nn = 0;
+            fatal = true;
+        }
+        int* nval = new int[MAXIN];
+        for (i=0; i<nn; i++)
+        {
+            nin >> nval[i];
+        }
+        std::getline(nin, dummy);
+        for (i=0; i<nn; i++)
+        {
+            if (nval[i]<0)
+            {
+                nout << str99965 << " N  =" << std::setw(6) << nval[i] << str9996b
+                     << std::setw(6) << 0 << std::endl;
+                fatal = true;
+            }
+            else if (nval[i]>NMAX)
+            {
+                nout << str99965 << " N  =" << std::setw(6) << nval[i] << str9995b
+                     << std::setw(6) << NMAX << std::endl;
+                fatal = true;
+            }
+        }
+        if (nn>0)
+        {
+            nout << "    N   :  ";
+            for (i=0; i<nn; i++)
+            {
+                nout << std::setw(6) << nval[i];
+                if ((i%10)==9 && i<nn-1)
+                {
+                    nout << "\n           ";
+                }
+            }
+            nout << std::endl;
+        }
+        // Read the values of NRHS
+        int nns;
+        nin >> nns;
+        std::getline(nin, dummy);
+        if (nns<1)
+        {
+            nout << str99965 << " NNS=" << std::setw(6) << nns << str9996b << std::setw(6) << 1
+                 << std::endl;
+            nns = 0;
+            fatal = true;
+        }
+        else if (nns>MAXIN)
+        {
+            nout << str99965 << " NNS=" << std::setw(6) << nns << str9995b << std::setw(6) << MAXIN
+                 << std::endl;
+            nns = 0;
+            fatal = true;
+        }
+        int* nsval = new int[MAXIN];
+        for (i=0; i<nns; i++)
+        {
+            nin >> nsval[i];
+        }
+        std::getline(nin, dummy);
+        for (i=0; i<nns; i++)
+        {
+            if (nsval[i]<0)
+            {
+                nout << str99965 << "NRHS=" << std::setw(6) << nsval[i] << str9996b
+                     << std::setw(6) << 0 << std::endl;
+                fatal = true;
+            }
+            else if (nsval[i]>MAXRHS)
+            {
+                nout << str99965 << "NRHS=" << std::setw(6) << nsval[i] << str9995b
+                     << std::setw(6) << MAXRHS << std::endl;
+                fatal = true;
+            }
+        }
+        if (nns>0)
+        {
+            nout << "    NRHS:  ";
+            for (i=0; i<nns; i++)
+            {
+                nout << std::setw(6) << nsval[i];
+                if (i%10==9 && i<nns-1)
+                {
+                    nout << "\n           ";
+                }
+            }
+            nout << std::endl;
+        }
+        // Read the values of NB
+        int nnb;
+        nin >> nnb;
+        std::getline(nin, dummy);
+        if (nnb<1)
+        {
+            nout << str99965 << "NNB =" << std::setw(6) << nnb << str9996b << std::setw(6) << 1
+                 << std::endl;
+            nnb = 0;
+            fatal = true;
+        }
+        else if (nnb>MAXIN)
+        {
+            nout << str99965 << "NNB =" << std::setw(6) << nnb << str9995b << std::setw(6) << MAXIN
+                 << std::endl;
+            nnb = 0;
+            fatal = true;
+        }
+        int* nbval = new int[MAXIN];
+        for (i=0; i<nnb; i++)
+        {
+            nin >> nbval[i];
+        }
+        std::getline(nin, dummy);
+        for (i=0; i<nnb; i++)
+        {
+            if (nbval[i]<0)
+            {
+                nout << str99965 << " NB =" << std::setw(6) << nbval[i] << str9996b
+                     << std::setw(6) << 0 << std::endl;
+                fatal = true;
+            }
+        }
+        if (nnb>0)
+        {
+            nout << "    NB  :  ";
+            for (i=0; i<nnb; i++)
+            {
+                nout << std::setw(6) << nbval[i];
+                if (i%10==9 && i<nnb-1)
+                {
+                    nout << "\n           ";
+                }
+            }
+            nout << std::endl;
+        }
+        // Set nbval2 to be the set of unique values of NB
+        int j, nb, nnb2 = 0;
+        bool breakloop;
+        int* nbval2 = new int[MAXIN];
+        for (i=0; i<nnb; i++)
+        {
+            nb = nbval[i];
+            breakloop = false;
+            for (j=0; j<nnb2; j++)
+            {
+                if (nb==nbval2[j])
+                {
+                    breakloop = true;
+                    break;
+                }
+            }
+            if (!breakloop)
+            {
+                nnb2++;
+                nbval2[nnb2-1] = nb;
+            }
+        }
+        // Read the values of NX
+        int* nxval = new int[MAXIN];
+        for (i=0; i<nnb; i++)
+        {
+            nin >> nxval[i];
+        }
+        std::getline(nin, dummy);
+        for (i=0; i<nnb; i++)
+        {
+            if (nxval[i]<0)
+            {
+                nout << str99965 << " NX =" << std::setw(6) << nxval[i] << str9996b
+                     << std::setw(6) << 0 << std::endl;
+               fatal = true;
+            }
+        }
+        if (nnb>0)
+        {
+            nout << "    NX  :  ";
+            for (i=0; i<nnb; i++)
+            {
+                nout << std::setw(6) << nxval[i];
+                if (i%10==9 && i<nnb-1)
+                {
+                    nout << "\n           ";
+                }
+            }
+            nout << std::endl;
+        }
+        // Read the values of rankval
+        int nrank;
+        nin >> nrank;
+        std::getline(nin, dummy);
+        if (nn<1)
+        {
+            nout << str99965 << " NRA=" << std::setw(6) << nrank << str9996b << std::setw(6) << 1
+                 << std::endl;//nrank
+            nrank = 0;
+            fatal = true;
+        }
+        else if (nn>MAXIN)
+        {
+            nout << str99965 << " NRA=" << std::setw(6) << nrank << str9995b << std::setw(6)
+                 << MAXIN << std::endl;//nrank
+            nrank = 0;
+            fatal = true;
+        }
+        int* rankval = new int[MAXIN];
+        for (i=0; i<nrank; i++)
+        {
+            nin >> rankval[i];
+        }
+        std::getline(nin, dummy);
+        for (i=0; i<nrank; i++)
+        {
+            if (rankval[i]<0)
+            {
+                nout << str99965 << " RAN=" << std::setw(6) << rankval[i] << str9996b
+                     << std::setw(6) << 0 << std::endl;//rank
+                fatal = true;
+            }
+            else if (rankval[i]>100)
+            {
+                nout << str99965 << " RAN=" << std::setw(6) << rankval[i] << str9995b
+                     << std::setw(6) << 100 << std::endl;//rank
+                fatal = true;
+            }
+        }
+        if (nrank>0)
+        {
+            nout << "    RANK:  ";//'RANK % OF N'
+            for (i=0; i<nrank; i++)
+            {
+                nout << std::setw(6) << rankval[i];
+                if (i%10==9 && i<nrank-1)
+                {
+                    nout << "\n           ";
+                }
+            }
+            nout << std::endl;
+        }
+        // Read the threshold value for the test ratios.
+        bool tstchk, tstdrv, tsterr;
+        real thresh;
+        char c1;
+        nin >> thresh;
+        std::getline(nin, dummy);
+        nout << "\n Routines pass computational tests if test ratio is less than" << std::setw(8)
+             << std::setprecision(2) << thresh << '\n' << std::endl;
+        // Read the flag that indicates whether to test the LAPACK routines.
+        nin >> c1;
+        tstchk = (std::toupper(c1)=='T');
+        std::getline(nin, dummy);
+        // Read the flag that indicates whether to test the driver routines.
+        nin >> c1;
+        tstdrv = (std::toupper(c1)=='T');
+        std::getline(nin, dummy);
+        // Read the flag that indicates whether to test the error exits.
+        nin >> c1;
+        tsterr = (std::toupper(c1)=='T');
+        std::getline(nin, dummy);
+        if (fatal)
+        {
+            nout << "\n Execution not attempted due to input errors" << std::endl;
+            return;
+        }
+        // Calculate and print the machine dependent constants.
+        char const* str9991a = " Relative machine ";
+        char const* str9991b = " is taken to be";
+        real eps = this->dlamch("Underflow threshold");
+        nout << str9991a << "underflow" << str9991b << std::setw(16) << std::setprecision(6) << eps
+             << std::endl;
+        eps = this->dlamch("Overflow threshold");
+        nout << str9991a << "overflow " << str9991b << std::setw(16) << std::setprecision(6) << eps
+             << std::endl;
+        eps = this->dlamch("Epsilon");
+        nout << str9991a << "precision" << str9991b << std::setw(16) << std::setprecision(6) << eps
+             << '\n' << std::endl;
+        // start read loop
+        char c2[2];
+        char path[4];
+        std::string aline;
+        //char aline[72];
+        bool* dotype = new bool[MATMAX];
+        int* iwork = new int[25*NMAX];
+        int* piv = new int[NMAX];
+        int ldatot = (KDMAX+1)*NMAX;
+        real* A = new real[ldatot * 7];
+        int ldbtot = NMAX*MAXRHS;
+        real* B = new real[ldbtot * 4];
+        real* E = new real[NMAX];
+        real* Rwork = new real[5*NMAX+2*MAXRHS];
+        real* S = new real[2*NMAX];
+        real* Work = new real[NMAX * 3*NMAX+MAXRHS+30];
+        int lda = NMAX;
+        int ic, k, la, lafac, nmats, nrhs, ntypes;
+        char const* str9988 = " driver routines were not tested";
+        char const* str9989 = " routines were not tested";
+        char const* str9990 = ":  Unrecognized path name";
+        while (!nin.eof())
+        {
+            // Read a test path and the number of matrix types to use.
+            std::getline(nin, aline);
+            //nin >> std::setw(72) >> aline;
+            if (!nin.good())
+            {
+                break;
+            }
+            std::strncpy(path,aline.c_str(),3);
+            path[3] = '\0';
+            nmats = MATMAX;
+            i = 2;
+            breakloop = false;
+            do
+            {
+                i++;
+                if (i>=72)
+                {
+                    nmats = MATMAX;
+                    breakloop = true;
+                    break;
+                }
+            } while (aline[i]==' ');
+            if (!breakloop)
+            {
+                nmats = 0;
+                do
+                {
+                    c1 = aline[i];
+                    breakloop = false;
+                    for (k=0; k<10; k++)
+                    {
+                        if (c1==INTSTR[k])
+                        {
+                            ic = k;
+                            breakloop = true;
+                            break;
+                        }
+                    }
+                    if (!breakloop)
+                    {
+                        break;
+                    }
+                    nmats = nmats*10 + ic;
+                    i++;
+                } while (i<72);
+            }
+            c1 = std::toupper(path[0]);
+            c2[0] = std::toupper(path[1]);
+            c2[1] = std::toupper(path[2]);
+            nrhs = nsval[0];
+            // Check first character for correct precision.
+            if (c1!='D') // Double precision
+            {
+                nout << "\n " << path << str9990 << std::endl;
+            }
+            else if (nmats<=0)
+            {
+                // Check for a positive number of tests requested.
+                nout << "\n " << path << str9989 << std::endl;
+            }
+            else if (std::strncmp(c2, "GE", 2)==0)
+            {
+                // GE:  general matrices
+                ntypes = 11;
+                alareq(path, nmats, dotype, ntypes, nin, nout);
+                if (tstchk)
+                {
+                    //CALL DCHKGE(dotype, NM, mval, NN, nval, NNB2, nbval2, NNS, nsval, thresh, tsterr, LDA, &A[0+ldatot*0], &A[0+ldatot*1], &A[0+ldatot*2], &B[0+ldbtot*0], &B[0+ldbtot*1], &B[0+ldbtot*2], Work, Rwork, iwork, nout)
+                    std::cerr << "DCHKGE not yet implemented" << std::endl;
+                }
+                else
+                {
+                    nout << "\n " << path << str9989 << std::endl;
+                }
+                if (tstdrv)
+                {
+                    //CALL DDRVGE(dotype, NN, nval, nrhs, thresh, tsterr, LDA, &A[0+ldatot*0], &A[0+ldatot*1], &A[0+ldatot*2], &B[0+ldbtot*0], &B[0+ldbtot*1], &B[0+ldbtot*2], &B[0+ldbtot*3], S, Work, Rwork, iwork, nout)
+                    std::cerr << "DDRVGE not yet implemented" << std::endl;
+                }
+                else
+                {
+                    nout << "\n " << path << str9988 << std::endl;
+                }
+            }
+            else if (std::strncmp(c2, "GB", 2)==0)
+            {
+                // GB:  general banded matrices
+                la = (2*KDMAX+1)*NMAX;
+                lafac = (3*KDMAX+1)*NMAX;
+                ntypes = 8;
+                alareq(path, nmats, dotype, ntypes, nin, nout);
+                if (tstchk)
+                {
+                    //CALL DCHKGB(dotype, NM, mval, NN, nval, NNB2, nbval2, NNS, nsval, thresh, tsterr, &A[0+ldatot*0], la, &A[0+ldatot*2], lafac, &B[0+ldbtot*0], &B[0+ldbtot*1], &B[0+ldbtot*2], Work, Rwork, iwork, nout)
+                    std::cerr << "DCHKGB not yet implemented" << std::endl;
+                }
+                else
+                {
+                    nout << "\n " << path << str9989 << std::endl;
+                }
+                if (tstdrv)
+                {
+                    //CALL DDRVGB(dotype, NN, nval, nrhs, thresh, tsterr, &A[0+ldatot*0], la, &A[0+ldatot*2], lafac, A(1, 6), &B[0+ldbtot*0], &B[0+ldbtot*1], &B[0+ldbtot*2], &B[0+ldbtot*3], S, Work, Rwork, iwork, nout)
+                    std::cerr << "DDRVGB not yet implemented" << std::endl;
+                }
+                else
+                {
+                    nout << "\n " << path << str9988 << std::endl;
+                }
+            }
+            else if (std::strncmp(c2, "GT", 2)==0)
+            {
+                // GT:  general tridiagonal matrices
+                ntypes = 12;
+                alareq(path, nmats, dotype, ntypes, nin, nout);
+                if (tstchk)
+                {
+                    //CALL DCHKGT(dotype, NN, nval, NNS, nsval, thresh, tsterr, &A[0+ldatot*0], &A[0+ldatot*1], &B[0+ldbtot*0], &B[0+ldbtot*1], &B[0+ldbtot*2], Work, Rwork, iwork, nout)
+                    std::cerr << "DCHKGT not yet implemented" << std::endl;
+                }
+                else
+                {
+                    nout << "\n " << path << str9989 << std::endl;
+                }
+                if (tstdrv)
+                {
+                    //CALL DDRVGT(dotype, NN, nval, nrhs, thresh, tsterr, &A[0+ldatot*0], &A[0+ldatot*1], &B[0+ldbtot*0], &B[0+ldbtot*1], &B[0+ldbtot*2], Work, Rwork, iwork, nout)
+                    std::cerr << "DDRVGT not yet implemented" << std::endl;
+                }
+                else
+                {
+                    nout << "\n " << path << str9988 << std::endl;
+                }
+            }
+            else if (std::strncmp(c2, "PO", 2)==0)
+            {
+                // PO:  positive definite matrices
+                ntypes = 9;
+                alareq(path, nmats, dotype, ntypes, nin, nout);
+                if (tstchk)
+                {
+                    //CALL DCHKPO(dotype, NN, nval, NNB2, nbval2, NNS, nsval, thresh, tsterr, LDA, &A[0+ldatot*0], &A[0+ldatot*1], &A[0+ldatot*2], &B[0+ldbtot*0], &B[0+ldbtot*1], &B[0+ldbtot*2], Work, Rwork, iwork, nout)
+                    std::cerr << "DCHKPO not yet implemented" << std::endl;
+                }
+                else
+                {
+                    nout << "\n " << path << str9989 << std::endl;
+                }
+                if (tstdrv)
+                {
+                    //CALL DDRVPO(dotype, NN, nval, nrhs, thresh, tsterr, LDA, &A[0+ldatot*0], &A[0+ldatot*1], &A[0+ldatot*2], &B[0+ldbtot*0], &B[0+ldbtot*1], &B[0+ldbtot*2], &B[0+ldbtot*3], S, Work, Rwork, iwork, nout)
+                    std::cerr << "DDRVPO not yet implemented" << std::endl;
+                }
+                else
+                {
+                    nout << "\n " << path << str9988 << std::endl;
+                }
+            }
+            else if (std::strncmp(c2, "PS", 2)==0)
+            {
+                // PS:  positive semi-definite matrices
+                ntypes = 9;
+                alareq(path, nmats, dotype, ntypes, nin, nout);
+                if (tstchk)
+                {
+                    //CALL DCHKPS(dotype, NN, nval, NNB2, nbval2, NRANK, rankval, thresh, tsterr, LDA, &A[0+ldatot*0], &A[0+ldatot*1], &A[0+ldatot*2], piv, Work, Rwork, nout)
+                    std::cerr << "DCHKPS not yet implemented" << std::endl;
+                }
+                else
+                {
+                    nout << "\n " << path << str9989 << std::endl;
+                }
+            }
+            else if (std::strncmp(c2, "PP", 2)==0)
+            {
+                // PP:  positive definite packed matrices
+                ntypes = 9;
+                alareq(path, nmats, dotype, ntypes, nin, nout);
+                if (tstchk)
+                {
+                    //CALL DCHKPP(dotype, NN, nval, NNS, nsval, thresh, tsterr, LDA, &A[0+ldatot*0], &A[0+ldatot*1], &A[0+ldatot*2], &B[0+ldbtot*0], &B[0+ldbtot*1], &B[0+ldbtot*2], Work, Rwork, iwork, nout)
+                    std::cerr << "DCHKPP not yet implemented" << std::endl;
+                }
+                else
+                {
+                    nout << "\n " << path << str9989 << std::endl;
+                }
+                if (tstdrv)
+                {
+                    //CALL DDRVPP(dotype, NN, nval, nrhs, thresh, tsterr, LDA, &A[0+ldatot*0], &A[0+ldatot*1], &A[0+ldatot*2], &B[0+ldbtot*0], &B[0+ldbtot*1], &B[0+ldbtot*2], &B[0+ldbtot*3], S, Work, Rwork, iwork, nout)
+                    std::cerr << "DDRVPP not yet implemented" << std::endl;
+                }
+                else
+                {
+                    nout << "\n " << path << str9988 << std::endl;
+                }
+            }
+            else if (std::strncmp(c2, "PB", 2)==0)
+            {
+                // PB:  positive definite banded matrices
+                ntypes = 8;
+                alareq(path, nmats, dotype, ntypes, nin, nout);
+                if (tstchk)
+                {
+                    //CALL DCHKPB(dotype, NN, nval, NNB2, nbval2, NNS, nsval, thresh, tsterr, LDA, &A[0+ldatot*0], &A[0+ldatot*1], &A[0+ldatot*2], &B[0+ldbtot*0], &B[0+ldbtot*1], &B[0+ldbtot*2], Work, Rwork, iwork, nout)
+                    std::cerr << "DCHKPB not yet implemented" << std::endl;
+                }
+                else
+                {
+                    nout << "\n " << path << str9989 << std::endl;
+                }
+                if (tstdrv)
+                {
+                    //CALL DDRVPB(dotype, NN, nval, nrhs, thresh, tsterr, LDA, &A[0+ldatot*0], &A[0+ldatot*1], &A[0+ldatot*2], &B[0+ldbtot*0], &B[0+ldbtot*1], &B[0+ldbtot*2], &B[0+ldbtot*3], S, Work, Rwork, iwork, nout)
+                    std::cerr << "DDRVPB not yet implemented" << std::endl;
+                }
+                else
+                {
+                    nout << "\n " << path << str9988 << std::endl;
+                }
+            }
+            else if (std::strncmp(c2, "PT", 2)==0)
+            {
+                // PT:  positive definite tridiagonal matrices
+                ntypes = 12;
+                alareq(path, nmats, dotype, ntypes, nin, nout);
+                if (tstchk)
+                {
+                    //CALL DCHKPT(dotype, NN, nval, NNS, nsval, thresh, tsterr, &A[0+ldatot*0], &A[0+ldatot*1], &A[0+ldatot*2], &B[0+ldbtot*0], &B[0+ldbtot*1], &B[0+ldbtot*2], Work, Rwork, nout)
+                    std::cerr << "DCHKPT not yet implemented" << std::endl;
+                }
+                else
+                {
+                    nout << "\n " << path << str9989 << std::endl;
+                }
+                if (tstdrv)
+                {
+                    //CALL DDRVPT(dotype, NN, nval, nrhs, thresh, tsterr, &A[0+ldatot*0], &A[0+ldatot*1], &A[0+ldatot*2], &B[0+ldbtot*0], &B[0+ldbtot*1], &B[0+ldbtot*2], Work, Rwork, nout)
+                    std::cerr << "DDRVPT not yet implemented" << std::endl;
+                }
+                else
+                {
+                    nout << "\n " << path << str9988 << std::endl;
+                }
+            }
+            else if (std::strncmp(c2, "SY", 2)==0)
+            {
+                // SY: symmetric indefinite matrices, with partial (Bunch-Kaufman) pivoting
+                //     algorithm
+                ntypes = 10;
+                alareq(path, nmats, dotype, ntypes, nin, nout);
+                if (tstchk)
+                {
+                    //CALL DCHKSY(dotype, NN, nval, NNB2, nbval2, NNS, nsval, thresh, tsterr, LDA, &A[0+ldatot*0], &A[0+ldatot*1], &A[0+ldatot*2], &B[0+ldbtot*0], &B[0+ldbtot*1], &B[0+ldbtot*2], Work, Rwork, iwork, nout)
+                    std::cerr << "DCHKSY not yet implemented" << std::endl;
+                }
+                else
+                {
+                    nout << "\n " << path << str9989 << std::endl;
+                }
+                if (tstdrv)
+                {
+                    //CALL DDRVSY(dotype, NN, nval, nrhs, thresh, tsterr, LDA, &A[0+ldatot*0], &A[0+ldatot*1], &A[0+ldatot*2], &B[0+ldbtot*0], &B[0+ldbtot*1], &B[0+ldbtot*2], Work, Rwork, iwork, nout)
+                    std::cerr << "DDRVSY not yet implemented" << std::endl;
+                }
+                else
+                {
+                    nout << "\n " << path << str9988 << std::endl;
+                }
+            }
+            else if (std::strncmp(c2, "SR", 2)==0)
+            {
+                // SR:  symmetric indefinite matrices, with bounded Bunch-Kaufman (rook) pivoting
+                //      algorithm
+                ntypes = 10;
+                alareq(path, nmats, dotype, ntypes, nin, nout);
+                if (tstchk)
+                {
+                    //CALL DCHKSY_ROOK(dotype, NN, nval, NNB2, nbval2, NNS, nsval, thresh, tsterr, LDA, &A[0+ldatot*0], &A[0+ldatot*1], &A[0+ldatot*2], &B[0+ldbtot*0], &B[0+ldbtot*1], &B[0+ldbtot*2], Work, Rwork, iwork, nout)
+                    std::cerr << "DCHKSY_ROOK not yet implemented" << std::endl;
+                }
+                else
+                {
+                    nout << "\n " << path << str9989 << std::endl;
+                }
+                if (tstdrv)
+                {
+                    //CALL DDRVSY_ROOK(dotype, NN, nval, nrhs, thresh, tsterr, LDA, &A[0+ldatot*0], &A[0+ldatot*1], &A[0+ldatot*2], &B[0+ldbtot*0], &B[0+ldbtot*1], &B[0+ldbtot*2], Work, Rwork, iwork, nout)
+                    std::cerr << "DDRVSY_ROOK not yet implemented" << std::endl;
+                }
+                else
+                {
+                    nout << "\n " << path << str9988 << std::endl;
+                }
+            }
+            else if (std::strncmp(c2, "SK", 2)==0)
+            {
+                // SK: symmetric indefinite matrices, with bounded Bunch-Kaufman (rook) pivoting
+                //     algorithm, differnet matrix storage format than SR path version.
+                ntypes = 10;
+                alareq(path, nmats, dotype, ntypes, nin, nout);
+                if (tstchk)
+                {
+                    //CALL DCHKSY_RK(dotype, NN, nval, NNB2, nbval2, NNS, nsval, thresh, tsterr, LDA, &A[0+ldatot*0], &A[0+ldatot*1], E, &A[0+ldatot*2], &B[0+ldbtot*0], &B[0+ldbtot*1], &B[0+ldbtot*2], Work, Rwork, iwork, nout)
+                    std::cerr << "DCHKSY_RK not yet implemented" << std::endl;
+                }
+                else
+                {
+                    nout << "\n " << path << str9989 << std::endl;
+                }
+                if (tstdrv)
+                {
+                    //CALL DDRVSY_RK(dotype, NN, nval, nrhs, thresh, tsterr, LDA, &A[0+ldatot*0], &A[0+ldatot*1], E, &A[0+ldatot*2], &B[0+ldbtot*0], &B[0+ldbtot*1], &B[0+ldbtot*2], Work, Rwork, iwork, nout)
+                    std::cerr << "DDRVSY_RK not yet implemented" << std::endl;
+                }
+                else
+                {
+                    nout << "\n " << path << str9988 << std::endl;
+                }
+            }
+            else if (std::strncmp(c2, "SA", 2)==0)
+            {
+                // SA: symmetric indefinite matrices, with partial (Aasen's) pivoting algorithm
+                ntypes = 10;
+                alareq(path, nmats, dotype, ntypes, nin, nout);
+                if (tstchk)
+                {
+                    //CALL DCHKSY_AA(dotype, NN, nval, NNB2, nbval2, NNS, nsval, thresh, tsterr, LDA, &A[0+ldatot*0], &A[0+ldatot*1], &A[0+ldatot*2], &B[0+ldbtot*0], &B[0+ldbtot*1], &B[0+ldbtot*2], Work, Rwork, iwork, nout)
+                    std::cerr << "DCHKSY_AA not yet implemented" << std::endl;
+                }
+                else
+                {
+                    nout << "\n " << path << str9989 << std::endl;
+                }
+                if (tstdrv)
+                {
+                    //CALL DDRVSY_AA(dotype, NN, nval, nrhs, thresh, tsterr, LDA, &A[0+ldatot*0], &A[0+ldatot*1], &A[0+ldatot*2], &B[0+ldbtot*0], &B[0+ldbtot*1], &B[0+ldbtot*2], Work, Rwork, iwork, nout)
+                    std::cerr << "DDRVSY_AA not yet implemented" << std::endl;
+                }
+                else
+                {
+                    nout << "\n " << path << str9988 << std::endl;
+                }
+            }
+            else if (std::strncmp(c2, "S2", 2)==0)
+            {
+                // SA: symmetric indefinite matrices, with partial (Aasen's) pivoting algorithm
+                ntypes = 10;
+                alareq(path, nmats, dotype, ntypes, nin, nout);
+                if (tstchk)
+                {
+                    //CALL DCHKSY_AA_2STAGE(dotype, NN, nval, NNB2, nbval2, NNS, nsval, thresh, tsterr, LDA, &A[0+ldatot*0], &A[0+ldatot*1], &A[0+ldatot*2], &B[0+ldbtot*0], &B[0+ldbtot*1], &B[0+ldbtot*2], Work, Rwork, iwork, nout)
+                    std::cerr << "DCHKSY_AA_2STAGE not yet implemented" << std::endl;
+                }
+                else
+                {
+                    nout << "\n " << path << str9989 << std::endl;
+                }
+                if (tstdrv)
+                {
+                   //CALL DDRVSY_AA_2STAGE(dotype, NN, nval, nrhs, thresh, tsterr, LDA, &A[0+ldatot*0], &A[0+ldatot*1], &A[0+ldatot*2], &B[0+ldbtot*0], &B[0+ldbtot*1], &B[0+ldbtot*2], Work, Rwork, iwork, nout)
+                    std::cerr << "DDRVSY_AA_2STAGE not yet implemented" << std::endl;
+                }
+                else
+                {
+                    nout << "\n " << path << str9988 << std::endl;
+                }
+            }
+            else if (std::strncmp(c2, "SP", 2)==0)
+            {
+                // SP: symmetric indefinite packed matrices, with partial (Bunch-Kaufman) pivoting
+                //     algorithm
+                ntypes = 10;
+                alareq(path, nmats, dotype, ntypes, nin, nout);
+                if (tstchk)
+                {
+                    //CALL DCHKSP(dotype, NN, nval, NNS, nsval, thresh, tsterr, LDA, &A[0+ldatot*0], &A[0+ldatot*1], &A[0+ldatot*2], &B[0+ldbtot*0], &B[0+ldbtot*1], &B[0+ldbtot*2], Work, Rwork, iwork, nout)
+                    std::cerr << "DCHKSP not yet implemented" << std::endl;
+                }
+                else
+                {
+                    nout << "\n " << path << str9989 << std::endl;
+                }
+                if (tstdrv)
+                {
+                    //CALL DDRVSP(dotype, NN, nval, nrhs, thresh, tsterr, LDA, &A[0+ldatot*0], &A[0+ldatot*1], &A[0+ldatot*2], &B[0+ldbtot*0], &B[0+ldbtot*1], &B[0+ldbtot*2], Work, Rwork, iwork, nout)
+                    std::cerr << "DDRVSP not yet implemented" << std::endl;
+                }
+                else
+                {
+                    nout << "\n " << path << str9988 << std::endl;
+                }
+            }
+            else if (std::strncmp(c2, "TR", 2)==0)
+            {
+                // TR: triangular matrices
+                ntypes = 18;
+                alareq(path, nmats, dotype, ntypes, nin, nout);
+                if (tstchk)
+                {
+                    //CALL DCHKTR(dotype, NN, nval, NNB2, nbval2, NNS, nsval, thresh, tsterr, LDA, &A[0+ldatot*0], &A[0+ldatot*1], &B[0+ldbtot*0], &B[0+ldbtot*1], &B[0+ldbtot*2], Work, Rwork, iwork, nout)
+                    std::cerr << "DCHKTR not yet implemented" << std::endl;
+                }
+                else
+                {
+                    nout << "\n " << path << str9989 << std::endl;
+                }
+            }
+            else if (std::strncmp(c2, "TP", 2)==0)
+            {
+                // TP: triangular packed matrices
+                ntypes = 18;
+                alareq(path, nmats, dotype, ntypes, nin, nout);
+                if (tstchk)
+                {
+                    //CALL DCHKTP(dotype, NN, nval, NNS, nsval, thresh, tsterr, LDA, &A[0+ldatot*0], &A[0+ldatot*1], &B[0+ldbtot*0], &B[0+ldbtot*1], &B[0+ldbtot*2], Work, Rwork, iwork, nout)
+                    std::cerr << "DCHKTP not yet implemented" << std::endl;
+                }
+                else
+                {
+                    nout << "\n " << path << str9989 << std::endl;
+                }
+            }
+            else if (std::strncmp(c2, "TB", 2)==0)
+            {
+                // TB: triangular banded matrices
+                ntypes = 17;
+                alareq(path, nmats, dotype, ntypes, nin, nout);
+                if (tstchk)
+                {
+                    //CALL DCHKTB(dotype, NN, nval, NNS, nsval, thresh, tsterr, LDA, &A[0+ldatot*0], &A[0+ldatot*1], &B[0+ldbtot*0], &B[0+ldbtot*1], &B[0+ldbtot*2], Work, Rwork, iwork, nout)
+                    std::cerr << "DCHKTB not yet implemented" << std::endl;
+                }
+                else
+                {
+                    nout << "\n " << path << str9989 << std::endl;
+                }
+            }
+            else if (std::strncmp(c2, "QR", 2)==0)
+            {
+                // QR: QR factorization
+                ntypes = 8;
+                alareq(path, nmats, dotype, ntypes, nin, nout);
+                if (tstchk)
+                {
+                    //CALL DCHKQR(dotype, NM, mval, NN, nval, NNB, nbval, nxval, nrhs, thresh, tsterr, NMAX, &A[0+ldatot*0], &A[0+ldatot*1], &A[0+ldatot*2], &A[0+ldatot*3], &A[0+ldatot*4], &B[0+ldbtot*0], &B[0+ldbtot*1], &B[0+ldbtot*2], &B[0+ldbtot*3], Work, Rwork, iwork, nout)
+                    std::cerr << "DCHKQR not yet implemented" << std::endl;
+                }
+                else
+                {
+                    nout << "\n " << path << str9989 << std::endl;
+                }
+            }
+            else if (std::strncmp(c2, "LQ", 2)==0)
+            {
+                // LQ: LQ factorization
+                ntypes = 8;
+                alareq(path, nmats, dotype, ntypes, nin, nout);
+                if (tstchk)
+                {
+                    //CALL DCHKLQ(dotype, NM, mval, NN, nval, NNB, nbval, nxval, nrhs, thresh, tsterr, NMAX, &A[0+ldatot*0], &A[0+ldatot*1], &A[0+ldatot*2], &A[0+ldatot*3], &A[0+ldatot*4], &B[0+ldbtot*0], &B[0+ldbtot*1], &B[0+ldbtot*2], &B[0+ldbtot*3], Work, Rwork, nout)
+                    std::cerr << "DCHKLQ not yet implemented" << std::endl;
+                }
+                else
+                {
+                    nout << "\n " << path << str9989 << std::endl;
+                }
+            }
+            else if (std::strncmp(c2, "QL", 2)==0)
+            {
+                // QL: QL factorization
+                ntypes = 8;
+                alareq(path, nmats, dotype, ntypes, nin, nout);
+                if (tstchk)
+                {
+                    //CALL DCHKQL(dotype, NM, mval, NN, nval, NNB, nbval, nxval, nrhs, thresh, tsterr, NMAX, &A[0+ldatot*0], &A[0+ldatot*1], &A[0+ldatot*2], &A[0+ldatot*3], &A[0+ldatot*4], &B[0+ldbtot*0], &B[0+ldbtot*1], &B[0+ldbtot*2], &B[0+ldbtot*3], Work, Rwork, nout)
+                    std::cerr << "DCHKQL not yet implemented" << std::endl;
+                }
+                else
+                {
+                    nout << "\n " << path << str9989 << std::endl;
+                }
+            }
+            else if (std::strncmp(c2, "RQ", 2)==0)
+            {
+                // RQ: RQ factorization
+                ntypes = 8;
+                alareq(path, nmats, dotype, ntypes, nin, nout);
+                if (tstchk)
+                {
+                    //CALL DCHKRQ(dotype, NM, mval, NN, nval, NNB, nbval, nxval, nrhs, thresh, tsterr, NMAX, &A[0+ldatot*0], &A[0+ldatot*1], &A[0+ldatot*2], &A[0+ldatot*3], &A[0+ldatot*4], &B[0+ldbtot*0], &B[0+ldbtot*1], &B[0+ldbtot*2], &B[0+ldbtot*3], Work, Rwork, iwork, nout)
+                    std::cerr << "DCHKRQ not yet implemented" << std::endl;
+                }
+                else
+                {
+                    nout << "\n " << path << str9989 << std::endl;
+                }
+            }
+            else if (std::strncmp(c2, "QP", 2)==0)
+            {
+                // QP: QR factorization with pivoting
+                ntypes = 6;
+                alareq(path, nmats, dotype, ntypes, nin, nout);
+                if (tstchk)
+                {
+                    this->dchkq3(dotype, nm, mval, nn, nval, nnb, nbval, nxval, thresh, A,
+                                 &A[ldatot], B, &B[ldbtot*2], Work, iwork, nout);
+                }
+                else
+                {
+                    nout << "\n " << path << str9989 << std::endl;
+                }
+            }
+            else if (std::strncmp(c2, "TZ", 2)==0)
+            {
+                // TZ: Trapezoidal matrix
+                ntypes = 3;
+                alareq(path, nmats, dotype, ntypes, nin, nout);
+                if (tstchk)
+                {
+                    //CALL DCHKTZ(dotype, NM, mval, NN, nval, thresh, tsterr, &A[0+ldatot*0], &A[0+ldatot*1], &B[0+ldbtot*0], &B[0+ldbtot*2], Work, nout)
+                    std::cerr << "DCHKTZ not yet implemented" << std::endl;
+                }
+                else
+                {
+                    nout << "\n " << path << str9989 << std::endl;
+                }
+            }
+            else if (std::strncmp(c2, "LS", 2)==0)
+            {
+                // LS: Least squares drivers
+                ntypes = 6;
+                alareq(path, nmats, dotype, ntypes, nin, nout);
+                if (tstdrv)
+                {
+                    //CALL DDRVLS(dotype, NM, mval, NN, nval, NNS, nsval, NNB, nbval, nxval, thresh, tsterr, &A[0+ldatot*0], &A[0+ldatot*1], &B[0+ldbtot*0], &B[0+ldbtot*1], &B[0+ldbtot*2], Rwork, &Rwork[NMAX], nout)
+                    std::cerr << "DDRVLS not yet implemented" << std::endl;
+                }
+                else
+                {
+                    nout << "\n " << path << str9988 << std::endl;
+                }
+            }
+            else if (std::strncmp(c2, "EQ", 2)==0)
+            {
+                // EQ: Equilibration routines for general and positive definite matrices
+                //     (THREQ should be between 2 and 10)
+                if (tstchk)
+                {
+                    //CALL DCHKEQ(THREQ, nout)
+                    std::cerr << "DCHKEQ not yet implemented" << std::endl;
+                }
+                else
+                {
+                    nout << "\n " << path << str9989 << std::endl;
+                }
+            }
+            else if (std::strncmp(c2, "QT", 2)==0)
+            {
+                // QT: QRT routines for general matrices
+                if (tstchk)
+                {
+                    //CALL DCHKQRT(thresh, tsterr, NM, mval, NN, nval, NNB, nbval, nout)
+                    std::cerr << "DCHKQRT not yet implemented" << std::endl;
+                }
+                else
+                {
+                    nout << "\n " << path << str9989 << std::endl;
+                }
+            }
+            else if (std::strncmp(c2, "QX", 2)==0)
+            {
+                // QX: QRT routines for triangular-pentagonal matrices
+                if (tstchk)
+                {
+                    //CALL DCHKQRTP(thresh, tsterr, NM, mval, NN, nval, NNB, nbval, nout)
+                    std::cerr << "DCHKQRTP not yet implemented" << std::endl;
+                }
+                else
+                {
+                     nout << "\n " << path << str9989 << std::endl;
+                }
+            }
+            else if (std::strncmp(c2, "TQ", 2)==0)
+            {
+                // TQ: LQT routines for general matrices
+                if (tstchk)
+                {
+                    //CALL DCHKLQT(thresh, tsterr, NM, mval, NN, nval, NNB, nbval, nout)
+                    std::cerr << "DCHKLQT not yet implemented" << std::endl;
+                }
+                else
+                {
+                    nout << "\n " << path << str9989 << std::endl;
+                }
+            }
+            else if (std::strncmp(c2, "XQ", 2)==0)
+            {
+                // XQ:  LQT routines for triangular-pentagonal matrices
+                if (tstchk)
+                {
+                    //CALL DCHKLQTP(thresh, tsterr, NM, mval, NN, nval, NNB, nbval, nout)
+                    std::cerr << "DCHKLQTP not yet implemented" << std::endl;
+                }
+                else
+                {
+                    nout << "\n " << path << str9989 << std::endl;
+                }
+            }
+            else if (std::strncmp(c2, "TS", 2)==0)
+            {
+                // TS:  QR routines for tall-skinny matrices
+                if (tstchk)
+                {
+                    //CALL DCHKTSQR(thresh, tsterr, NM, mval, NN, nval, NNB, nbval, nout)
+                    std::cerr << "DCHKTSQR not yet implemented" << std::endl;
+                }
+                else
+                {
+                     nout << "\n " << path << str9989 << std::endl;
+                }
+            }
+            else
+            {
+                nout << "\n " << path << str9990 << std::endl;
+            }
+            // Go back to get another input line.
+        }
+        // Branch to this line when the last record is read.
+        std::time(&s2);
+        nout << "\n End of tests" << std::endl;
+        nout << " Total time used = " << std::setprecision(2) << std::setw(12) << s2-s1
+             << " seconds\n" << std::endl;
+        delete[] dotype;
+        delete[] iwork;
+        delete[] mval;
+        delete[] nbval;
+        delete[] nbval2;
+        delete[] nsval;
+        delete[] nval;
+        delete[] nxval;
+        delete[] rankval;
+        delete[] piv;
+        delete[] A;
+        delete[] B;
+        delete[] E;
+        delete[] Rwork;
+        delete[] S;
+        delete[] Work;
     }
 
     /* dchkq3 tests dgeqp3.
@@ -948,11 +2214,11 @@ public:
                     // indicated by 'mode'.
                     for (i=0; i<n; i++)
                     {
-                        iwork[i] = 0;
+                        iwork[i] = -1;
                     }
                     if (imode==0)
                     {
-                        dlaset("Full", m, n, ZERO, ZERO, CopyA, lda);
+                        this->dlaset("Full", m, n, ZERO, ZERO, CopyA, lda);
                         for (i=0; i<mnmin; i++)
                         {
                             S[i] = ZERO;
@@ -960,9 +2226,8 @@ public:
                     }
                     else
                     {
-                        Testing_matgen<real>::dlatms(m, n, "Uniform", iseed, "Nonsymm", S, mode,
-                                                     ONE/eps, ONE, m, n, "No packing", CopyA, lda,
-                                                     work, info);
+                        MatGen.dlatms(m, n, "Uniform", iseed, "Nonsymm", S, mode, ONE/eps, ONE,
+                                      m, n, "No packing", CopyA, lda, work, info);
                         if (imode>=3)
                         {
                             if (imode==3)
@@ -993,7 +2258,7 @@ public:
                             }
                             for (i=ilow; i<ihigh; i+=istep)
                             {
-                                iwork[i] = 1;
+                                iwork[i] = 0;
                             }
                         }
                         dlaord("Decreasing", mnmin, S, 1);
@@ -1006,7 +2271,7 @@ public:
                         nx = nxval[inb];
                         xlaenv(3, nx);
                         // Get a working copy of CopyA into A and a copy of vector iwork.
-                        dlacpy("All", m, n, CopyA, lda, A, lda);
+                        this->dlacpy("All", m, n, CopyA, lda, A, lda);
                         icopy(n, &iwork[0], 1, &iwork[n], 1);
                         // Compute the QR factorization with pivoting of A
                         lw = 2*n + nb*(n+1);
@@ -1016,14 +2281,14 @@ public:
                         }
                         // Compute the QP3 factorization of A
                         std::strncpy(srnamc.srnam,"DGEQP3", 7);
-                        dgeqp3(m, n, A, lda, &iwork[n], tau, work, lw, info);
+                        this->dgeqp3(m, n, A, lda, &iwork[n], tau, work, lw, info);
                         // Compute norm(svd(A) - svd(R))
-                        result[0] = dqrt12(m, n, A, lda, S, work, lwork);
+                        result[0] = this->dqrt12(m, n, A, lda, S, work, lwork);
                         // Compute norm(A*P - Q*R)
-                        result[1] = dqpt01(m, n, mnmin, CopyA, A, lda, tau, &iwork[n], work,
+                        result[1] = this->dqpt01(m, n, mnmin, CopyA, A, lda, tau, &iwork[n], work,
                                            lwork);
                         // Compute Q'*Q
-                        result[2] = dqrt11(m, mnmin, A, lda, tau, work, lwork);
+                        result[2] = this->dqrt11(m, mnmin, A, lda, tau, work, lwork);
                         // Print information about the tests that did not pass the threshold.
                         for (k=0; k<NTESTS; k++)
                         {
@@ -1139,6 +2404,7 @@ public:
      *                 is a partial triangular factor, the entries below the diagonal in the first
      *                 k columns are the Householder vectors, and the rest of Af contains a
      *                 partially updated matrix.
+     *                 Af is modified but restored on exit
      *             lda: The leading dimension of the arrays A and Af.
      *             tau: an array, dimension (k)
      *                  Details of the Householder transformations as returned by dgeqpf.
@@ -1152,7 +2418,7 @@ public:
      *          Univ.of Colorado Denver
      *          NAG Ltd.
      * Date December 2016                                                                        */
-    real dqpt01(int m, int n, int k, real const* A, real const* Af, int lda, real
+    real dqpt01(int m, int n, int k, real const* A, real* Af, int lda, real
                        const* tau, int const* jpvt, real* work, int lwork)
     {
         // Test if there is enough workspace
@@ -1184,15 +2450,15 @@ public:
         {
             Blas<real>::dcopy(m, &Af[/*0+*/lda*j], 1, &work[j*m], 1);
         }
-        dormqr("Left","No transpose", m, n, k, Af, lda, tau, work, m, &work[m*n], lwork-m*n, info);
+        this->dormqr("Left","No transpose", m, n, k, Af, lda, tau, work, m, &work[m*n], lwork-m*n, info);
         for (j=0; j<n; j++)
         {
             // Compare i-th column of QR and jpvt[i]-th column of A
-            Blas<real>::daxpy(m, -ONE, A[/*0+*/lda*jpvt[j]], 1, work[j*m], 1);
+            Blas<real>::daxpy(m, -ONE, &A[/*0+*/lda*jpvt[j]], 1, &work[j*m], 1);
         }
         real rwork[1];
-        real dqpt01 = dlange("One-norm", m, n, work, m, rwork) / (real(m>n?m:n)*this->dlamch("Epsilon"));
-        real norma = dlange("One-norm", m, n, A, lda, rwork);
+        real dqpt01 = this->dlange("One-norm", m, n, work, m, rwork) / (real(m>n?m:n)*this->dlamch("Epsilon"));
+        real norma = this->dlange("One-norm", m, n, A, lda, rwork);
         if (norma!=ZERO)
         {
             dqpt01 /= norma;
@@ -1212,6 +2478,7 @@ public:
      *                about orthogonal transformations.
      *             A: an array, dimension (lda,k)
      *                The (possibly partial) output of a QR reduction routine.
+     *                A is modified but restored on exit
      *             lda: The leading dimension of the array A.
      *             tau: an array, dimension (k)
      *                  The scaling factors tau for the elementary transformations as computed by
@@ -1223,7 +2490,7 @@ public:
      *          Univ.of Colorado Denver
      *          NAG Ltd.
      * Date December 2016                                                                        */
-    real dqrt11(int m, int k, real const* A, int lda, real const* tau, real* work,
+    real dqrt11(int m, int k, real* A, int lda, real const* tau, real* work,
                        int lwork)
     {
         // Test for sufficient workspace
@@ -1237,18 +2504,18 @@ public:
         {
             return ZERO;
         }
-        dlaset("Full", m, m, ZERO, ONE, work, m);
+        this->dlaset("Full", m, m, ZERO, ONE, work, m);
         int info;
         // Form Q
-        dorm2r("Left", "No transpose", m, m, k, A, lda, tau, work, m, &work[m*m], info);
+        this->dorm2r("Left", "No transpose", m, m, k, A, lda, tau, work, m, &work[m*m], info);
         // Form Q'*Q
-        dorm2r("Left", "Transpose", m, m, k, A, lda, tau, work, m, &work[m*m], info);
+        this->dorm2r("Left", "Transpose", m, m, k, A, lda, tau, work, m, &work[m*m], info);
         for (int j=0; j<m; j++)
         {
             work[j*m+j] -= ONE;
         }
         real rdummy[1];
-        return dlange("One-norm", m, m, work, m, rdummy) / (real(m)*this->dlamch("Epsilon"));
+        return this->dlange("One-norm", m, m, work, m, rdummy) / (real(m)*this->dlamch("Epsilon"));
     }
 
     /* dqrt12 computes the singular values 'svlues' of the upper trapezoid of A[0:m-1,0:n-1] and
@@ -1287,7 +2554,7 @@ public:
         }
         real nrmsvl = Blas<real>::dnrm2(mn, s, 1);
         // Copy upper triangle of A into work
-        dlaset("Full", m, n, ZERO, ZERO, work, m);
+        this->dlaset("Full", m, n, ZERO, ZERO, work, m);
         int i, mj, ldaj;
         for (int j=0; j<n; j++)
         {
@@ -1301,40 +2568,40 @@ public:
         // Get machine parameters
         real smlnum = this->dlamch("S") / this->dlamch("P");
         real bignum = ONE / smlnum;
-        dlabad(smlnum, bignum);
+        this->dlabad(smlnum, bignum);
         // Scale work if max entry outside range [SMLNUM,BIGNUM]
         real dummy[1];
-        real anrm = dlange("M", m, n, work, m, dummy);
+        real anrm = this->dlange("M", m, n, work, m, dummy);
         int info;
         int iscl = 0;
         if (anrm>ZERO && anrm<smlnum)
         {
             // Scale matrix norm up to SMLNUM
-            dlascl("G", 0, 0, anrm, smlnum, m, n, work, m, info);
+            this->dlascl("G", 0, 0, anrm, smlnum, m, n, work, m, info);
             iscl = 1;
         }
         else if (anrm>bignum)
         {
             // Scale matrix norm down to BIGNUM
-            dlascl("G", 0, 0, anrm, bignum, m, n, work, m, info);
+            this->dlascl("G", 0, 0, anrm, bignum, m, n, work, m, info);
             iscl = 1;
         }
         if (anrm!=ZERO)
         {
             // Compute SVD of work
-            dgebd2(m, n, work, m, &work[mtn], &work[mtn+mn], &work[mtn+2*mn], &work[mtn+3*mn],
-                   &work[mtn+4*mn], info);
-            dbdsqr("Upper", mn, 0, 0, 0, &work[mtn], &work[mtn+mn], dummy, mn, dummy, 1, dummy, mn,
-                   &work[mtn+2*mn], info);
+            this->dgebd2(m, n, work, m, &work[mtn], &work[mtn+mn], &work[mtn+2*mn],
+                         &work[mtn+3*mn], &work[mtn+4*mn], info);
+            this->dbdsqr("Upper", mn, 0, 0, 0, &work[mtn], &work[mtn+mn], dummy, mn, dummy, 1,
+                         dummy, mn, &work[mtn+2*mn], info);
             if (iscl==1)
             {
                 if (anrm>bignum)
                 {
-                    dlascl("G", 0, 0, bignum, anrm, mn, 1, &work[mtn], mn, info);
+                    this->dlascl("G", 0, 0, bignum, anrm, mn, 1, &work[mtn], mn, info);
                 }
                 if (anrm<smlnum)
                 {
-                    dlascl("G", 0, 0, smlnum, anrm, mn, 1, &work[mtn], mn, info);
+                    this->dlascl("G", 0, 0, smlnum, anrm, mn, 1, &work[mtn], mn, info);
                 }
             }
         }
@@ -1350,7 +2617,7 @@ public:
         real dqrt12 = Blas<real>::dasum(mn, &work[mtn], 1) / (this->dlamch("Epsilon")*real(maxmn));
         if (nrmsvl!=ZERO)
         {
-            dqrt12 = dqrt12 / nrmsvl;
+            dqrt12 /= nrmsvl;
         }
         return dqrt12;
     }
@@ -1532,13 +2799,13 @@ public:
         {
             // IEEE NaN arithmetic can be trusted not to trap
             //return 0;
-            return ieeeck(1, ZERO, ONE);
+            return this->ieeeck(1, ZERO, ONE);
         }
         else if (ispec==11)
         {
             // Infinity arithmetic can be trusted not to trap
             // return 0;
-            return ieeeck(0, ZERO, ONE);
+            return this->ieeeck(0, ZERO, ONE);
         }
         else
         {
@@ -1594,7 +2861,7 @@ public:
 
     /* xlaenv sets certain machine- and problem-dependent quantities which will later be retrieved
      * by ilaenv.
-     * Parameters: ispec: Specifies the parameter to be set in the field array IPARMS.
+     * Parameters: ispec: Specifies the parameter to be set in the field array iparms.
      *                    ==1: the optimal blocksize; if this value is 1, an unblocked algorithm
      *                         will give the best performance.
      *                    ==2: the minimum block size for which the block routine should be used;

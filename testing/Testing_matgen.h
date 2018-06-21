@@ -106,7 +106,7 @@ public:
             if (i<m-1)
             {
                 // generate random reflection
-                dlarnv(3, iseed, m-i, work);
+                this->dlarnv(3, iseed, m-i, work);
                 wn = Blas<real>::dnrm2(m-i, work, 1);
                 wa = std::fabs(wn)*real((ZERO<=work[0])-(work[0]<ZERO));
                 if (wn==ZERO)
@@ -128,7 +128,7 @@ public:
             if (i<n-1)
             {
                 // generate random reflection
-                dlarnv(3, iseed, n-i, work);
+                this->dlarnv(3, iseed, n-i, work);
                 wn = Blas<real>::dnrm2(n-i, work, 1);
                 wa = std::fabs(wn) * real((ZERO<=work[0])-(work[0]<ZERO));
                 if (wn==ZERO)
@@ -332,7 +332,7 @@ public:
         for (i=n-2; i>=0; i--)
         {
             // generate random reflection
-            dlarnv(3, iseed, n-i, work);
+            this->dlarnv(3, iseed, n-i, work);
             wn = Blas<real>::dnrm2(n-i, work, 1);
             wa = std::fabs(wn) * real((ZERO<=work[0])-(work[0]<ZERO));
             if (wn==ZERO)
@@ -501,6 +501,7 @@ public:
             real t2 = dlaran(iseed);
             return std::sqrt(-TWO*std::log(t1))*std::cos(TWOPI*t2);
         }
+        return t1;// to satisfy compiler
     }
 
     /* dlarot applies a (Givens) rotation to two adjacent rows or columns, where one element of the
@@ -813,7 +814,7 @@ public:
                     break;
                 case 6:
                     // Randomly distributed d values from idist
-                    dlarnv(idist, iseed, n, d);
+                    this->dlarnv(idist, iseed, n, d);
                     break;
             }
             // If mode neither -6 nor 0 nor 6, and IRSIGN = 1, assign random signs to d
@@ -1024,7 +1025,7 @@ public:
             idist = -1;
         }
         // Decode sym
-        int irsign, isym;
+        int irsign=0, isym;
         if (std::toupper(sym[0])=='N')
         {
             isym = 1;
@@ -1194,7 +1195,7 @@ public:
         //
         // Compute d according to cond and mode
         int iinfo;
-        dlatm1(mode, cond, irsign, idist, iseed, d, mnmin, iinfo);
+        this->dlatm1(mode, cond, irsign, idist, iseed, d, mnmin, iinfo);
         if (iinfo!=0)
         {
             info = 1;
@@ -1265,9 +1266,9 @@ public:
         // then the matrix must be repacked at the end. It also signals how to compute the norm,
         // for scaling.
         int ipackg = 0;
-        dlaset("Full", lda, n, ZERO, ZERO, A, lda);
+        this->dlaset("Full", lda, n, ZERO, ZERO, A, lda);
         bool ilextr, iltemp;
-        int icol, il, irow, itemp1, itemp2, jc, jch, jr;
+        int icol=0, il, irow=0, itemp1, itemp2, jc, jch, jr;
         real angle, c, dummy, extra, s;
         if (llb==0 && uub==0)
         {
@@ -1323,7 +1324,8 @@ public:
                             {
                                 if (ir<m-1)
                                 {
-                                    dlartg(A[ir+ioffst+1+ldamiskm1*(ic+1)], extra, c, s, dummy);
+                                    this->dlartg(A[ir+ioffst+1+ldamiskm1*(ic+1)], extra, c, s,
+                                                 dummy);
                                 }
                                 irow = jch - jku - 1;
                                 if (irow<0)
@@ -1337,7 +1339,8 @@ public:
                                        &A[irow+ioffst+ldamiskm1*ic], ilda, temp, extra);
                                 if (iltemp)
                                 {
-                                    dlartg(A[irow+ioffst+1+ldamiskm1*(ic+1)], temp, c, s, dummy);
+                                    this->dlartg(A[irow+ioffst+1+ldamiskm1*(ic+1)], temp, c, s,
+                                                 dummy);
                                     icol = jch - itemp1 - 2;
                                     if (icol<0)
                                     {
@@ -1378,8 +1381,8 @@ public:
                             {
                                 if (ic<n-1)
                                 {
-                                    dlartg(A[ir+1+ioffst+ldamiskm1*(ic+1)], extra, c, s,
-                                           dummy);
+                                    this->dlartg(A[ir+1+ioffst+ldamiskm1*(ic+1)], extra, c, s,
+                                                 dummy);
                                 }
                                 icol = jch - jkl - 1;
                                 if (icol<0)
@@ -1393,7 +1396,7 @@ public:
                                        &A[ir+ioffst+ldamiskm1*icol], ilda, temp, extra);
                                 if (iltemp)
                                 {
-                                    dlartg(A[ir+1+ioffst+ldamiskm1*(icol+1)], temp, c, s, dummy);
+                                    this->dlartg(A[ir+1+ioffst+ldamiskm1*(icol+1)], temp, c, s, dummy);
                                     irow = jch - itemp1 - 2;
                                     if (irow<0)
                                     {
@@ -1441,7 +1444,7 @@ public:
                                 ilextr = (ic>=0);
                                 if (ilextr)
                                 {
-                                    dlartg(A[jch+ioffst+ldamiskm1*ic], extra, c, s, dummy);
+                                    this->dlartg(A[jch+ioffst+ldamiskm1*ic], extra, c, s, dummy);
                                 }
                                 if (0>ic)
                                 {
@@ -1454,7 +1457,7 @@ public:
                                        &A[jch+ioffst+ldamiskm1*ic], ilda, extra, temp);
                                 if (iltemp)
                                 {
-                                    dlartg(A[jch+ioffst+ldamiskm1*icol], temp, c, s, dummy);
+                                    this->dlartg(A[jch+ioffst+ldamiskm1*icol], temp, c, s, dummy);
                                     il = (iendch-jch<=2+jkl+jku ? iendch-jch+1 : 3+jkl+jku);
                                     extra = ZERO;
                                     dlarot(false, true, jch+jkl+jku+1<iendch, il+1, c, s,
@@ -1492,7 +1495,7 @@ public:
                                 ilextr = (ir>=0);
                                 if (ilextr)
                                 {
-                                    dlartg(&A[ir+ioffst+ldamiskm1*jch], extra, c, s, dummy);
+                                    this->dlartg(A[ir+ioffst+ldamiskm1*jch], extra, c, s, dummy);
                                 }
                                 if (0>ir)
                                 {
@@ -1505,7 +1508,7 @@ public:
                                        &A[ir+ioffst+ldamiskm1*jch], ilda, extra, temp);
                                 if (iltemp)
                                 {
-                                    dlartg(A[irow+ioffst+ldamiskm1*jch], temp, c, s, dummy);
+                                    this->dlartg(A[irow+ioffst+ldamiskm1*jch], temp, c, s, dummy);
                                     il = ((iendch-jch<=2+jkl+jku) ? iendch+1-jch : 3+jkl+jku);
                                     extra = ZERO;
                                     dlarot(true, true, jch+jkl+jku+1<iendch, il+1, c, s,
@@ -1564,7 +1567,7 @@ public:
                             icol = jc;
                             for (jch=jc-k-1; jch>=0; jch-=(k+1))
                             {
-                                dlartg(A[jch+1+ioffg+ldamiskm1*(icol+1)], extra, c, s, dummy);
+                                this->dlartg(A[jch+1+ioffg+ldamiskm1*(icol+1)], extra, c, s, dummy);
                                 temp = A[jch+ioffg+ldamiskm1*(jch+1)];
                                 dlarot(true, true, true, k+3, c, -s, &A[ioffg+(lda-iskew)*jch],
                                        ilda, temp, extra);
@@ -1651,7 +1654,7 @@ public:
                             icol = jc;
                             for (jch=jc+k+1; jch<n-1; jch+=(k+1))
                             {
-                                dlartg(A[jch+ioffg+ldamiskm1*icol], extra, c, s, dummy);
+                                this->dlartg(A[jch+ioffg+ldamiskm1*icol], extra, c, s, dummy);
                                 temp = A[ioffg+1+(lda-iskew)*jch];
                                 dlarot(true, true, true, k+3, c, s, &A[jch+ioffg+ldamiskm1*icol],
                                        ilda, extra, temp);
