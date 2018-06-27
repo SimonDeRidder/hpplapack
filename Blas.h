@@ -3,6 +3,7 @@
 
 #include <cstring>
 #include <cmath>
+#include <algorithm>
 
 template<class real> class Blas
 {
@@ -351,13 +352,13 @@ public:
         } else if (k < 0)
         {
             info = 5;
-        } else if (lda < (1 > nrowa ? 1 : nrowa))
+        } else if (lda < std::max(1, nrowa))
         {
             info = 8;
-        } else if (ldb < (1 > nrowb ? 1 : nrowb))
+        } else if (ldb < std::max(1, nrowb))
         {
             info = 10;
-        } else if (ldc < (1 > m ? 1 : m))
+        } else if (ldc < std::max(1, m))
         {
             info = 13;
         }
@@ -571,7 +572,7 @@ public:
         } else if (n < 0)
         {
             info = 3;
-        } else if (lda < ((1>m) ? 1 : m)-1)
+        } else if (lda < std::max(0, m-1))
         {
             info = 6;
         } else if (incx == 0)
@@ -776,7 +777,7 @@ public:
         } else if (incy == 0)
         {
             info = 7;
-        } else if (lda < (1 > m ? 1 : m))
+        } else if (lda < std::max(1, m))
         {
             info = 9;
         }
@@ -1566,10 +1567,10 @@ public:
         } else if (n < 0)
         {
             info = 6;
-        } else if (lda < (1 > nrowa ? 1 : nrowa))
+        } else if (lda < std::max(1, nrowa))
         {
             info = 9;
-        } else if (ldb < (1 > m ? 1 : m))
+        } else if (ldb < std::max(1, m))
         {
             info = 11;
         }
@@ -1885,7 +1886,7 @@ public:
         } else if (n < 0)
         {
             info = 4;
-        } else if (lda < (1 > n ? 1 : n))
+        } else if (lda < std::max(1, n))
         {
             info = 6;
         } else if (incx == 0)

@@ -8,6 +8,7 @@
 #include <string>
 #include <sstream>
 #include <cmath>
+#include <algorithm>
 
 #include "Blas.h"
 #include "Lapack_dyn.h"
@@ -100,7 +101,7 @@ public:
         }
         real tau, wa, wb, wn;
         // pre- and post-multiply A by random orthogonal matrices
-        for (i=(m<n?m:n)-1; i>=0; i--)
+        for (i=std::min(m, n)-1; i>=0; i--)
         {
             aind = i+lda*i;
             if (i<m-1)
@@ -149,7 +150,7 @@ public:
             }
         }
         // Reduce number of subdiagonals to KL and number of superdiagonals to KU
-        for (i=0; i<m-1-kl || i<n-1-ku; i++)
+        for (i=0; i<std::max(m-1-kl, n-1-ku); i++)
         {
             if (kl<=ku)
             {
@@ -1090,11 +1091,11 @@ public:
                 break;
         }
         // Set certain internal parameters
-        int mnmin = ((m<n) ? m : n);
-        int llb = ((kl<m-1) ? kl : m-1);
-        int uub = ((ku<n-1) ? ku : n-1);
-        int mr = ((m<n+llb) ? m : n+llb);
-        int nc = ((n<m+uub) ? n : m+uub);
+        int mnmin = std::min(m, n);
+        int llb = std::min(kl, m-1);
+        int uub = std::min(ku, n-1);
+        int mr = std::min(m, n+llb);
+        int nc = std::min(n, m+uub);
         int minlda;
         if (ipack==5 || ipack==6)
         {
@@ -1113,7 +1114,7 @@ public:
         bool givens = false;
         if (isym==1)
         {
-            if (real(llb+uub) < real(0.3)*real(1>mr+nc?1:mr+nc))
+            if (real(llb+uub) < real(0.3)*real(std::max(1, mr+nc)))
             {
                 givens = true;
             }
@@ -1201,8 +1202,8 @@ public:
             info = 1;
             return;
         }
-        // Choose Top-Down if d is (apparently) increasing, Bottom-Up if d is (apparently)
-        // decreasing.
+        // Choose Top-Down if d is (apparently) increasing,
+        // Bottom-Up if d is (apparently) decreasing.
         bool topdwn;
         if (std::fabs(d[0])<=std::fabs(d[mnmin-1]))
         {
@@ -1212,18 +1213,14 @@ public:
         {
             topdwn = false;
         }
-        real alpha, temp, temp2;
+        real alpha, temp;
         if (mode!=0 && std::abs(mode)!=6)
         {
             // Scale by dmax
             temp = std::fabs(d[0]);
             for (i=1; i<mnmin; i++)
             {
-                temp2 = std::fabs(d[i]);
-                if (temp2>temp)
-                {
-                    temp = temp2;
-                }
+                temp = std::max(temp, std::fabs(d[i]));
             }
             if (temp>ZERO)
             {
@@ -1310,10 +1307,10 @@ public:
                             angle = TWOPI * dlarnd(1, iseed);
                             c = std::cos(angle);
                             s = std::sin(angle);
-                            icol = ((1>=jr-jkl) ? 0 : jr-jkl-1);
+                            icol = std::max(0, jr-jkl-1);
                             if (jr<m-1)
                             {
-                                il = (n-2<jr+jku?n-1:jr+jku+1) - icol;
+                                il = std::min(n-1, jr+jku+1) - icol;
                                 dlarot(true, jr>jkl, false, il+1, c, s,
                                        &A[jr+ioffst+ldamiskm1*icol], ilda, extra, dummy);
                             }
@@ -1367,10 +1364,10 @@ public:
                             angle = TWOPI * dlarnd(1, iseed);
                             c = std::cos(angle);
                             s = std::sin(angle);
-                            irow = ((1>=jc-jku) ? 0 : jc-jku-1);
+                            irow = std::max(0, jc-jku-1);
                             if (jc<n-1)
                             {
-                                il = (m-2<=jc+jkl?m-1:jc+jkl+1) - irow;
+                                il = std::min(m-1, jc+jkl+1) - irow;
                                 dlarot(false, jc>jku, false, il+1, c, s,
                                        &A[irow+ioffst+ldamiskm1*jc], ilda, extra, dummy);
                             }
@@ -1423,17 +1420,17 @@ public:
                         // Transform from bandwidth jkl+1, jku to jkl+1, jku+1
                         // First row actually rotated is m-1
                         // First column actually rotated is MIN(m+jku,n-1)
-                        iendch = ((m-1<n+jkl) ? m-2 : n-1+jkl);
-                        for (jc=(m+jku<=n-1?m+jku-1:n-2); jc>=-(jkl+1); jc--)
+                        iendch = std::min(m-2, n-1+jkl);
+                        for (jc=std::min(m+jku-1, n-2); jc>=-(jkl+1); jc--)
                         {
                             extra = ZERO;
                             angle = TWOPI * dlarnd(1, iseed);
                             c = std::cos(angle);
                             s = std::sin(angle);
-                            irow = ((0>=jc-jku) ? 0 : jc-jku);
+                            irow = std::max(0, jc-jku);
                             if (jc>=0)
                             {
-                                il = (m-3<=jc+jkl?m-1:jc+jkl+2) - irow;
+                                il = std::min(m-1, jc+jkl+2) - irow;
                                 dlarot(false, false, jc+jkl<m-2, il+1, c, s,
                                        &A[irow+ioffst+ldamiskm1*jc], ilda, dummy, extra);
                             }
@@ -1450,7 +1447,7 @@ public:
                                 {
                                     ic = 0;
                                 }
-                                icol = ((n-3<=jch+jku) ? n-2 : jch+jku+1);
+                                icol = std::min(n-2, jch+jku+1);
                                 iltemp = (jch+jku < n-2);
                                 temp = ZERO;
                                 dlarot(true, ilextr, iltemp, icol+2-ic, c, s,
@@ -1458,7 +1455,7 @@ public:
                                 if (iltemp)
                                 {
                                     this->dlartg(A[jch+ioffst+ldamiskm1*icol], temp, c, s, dummy);
-                                    il = (iendch-jch<=2+jkl+jku ? iendch-jch+1 : 3+jkl+jku);
+                                    il = std::min(iendch-jch+1, 3+jkl+jku);
                                     extra = ZERO;
                                     dlarot(false, true, jch+jkl+jku+1<iendch, il+1, c, s,
                                            &A[jch+ioffst+ldamiskm1*icol], ilda, temp, extra);
@@ -1473,18 +1470,18 @@ public:
                         // Transform from bandwidth jkl-1, jku to jkl, jku
                         // First row actually rotated is MIN(n+jkl, m-1)
                         // First column actually rotated is n-1
-                        iendch = ((n-1<=m+jku) ? n-2 : m-1+jku);
-                        itemp1 = ((n+jkl<m-1) ? n+jkl-1 : m-2);
+                        iendch = std::min(n-2, m-1+jku);
+                        itemp1 = std::min(n+jkl-1, m-2);
                         for (jr=itemp1; jr>=-jku-1; jr--)
                         {
                             extra = ZERO;
                             angle = TWOPI * dlarnd(1, iseed);
                             c = std::cos(angle);
                             s = std::sin(angle);
-                            icol = ((0>=jr-jkl) ? 0 : jr-jkl);
+                            icol = std::max(0, jr-jkl);
                             if (jr>=0)
                             {
-                                il = ((n-3<=jr+jku) ? n-1 : jr+jku+2) - icol;
+                                il = std::min(n-1, jr+jku+2) - icol;
                                 dlarot(true, false, jr+jku<n-2, il+1, c, s,
                                        &A[jr+ioffst+ldamiskm1*icol], ilda, dummy, extra);
                             }
@@ -1501,7 +1498,7 @@ public:
                                 {
                                     ir = 0;
                                 }
-                                irow = ((m-3<=jch+jkl) ? m-2 : jch+jkl+1);
+                                irow = std::min(m-2, jch+jkl+1);
                                 iltemp = ((jch+jkl+2) < m);
                                 temp = ZERO;
                                 dlarot(false, ilextr, iltemp, irow+2-ir, c, s,
@@ -1509,7 +1506,7 @@ public:
                                 if (iltemp)
                                 {
                                     this->dlartg(A[irow+ioffst+ldamiskm1*jch], temp, c, s, dummy);
-                                    il = ((iendch-jch<=2+jkl+jku) ? iendch+1-jch : 3+jkl+jku);
+                                    il = std::min(iendch+1-jch, 3+jkl+jku);
                                     extra = ZERO;
                                     dlarot(true, true, jch+jkl+jku+1<iendch, il+1, c, s,
                                            &A[irow+ioffst+ldamiskm1*jch], ilda, temp, extra);
@@ -1561,7 +1558,7 @@ public:
                             s = std::sin(angle);
                             dlarot(false, jc>k, true, il+1, c, s, &A[irow+ioffg+ldamiskm1*jc],
                                    ilda, extra, temp);
-                            dlarot(true, true, false, (itemp1<=n-jc?itemp1:n-jc), c, s,
+                            dlarot(true, true, false, std::min(itemp1, n-jc), c, s,
                                    &A[ioffg+(lda-iskew)*jc], ilda, temp, dummy);
                             // Chase EXTRA back up the matrix
                             icol = jc;
@@ -1571,8 +1568,8 @@ public:
                                 temp = A[jch+ioffg+ldamiskm1*(jch+1)];
                                 dlarot(true, true, true, k+3, c, -s, &A[ioffg+(lda-iskew)*jch],
                                        ilda, temp, extra);
-                                irow = ((1>=jch-k) ? 0 : jch-k-1);
-                                il = ((jch+1<itemp1) ? jch+1 : itemp1);
+                                irow = std::max(0, jch-k-1);
+                                il = std::min(jch+1, itemp1);
                                 extra = ZERO;
                                 dlarot(false, jch>k, true, il+1, c, -s,
                                        &A[irow+ioffg+ldamiskm1*jch], ilda, extra, temp);
@@ -1635,7 +1632,7 @@ public:
                     {
                         for (jc=n-2; jc>=0; jc--)
                         {
-                            il = ((n-jc-3<k) ? n-jc-1 : k+2);
+                            il = std::min(n-jc-1, k+2);
                             extra = ZERO;
                             temp = A[ioffg+1+(lda-iskew)*jc];
                             angle = TWOPI * dlarnd(1, iseed);
@@ -1643,11 +1640,7 @@ public:
                             s = -std::sin(angle);
                             dlarot(false, true, n-2-jc>k, il+1, c, s, &A[ioffg+(lda-iskew)*jc],
                                    ilda, temp, extra);
-                            icol = jc-k;
-                            if (icol<0)
-                            {
-                                icol = 0;
-                            }
+                            icol = std::max(0, jc-k);
                             dlarot(true, false, true, jc+2-icol, c, s,
                                    &A[jc+ioffg+ldamiskm1*icol], ilda, dummy, temp);
                             // Chase EXTRA back down the matrix
@@ -1658,7 +1651,7 @@ public:
                                 temp = A[ioffg+1+(lda-iskew)*jch];
                                 dlarot(true, true, true, k+3, c, s, &A[jch+ioffg+ldamiskm1*icol],
                                        ilda, extra, temp);
-                                il = ((n-3-jch<k) ? n-1-jch : k+2);
+                                il = std::min(n-1-jch, k+2);
                                 extra = ZERO;
                                 dlarot(false, true, n-2-jch>k, il+1, c, s,
                                        &A[ioffg+(lda-iskew)*jch], ilda, temp, extra);
@@ -1811,7 +1804,7 @@ public:
                 }
                 for (j=0; j<uub; j++)
                 {
-                    itemp1 = ((j+llb<m-1) ? j+llb : m-1);
+                    itemp1 = std::min(j+llb, m-1);
                     itemp2 = -j + uub + lda*j;
                     for (i=itemp1; i>=0; i--)
                     {

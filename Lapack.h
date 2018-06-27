@@ -9,6 +9,7 @@
 #include <string>
 #include <sstream>
 #include <cmath>
+#include <algorithm>
 
 #include "Blas.h"
 
@@ -24,6 +25,7 @@ public:
     static constexpr real HALF  = real(0.5);
     static constexpr real ONE   = real(1.0);
     static constexpr real TWO   = real(2.0);
+    static constexpr real FOUR  = real(4.0);
     static constexpr real HNDRD = real(100.0);
 
     // LAPACK INSTALL (alphabetically)
@@ -253,7 +255,7 @@ public:
             if (!rotate)
             {
                 dlasq1(n, d, e, work, info);
-                // If INFO equals 2, dqds didn't finish, try to finish
+                // If info equals 2, dqds didn't finish, try to finish
                 if (info!=2)
                 {
                     return;
@@ -418,7 +420,7 @@ public:
                     {
                         smin = abss;
                     }
-                    temp = ((abss>abse) ? abss : abse);
+                    temp = std::max(abss, abse);
                     if (temp>smax)
                     {
                         smax = temp;
@@ -1252,7 +1254,7 @@ public:
             for (i=0; i<n; i++)
             {
                 // Generate elementary reflector H[i] to annihilate A[i+1:m-1,i]
-                itemp = ((i+2<m) ? i+1 : m-1);
+                itemp = std::min(i+1, m-1);
                 ldai = lda*i;
                 ildai = i+ldai;
                 dlarfg(m-i, A[ildai], &A[itemp+ldai], 1, tauq[i]);
@@ -1267,7 +1269,7 @@ public:
                 if (i<n-1)
                 {
                     // Generate elementary reflector G(i) to annihilate A[i,i+2:n-1]
-                    itemp = ((i+3<n) ? i+2 : n-1);
+                    itemp = std::min(i+2, n-1);
                     dlarfg(n-1-i, A[ildai+lda], &A[i+lda*itemp], lda, taup[i]);
                     e[i] = A[ildai+lda];
                     A[ildai+lda] = ONE;
@@ -1288,7 +1290,7 @@ public:
             for (i=0; i<m; i++)
             {
                 // Generate elementary reflector G(i) to annihilate A[i,i+1:n-1]
-                itemp = ((i+2<n) ? i+1 : n-1);
+                itemp = std::min(i+1, n-1);
                 ldai = lda*i;
                 ildai = i+ldai;
                 dlarfg(n-i, A[ildai], &A[i+lda*itemp], lda, taup[i]);
@@ -1303,7 +1305,7 @@ public:
                 if (i<m-1)
                 {
                     // Generate elementary reflector H(i) to annihilate A[i+2:m-1,i]
-                    itemp = ((i+3<m) ? i+2 : m-1);
+                    itemp = std::min(i+2, m-1);
                     dlarfg(m-1-i, A[1+ildai], &A[itemp+ldai], 1, tauq[i]);
                     e[i] = A[1+ildai];
                     A[1+ildai] = ONE;
@@ -1384,7 +1386,7 @@ public:
         int iws = 0, minmn = 0, nb;
         if (info==0)
         {
-            minmn = ((m<n) ? m : n);
+            minmn = std::min(m, n);
             if (minmn == 0)
             {
                 iws = 1;
@@ -1439,15 +1441,15 @@ public:
         // Compute the QR factorization of fixed columns and update remaining columns.
         if (nfxd>0)
         {
-            int na = ((m<nfxd) ? m : nfxd);
+            int na = std::min(m, nfxd);
             // dgeqr2(m, na, A, lda, tau, work, info);
             dgeqrf(m, na, A, lda, tau, work, lwork, info);
-            iws = iws > int(work[0]) ? iws : int(work[0]);
+            iws = std::max(iws, int(work[0]));
             if (na<n)
             {
                 dormqr("Left", "Transpose", m, n-na, na, A, lda, tau, &A[/*0+*/lda*na], lda, work,
                        lwork, info);
-                iws = iws > int(work[0]) ? iws : int(work[0]);
+                iws = std::max(iws, int(work[0]));
             }
         }
         // Factorize free columns
@@ -1472,7 +1474,7 @@ public:
                 {
                     // Determine if workspace is large enough for blocked code.
                     int minws = 2*sn + (sn+1)*nb;
-                    iws = ((iws>minws) ? iws : minws);
+                    iws = std::max(iws, minws);
                     if (lwork<minws)
                     {
                         // Not enough workspace to use optimal nb: Reduce nb and determine the
@@ -1578,7 +1580,7 @@ public:
             xerbla("DGEQR2", -info);
             return;
         }
-        k = ((m<n) ? m : n);
+        k = std::min(m, n);
         for (i=0; i<k; i++)
         {
             coli = lda*i;
@@ -1664,7 +1666,7 @@ public:
             return;
         }
         // Quick return if possible
-        int k = ((m<n) ? m : n);
+        int k = std::min(m, n);
         if (k==0)
         {
             work[0] = 1;
@@ -1822,6 +1824,392 @@ public:
                 {
                     B[i+ldaj] = A[i+ldaj];
                 }
+            }
+        }
+    }
+
+    /* dlaed6 computes the positive or negative root (closest to the origin) of
+     *                   z(1)        z(2)         z(3)
+     *  f(x) =   rho + --------- + ---------- + ---------
+     *                  d(1)-x      d(2)-x       d(3)-x
+     * It is assumed that
+     *     if orgati==true the root is between d(2) and d(3);
+     *     otherwise it is between d(1) and d(2)
+     * This routine will be called by dlaed4 when necessary. In most cases, the root sought is the
+     * smallest in magnitude, though it might not be in some extremely rare situations.
+     * Parameters: kniter: Refer to dlaed4 for its significance.
+     *             orgati: If orgati is true, the needed root is between d(2) and d(3); otherwise
+     *                     it is between d(1) and d(2). See dlaed4 for further details.
+     *             rho: Refer to the equation f(x) above.
+     *             d: an array, dimension (3)
+     *                d satisfies d[0] < d[1] < d[2].
+     *             z: an array, dimension (3)
+     *                Each of the elements in z must be positive.
+     *             finit: The value of f at 0. It is more accurate than the one evaluated inside
+     *                    this routine (if someone wants to do so).
+     *             tau: The root of the equation f(x).
+     *             info: ==0: successful exit
+     *                   > 0: if info = 1, failure to converge
+     * Authors: Univ.of Tennessee
+     *          Univ.of California Berkeley
+     *          Univ.of Colorado Denver
+     *          NAG Ltd.
+     * Date: December 2016
+     * Further Details:
+     *     10/02/03: This version has a few statements commented out for thread safety
+     *               (machine parameters are computed on each entry). SJH.
+     *     05/10/06: Modified from a new version of Ren-Cang Li, use Gragg-Thornton-Warner cubic
+     *               convergent scheme for better stability.
+     * Contributors:
+     *     Ren-Cang Li, Computer Science Division, University of California at Berkeley, USA     */
+    static void dlaed6(int kniter, bool orgati, real rho, real const* d, real const* z, real finit,
+                       real& tau, int& info)
+    {
+        const int MAXIT = 40;
+        const real THREE = 3.0;
+        const real EIGHT = 8.0;
+        info = 0;
+        real lbd, ubd;
+        if (orgati)
+        {
+            lbd = d[1];
+            ubd = d[2];
+        }
+        else
+        {
+            lbd = d[0];
+            ubd = d[1];
+        }
+        if (finit < ZERO)
+        {
+            lbd = ZERO;
+        }
+        else
+        {
+            ubd = ZERO;
+        }
+        int niter = 0;
+        tau = ZERO;
+        real a, b, c, temp;
+        if (kniter==2)
+        {
+            if (orgati)
+            {
+                temp = (d[2]-d[1]) / TWO;
+                c = rho + z[0] / ((d[0]-d[1])-temp);
+                a = c*(d[1]+d[2]) + z[1] + z[2];
+                b = c*d[1]*d[2] + z[1]*d[2] + z[2]*d[1];
+            }
+            else
+            {
+                temp = (d[0]-d[1]) / TWO;
+                c = rho + z[2] / ((d[2]-d[1])-temp);
+                a = c*(d[0]+d[1]) + z[0] + z[1];
+                b = c*d[0]*d[1] + z[0]*d[1] + z[1]*d[0];
+            }
+            temp = std::max(std::max(std::fabs(a), std::fabs(b)), std::fabs(c));
+            a /= temp;
+            b /= temp;
+            c /= temp;
+            if (c==ZERO)
+            {
+                tau = b / a;
+            }
+            else if (a<=ZERO)
+            {
+                tau = (a-std::sqrt(std::fabs(a*a-FOUR*b*c))) / (TWO*c);
+            }
+            else
+            {
+                tau = TWO*b / (a+std::sqrt(std::fabs(a*a-FOUR*b*c)));
+            }
+            if (tau<lbd || tau>ubd)
+            {
+                tau = (lbd+ubd) / TWO;
+            }
+            if (d[0]==tau || d[1]==tau || d[2]==tau)
+            {
+                tau = ZERO;
+            }
+            else
+            {
+                temp = finit + tau*z[0]/(d[0]*(d[0]-tau))
+                             + tau*z[1]/(d[1]*(d[1]-tau))
+                             + tau*z[2]/(d[2]*(d[2]-tau));
+                if (temp<=ZERO)
+                {
+                   lbd = tau;
+                }
+                else
+                {
+                   ubd = tau;
+                }
+                if (std::fabs(finit)<=std::fabs(temp))
+                {
+                    tau = ZERO;
+                }
+            }
+        }
+        // get machine parameters for possible scaling to avoid overflow
+        // modified by Sven: parameters small1, sminv1, small2, sminv2, eps are not saved anymore
+        //                   between one call to the others but recomputed at each call
+        real eps = dlamch("Epsilon");
+        real base = dlamch("Base");
+        real small1 = std::pow(base, int(std::log(dlamch("SafMin")) / std::log(base) / THREE));
+        real sminv1 = ONE / small1;
+        real small2 = small1*small1;
+        real sminv2 = sminv1*sminv1;
+        // Determine if scaling of inputs necessary to avoid overflow when computing 1/temp^3
+        if (orgati)
+        {
+            temp = std::min(std::fabs(d[1]-tau), std::fabs(d[2]-tau));
+        }
+        else
+        {
+            temp = std::min(std::fabs(d[0]-tau), std::fabs(d[1]-tau));
+        }
+        bool scale = false;
+        int i;
+        real sclfac, sclinv;
+        real dscale[3], zscale[3];
+        if (temp<=small1)
+        {
+            scale = true;
+            if (temp<=small2)
+            {
+                // Scale up by power of radix nearest 1/SAFMIN^(2/3)
+                sclfac = sminv2;
+                sclinv = small2;
+            }
+            else
+            {
+                // Scale up by power of radix nearest 1/SAFMIN^(1/3)
+                sclfac = sminv1;
+                sclinv = small1;
+            }
+            // Scaling up safe because d, z, tau scaled elsewhere to be O(1)
+            for (i=0; i<3; i++)
+            {
+                dscale[i] = d[i]*sclfac;
+                zscale[i] = z[i]*sclfac;
+            }
+            tau *= sclfac;
+            lbd *= sclfac;
+            ubd *= sclfac;
+        }
+        else
+        {
+            // Copy d and z to dscale and zscale
+            for (i=0; i<3; i++)
+            {
+                dscale[i] = d[i];
+                zscale[i] = z[i];
+            }
+        }
+        real fc = ZERO;
+        real df = ZERO;
+        real ddf = ZERO;
+        real temp1, temp2, temp3;
+        for (i=0; i<3; i++)
+        {
+            temp = ONE / (dscale[i]-tau);
+            temp1 = zscale[i]*temp;
+            temp2 = temp1*temp;
+            temp3 = temp2*temp;
+            fc += temp1 / dscale[i];
+            df += temp2;
+            ddf += temp3;
+        }
+        real f = finit + tau*fc;
+        if (std::fabs(f)>ZERO)
+        {
+            if (f<=ZERO)
+            {
+                lbd = tau;
+            }
+            else
+            {
+                ubd = tau;
+            }
+            // Iteration begins -- Use Gragg-Thornton-Warner cubic convergent scheme
+            // It is not hard to see that
+            //     1) Iterations will go up monotonically if finit < 0;
+            //     2) Iterations will go down monotonically if finit > 0.
+            int iter = niter + 1;
+            real erretm, eta, temp4;
+            for (niter=iter; niter<MAXIT; niter++)
+            {
+                if (orgati)
+                {
+                    temp1 = dscale[1] - tau;
+                    temp2 = dscale[2] - tau;
+                }
+                else
+                {
+                    temp1 = dscale[0] - tau;
+                    temp2 = dscale[1] - tau;
+                }
+                a = (temp1+temp2)*f - temp1*temp2*df;
+                b = temp1*temp2*f;
+                c = f - (temp1+temp2)*df + temp1*temp2*ddf;
+                temp = std::max(std::max(std::fabs(a), std::fabs(b)), std::fabs(c));
+                a /= temp;
+                b /= temp;
+                c /= temp;
+                if (c==ZERO)
+                {
+                    eta = b / a;
+                }
+                else if (a<=ZERO)
+                {
+                    eta = (a-std::sqrt(std::fabs(a*a-FOUR*b*c))) / (TWO*c);
+                }
+                else
+                {
+                    eta = TWO*b / (a+std::sqrt(std::fabs(a*a-FOUR*b*c)));
+                }
+                if (f*eta>=ZERO)
+                {
+                    eta = -f / df;
+                }
+                tau += eta;
+                if (tau<lbd || tau>ubd)
+                {
+                    tau = (lbd + ubd)/TWO;
+                }
+                fc = ZERO;
+                erretm = ZERO;
+                df = ZERO;
+                ddf = ZERO;
+                for (i=0; i<3; i++)
+                {
+                    if ((dscale[i]-tau)!=ZERO)
+                    {
+                        temp = ONE / (dscale[i]-tau);
+                        temp1 = zscale[i]*temp;
+                        temp2 = temp1*temp;
+                        temp3 = temp2*temp;
+                        temp4 = temp1 / dscale[i];
+                        fc += temp4;
+                        erretm += std::fabs(temp4);
+                        df += temp2;
+                        ddf += temp3;
+                    }
+                    else
+                    {
+                        // Undo scaling
+                        if (scale)
+                        {
+                            tau *= sclinv;
+                        }
+                        return;
+                    }
+                }
+                f = finit + tau*fc;
+                erretm = EIGHT*(std::fabs(finit)+std::fabs(tau)*erretm) + std::fabs(tau)*df;
+                if (std::fabs(f)<=FOUR*eps*erretm || (ubd-lbd)<=FOUR*eps*std::fabs(tau))
+                {
+                    // Undo scaling
+                    if (scale)
+                    {
+                        tau *= sclinv;
+                    }
+                    return;
+                }
+                if (f<=ZERO)
+                {
+                   lbd = tau;
+                }
+                else
+                {
+                   ubd = tau;
+                }
+            }
+            info = 1;
+        }
+        // Undo scaling
+        if (scale)
+        {
+            tau *= sclinv;
+        }
+    }
+
+    /* dlamrg will create a permutation list which will merge the elements of a (which is composed
+     * of two independently sorted sets) into a single set which is sorted in ascending order.
+     * Parameters: n1,
+     *             n2: These arguments contain the respective lengths of the two sorted lists to be
+     *                 merged.
+     *             a: an array, dimension (n1+n2)
+     *                The first n1 elements of a contain a list of numbers which are sorted in
+     *                either ascending or descending order. Likewise for the final n2 elements.
+     *             dtrd1,
+     *             dtrd2: These are the strides to be taken through the array a. Allowable strides
+     *                    are 1 and -1. They indicate whether a subset of a is sorted in ascending
+     *                    (DTRDx==1) or descending (DTRDx==-1) order.
+     *             index: an integer array, dimension (n1+n2)
+     *                    On exit this array will contain a permutation such that if
+     *                    b[i]==a[index[i]] for i=0,n1+n2-1,
+     *                    then b will be sorted in ascending order.
+     *                    NOTE: Zero-based indices!
+     * Authors: Univ.of Tennessee
+     *          Univ.of California Berkeley
+     *          Univ.of Colorado Denver
+     *          NAG Ltd.
+     * Date: June 2016                                                                           */
+    static void dlamrg(int n1, int n2, real const* a, int dtrd1, int dtrd2, int* index)
+    {
+        int ind1, ind2;
+        if (dtrd1>0)
+        {
+            ind1 = 0;
+        }
+        else
+        {
+            ind1 = n1-1;
+        }
+        if (dtrd2>0)
+        {
+            ind2 = n1;
+        }
+        else
+        {
+            ind2 = n1 + n2 - 1;
+        }
+        int i = 0;
+        while (n1>0 && n2>0)
+        {
+            if (a[ind1]<=a[ind2])
+            {
+                index[i] = ind1;
+                i++;
+                ind1 += dtrd1;
+                n1--;
+            }
+            else
+            {
+                index[i] = ind2;
+                i++;
+                ind2 += dtrd2;
+                n2--;
+            }
+        }
+        if (n1==0)
+        {
+            for (n1=1; n1<=n2; n1++)
+            {
+                index[i] = ind2;
+                i++;
+                ind2 += dtrd2;
+            }
+        }
+        else
+        {
+            // n2==0
+            for (n2=1; n2<=n1; n2++)
+            {
+                index[i] = ind1;
+                i++;
+                ind1 += dtrd1;
             }
         }
     }
@@ -1998,7 +2386,7 @@ public:
     static void dlaqp2(int m, int n, int offset, real* A, int lda, int* jpvt, real* tau, real* vn1,
                        real* vn2, real* work)
     {
-        int mn = ((m-offset<n) ? m-offset : n);
+        int mn = std::min(m-offset, n);
         real tol3z = sqrt(dlamch("Epsilon"));
         // Compute factorization.
         int i, itemp, j, offpi, pvt, acoli;
@@ -2044,7 +2432,7 @@ public:
                     // NOTE: The following 6 lines follow from the analysis in Lapack Working Note 176.
                     temp = fabs(A[offpi+lda*j]) / vn1[j];
                     temp = ONE - temp*temp;
-                    temp = ((temp>ZERO) ? temp : ZERO);
+                    temp = std::max(temp, ZERO);
                     temp2 = vn1[j] / vn2[j];
                     temp2 = temp * temp2 * temp2;
                     if (temp2<=tol3z)
@@ -2108,7 +2496,7 @@ public:
     static void dlaqps(int m, int n, int offset, int nb, int& kb, real* A, int lda, int* jpvt,
                        real* tau, real* vn1, real* vn2, real* auxv, real* F, int ldf)
     {
-        int lastrk = ((m<n+offset) ? m : n+offset);
+        int lastrk = std::min(m, n+offset);
         int lsticc = -1;
         int k = -1;
         real tol3z = sqrt(dlamch("Epsilon"));
@@ -2188,7 +2576,7 @@ public:
                         //       Note 176.
                         temp = fabs(A[rk+lda*j]) / vn1[j];
                         temp = (ONE+temp) * (ONE-temp);
-                        temp = ((ZERO>temp) ? ZERO : temp);
+                        temp = std::max(ZERO, temp);
                         temp2 = vn1[j] / vn2[j];
                         temp2 = temp * temp2 * temp2;
                         if (temp2<=tol3z)
@@ -2936,7 +3324,7 @@ public:
                         {
                             T[j+tcoli] = -tau[i]*V[i+ldv*j];
                         }
-                        j = ((lastv<prevlastv) ? lastv : prevlastv);
+                        j = std::min(lastv, prevlastv);
                         // T[0:i-1, i] = -tau[i] * V[i:j, 0:i-1]^T * V[i:j, i]
                         Blas<real>::dgemv("Transpose", j-i, i, -tau[i], &V[i+1], ldv, &V[i+1+vcol],
                                           1, ONE, &T[tcoli], 1);
@@ -2956,7 +3344,7 @@ public:
                         {
                             T[j+tcoli] = -tau[i]*V[j+vcol];
                         }
-                        j = ((lastv<prevlastv) ? lastv : prevlastv);
+                        j = std::min(lastv, prevlastv);
                         // T[0:i-1, i] = -tau[i] * V[0:i-1, i:j] * V[i, i:j]^T
                         Blas<real>::dgemv("No transpose", i, j-i, -tau[i], &V[vcol+ldv], ldv,
                                           &V[i+vcol+ldv], ldv, ONE, &T[tcoli], 1);
@@ -3014,7 +3402,7 @@ public:
                             {
                                 T[j+tcoli] = -tau[i] * V[vcol+ldv*j];
                             }
-                            j = ((lastv>prevlastv) ? lastv : prevlastv);
+                            j = std::max(lastv, prevlastv);
                             // T[i+1:k-1, i] = -tau[i] * V[j:n-k+i, i+1:k-1]^T * V[j:n-k+i, i]
                             Blas<real>::dgemv("Transpose", vcol-j, k-1-i, -tau[i], &V[j+ldv*(i+1)],
                                               ldv, &V[j+ldv*i], 1, ONE, &T[i+1+tcoli], 1);
@@ -3034,7 +3422,7 @@ public:
                             {
                                 T[j+tcoli] = -tau[i]*V[j+vcol];
                             }
-                            j = ((lastv>prevlastv) ? lastv : prevlastv);
+                            j = std::max(lastv, prevlastv);
                             // T[i+1:k-1, i] = -tau[i] * V[i+1:k-1, j:n-k+i] * V[i, j:n-k+i]^T
                             vcol = ldv*j;
                             Blas<real>::dgemv("No transpose", k-1-i, n-k+i-j, -tau[i],
@@ -3185,7 +3573,7 @@ public:
             real f1 = f;
             real g1 = g;
             real scale = fabs(f1);
-            scale = ((scale>fabs(g1)) ? scale : fabs(g1));
+            scale = std::max(scale, fabs(g1));
             int i, count = 0;
             if (scale>=safmx2)
             {
@@ -3195,7 +3583,7 @@ public:
                     f1 *= safmn2;
                     g1 *= safmn2;
                     scale = fabs(f1);
-                    scale = ((scale>fabs(g1)) ? scale : fabs(g1));
+                    scale = std::max(scale, fabs(g1));
                 } while (scale>=safmx2);
                 r = std::sqrt(f1*f1+g1*g1);
                 cs = f1 / r;
@@ -3213,7 +3601,7 @@ public:
                     f1 *= safmx2;
                     g1 *= safmx2;
                     scale = fabs(f1);
-                    scale = ((scale>fabs(g1)) ? scale : fabs(g1));
+                    scale = std::max(scale, fabs(g1));
                 } while (scale<=safmn2);
                 r = std::sqrt(f1*f1+g1*g1);
                 cs = f1 / r;
@@ -3801,6 +4189,266 @@ public:
         } while (!done);
     }
 
+    /* dlasdq computes the singular value decomposition (SVD) of a real (upper or lower) bidiagonal
+     * matrix with diagonal d and offdiagonal e, accumulating the transformations if desired.
+     * Letting B denote the input bidiagonal matrix, the algorithm computes orthogonal matrices Q
+     * and P such that B = Q * S * P^T (P^T denotes the transpose of P). The singular values S are
+     * overwritten on d.
+     * The input matrix U  is changed to U  * Q  if desired.
+     * The input matrix VT is changed to P^T * VT if desired.
+     * The input matrix C  is changed to Q^T * C  if desired.
+     * See "Computing  Small Singular Values of Bidiagonal Matrices With Guaranteed High Relative
+     * Accuracy," by J. Demmel and W. Kahan, LAPACK Working Note #3, for a detailed description of
+     * the algorithm.
+     * Parameters: uplo: On entry, uplo specifies whether the input bidiagonal matrix is upper or
+     *                             lower bidiagonal, and whether it is square or not.
+     *                   uplo=='U' or 'u': B is upper bidiagonal.
+     *                   uplo=='L' or 'l': B is lower bidiagonal.
+     *             sqre: ==0: then the input matrix is n-by-n.
+     *                   ==1: then the input matrix is n-by-(n+1) if UPLU=='U' and (n+1)-by-n if
+     *                        UPLU=='L'.
+     *                   The bidiagonal matrix has n = NL + NR + 1 rows and
+     *                   M = n + sqre >= n columns.
+     *             n: On entry, n specifies the number of rows and columns in the matrix.
+     *                          n must be at least 0.
+     *             ncvt: On entry, ncvt specifies the number of columns of the matrix VT.
+     *                             ncvt must be at least 0.
+     *             nru: On entry, nru specifies the number of rows of the matrix U.
+     *                            nru must be at least 0.
+     *             ncc: On entry, ncc specifies the number of columns of the matrix C.
+     *                            ncc must be at least 0.
+     *             d: an array, dimension (n)
+     *                On entry, d contains the diagonal entries of the bidiagonal matrix whose SVD
+     *                          is desired.
+     *                On normal exit, d contains the singular values in ascending order.
+     *             e: an array. dimension is (n-1) if sqre==0 and n if sqre==1.
+     *                On entry, the entries of e contain the offdiagonal entries of the bidiagonal
+     *                          matrix whose SVD is desired.
+     *                On normal exit, e will contain 0. If the algorithm does not converge, d and e
+     *                          will contain the diagonal and superdiagonal entries of a bidiagonal
+     *                          matrix orthogonally equivalent to the one given as input.
+     *             Vt: an array, dimension (ldvt, ncvt)
+     *                 On entry, contains a matrix which on exit has been premultiplied by P^T,
+     *                           dimension n-by-ncvt if sqre==0 and (n+1)-by-ncvt if sqre==1
+     *                           (not referenced if ncvt=0).
+     *             ldvt: On entry, ldvt specifies the leading dimension of Vt as declared in the
+     *                             calling (sub) program. ldvt must be at least 1.
+     *                             If ncvt is nonzero ldvt must also be at least n.
+     *             U: an array, dimension (ldu, n)
+     *                On entry, contains a  matrix which on exit has been postmultiplied by Q,
+     *                          dimension nru-by-n if sqre==0 and nru-by-(n+1) if sqre==1
+     *                          (not referenced if nru=0).
+     *             ldu: On entry, ldu specifies the leading dimension of U as declared in the
+     *                            calling (sub) program. ldu must be at least max(1, nru).
+     *             C: an array, dimension (ldc, ncc)
+     *                On entry, contains an n-by-ncc matrix which on exit has been premultiplied by
+     *                          Q^T dimension n-by-ncc if sqre==0 and (n+1)-by-ncc if sqre==1
+     *                          (not referenced if ncc=0).
+     *             ldc: On entry, ldc  specifies the leading dimension of C as declared in the
+     *                            calling (sub) program. ldc must be at least 1.
+     *                            If ncc is nonzero, ldc must also be at least n.
+     *             work: an array, dimension (4*n)
+     *                   Workspace. Only referenced if one of ncvt, nru, or ncc is nonzero,
+     *                   and if n is at least 2.
+     *             info: On exit, a value of 0 indicates a successful exit.
+     *                   If info < 0, argument number -info is illegal.
+     *                   If info > 0, the algorithm did not converge, and info specifies how many
+     *                                superdiagonals did not converge.
+     * Authors: Univ.of Tennessee
+     *          Univ.of California Berkeley
+     *          Univ.of Colorado Denver
+     *          NAG Ltd.
+     * Date June 2016
+     * Contributors:
+     * Ming Gu and Huan Ren, Computer Science Division, University of California at Berkeley, USA*/
+    static void dlasdq(char const* uplo, int sqre, int n, int ncvt, int nru, int ncc, real* d,
+                       real* e, real* Vt, int ldvt, real* U, int ldu, real* C, int ldc, real* work,
+                       int& info)
+    {
+        // Test the input parameters.
+        info = 0;
+        int iuplo = 0;
+        if (std::toupper(uplo[0])=='U')
+        {
+            iuplo = 1;
+        }
+        if (std::toupper(uplo[0])=='L')
+        {
+            iuplo = 2;
+        }
+        if (iuplo==0)
+        {
+            info = -1;
+        }
+        else if (sqre<0 || sqre>1)
+        {
+            info = -2;
+        }
+        else if (n<0)
+        {
+            info = -3;
+        }
+        else if (ncvt<0)
+        {
+            info = -4;
+        }
+        else if (nru<0)
+        {
+            info = -5;
+        }
+        else if (ncc<0)
+        {
+            info = -6;
+        }
+        else if ((ncvt==0 && ldvt<1) || (ncvt>0 && (ldvt<1 || ldvt<n)))
+        {
+            info = -10;
+        }
+        else if (ldu<1 || ldu<nru)
+        {
+            info = -12;
+        }
+        else if ((ncc==0 && ldc<1) || (ncc>0 && (ldc<1 || ldc<n)))
+        {
+           info = -14;
+        }
+        if (info!=0)
+        {
+            xerbla("DLASDQ", -info);
+            return;
+        }
+        if (n==0)
+        {
+            return;
+        }
+        // rotate is true if any singular vectors desired, false otherwise
+        bool rotate = (ncvt>0 || nru>0 || ncc>0);
+        int np1 = n + 1;
+        // If matrix non-square upper bidiagonal, rotate to be lower bidiagonal.
+        // The rotations are on the right.
+        int i;
+        real cs, r, sn;
+        if (iuplo==1 && sqre==1)
+        {
+            for (i=0; i<n-1; i++)
+            {
+                dlartg(d[i], e[i], cs, sn, r);
+                d[i] = r;
+                e[i] = sn*d[i+1];
+                d[i+1] = cs*d[i+1];
+                if (rotate)
+                {
+                    work[i] = cs;
+                    work[n+i] = sn;
+                }
+            }
+            dlartg(d[n-1], e[n-1], cs, sn, r);
+            d[n-1] = r;
+            e[n-1] = ZERO;
+            if (rotate)
+            {
+                work[n-1] = cs;
+                work[n+n-1] = sn;
+            }
+            iuplo = 2;
+            sqre = 0;
+            // Update singular vectors if desired.
+            if (ncvt>0 )
+            {
+                dlasr("L", "V", "F", np1, ncvt, work, &work[n], Vt, ldvt);
+            }
+        }
+        // If matrix lower bidiagonal, rotate to be upper bidiagonal by applying Givens rotations
+        // on the left.
+        if (iuplo==2)
+        {
+            for (i=0; i<n-1; i++)
+            {
+                dlartg(d[i], e[i], cs, sn, r);
+                d[i] = r;
+                e[i] = sn*d[i+1];
+                d[i+1] = cs*d[i+1];
+                if (rotate)
+                {
+                    work[i] = cs;
+                    work[n+i] = sn;
+                }
+            }
+            // If matrix (n+1)-by-n lower bidiagonal, one additional rotation is needed.
+            if (sqre==1)
+            {
+                dlartg(d[n-1], e[n-1], cs, sn, r);
+                d[n-1] = r;
+                if (rotate)
+                {
+                    work[n-1] = cs;
+                    work[n+n-1] = sn;
+                }
+            }
+            // Update singular vectors if desired.
+            if (nru>0)
+            {
+                if (sqre==0)
+                {
+                    dlasr("R", "V", "F", nru, n, work, &work[n], U, ldu);
+                }
+                else
+                {
+                    dlasr("R", "V", "F", nru, np1, work, &work[n], U, ldu);
+                }
+            }
+            if (ncc>0)
+            {
+                if (sqre==0)
+                {
+                   dlasr("L", "V", "F", n, ncc, work, &work[n], C, ldc);
+                }
+                else
+                {
+                   dlasr("L", "V", "F", np1, ncc, work, &work[n], C, ldc);
+                }
+            }
+        }
+        // Call dbdsqr to compute the SVD of the reduced real n-by-n upper bidiagonal matrix.
+        dbdsqr("U", n, ncvt, nru, ncc, d, e, Vt, ldvt, U, ldu, C, ldc, work, info);
+        // Sort the singular values into ascending order (insertion sort on singular values, but
+        // only one transposition per singular vector)
+        int isub, j;
+        real smin;
+        for (i=0; i<n; i++)
+        {
+            // Scan for smallest d[i].
+            isub = i;
+            smin = d[i];
+            for (j=i+1; j<n; j++)
+            {
+                if (d[j]<smin)
+                {
+                   isub = j;
+                   smin = d[j];
+                }
+            }
+            if (isub!=i)
+            {
+                // Swap singular values and vectors.
+                d[isub] = d[i];
+                d[i] = smin;
+                if (ncvt>0)
+                {
+                    Blas<real>::dswap(ncvt, &Vt[isub], ldvt, &Vt[i], ldvt);
+                }
+                if (nru>0)
+                {
+                    Blas<real>::dswap(nru, &U[ldu*isub], 1, &U[ldu*i], 1);
+                }
+                if (ncc>0)
+                {
+                    Blas<real>::dswap(ncc, &C[isub], ldc, &C[i], ldc);
+                }
+            }
+        }
+    }
+
     /* dlaset initializes an m-by-n matrix A to beta on the diagonal and alpha on the offdiagonals.
      * Parameters: uplo: Specifies the part of the matrix A to be set.
      *                   ='U': Upper triangular part is set; the strictly lower triangular part of
@@ -3862,7 +4510,7 @@ public:
                 }
             }
         }
-        // Set the first min(M,N) diagonal elements to BETA.
+        // Set the first min(m,n) diagonal elements to BETA.
         for (i=0; i<m && i<n; i++)
         {
             A[i+lda*i] = beta;
@@ -4029,7 +4677,6 @@ public:
     static void dlasq2(int n, real* Z, int& info)
     {
         const real CBIAS = real(1.50);
-        const real FOUR  = real(4.0);
         bool ieee, loopbreak;
         int i0, i1, i4, iinfo, ipn4, iter, iwhila, iwhilb, k, kmin, n0, n1, nbig, ndiv, nfail, pp,
             splt, ttype;
@@ -4121,10 +4768,9 @@ public:
             }
             d += Z[k];
             e += Z[k+1];
-            qmax = ((qmax>Z[k])   ? qmax : Z[k]);
-            emin = ((emin<Z[k+1]) ? emin : Z[k+1]);
-            zmax = ((qmax>zmax)   ? qmax : zmax);
-            zmax = ((zmax>Z[k+1]) ? zmax : Z[k+1]);
+            qmax = std::max(qmax, Z[k]);
+            emin = std::min(emin, Z[k+1]);
+            zmax = std::max(std::max(qmax, zmax), Z[k+1]);
         }
         if (Z[2*n-2]<ZERO)
         {
@@ -4133,8 +4779,8 @@ public:
             return;
         }
         d += Z[2*n-2];
-        qmax = ((qmax>Z[2*n-2]) ? qmax : Z[2*n-2]);
-        zmax = ((qmax>zmax)     ? qmax : zmax);
+        qmax = std::max(qmax, Z[2*n-2]);
+        zmax = std::max(qmax, zmax);
         // Check for diagonality.
         if (e==ZERO)
         {
@@ -4297,12 +4943,12 @@ public:
                 }
                 if (qmin>=FOUR*emax)
                 {
-                    qmin = ((qmin<Z[i4])   ? qmin : Z[i4]);
-                    emax = ((emax>Z[i4-2]) ? emax : Z[i4-2]);
+                    qmin = std::min(qmin, Z[i4]);
+                    emax = std::max(emax, Z[i4-2]);
                 }
                 temp = Z[i4-4] + Z[i4-2];
-                qmax = ((qmax>temp)    ? qmax : temp);
-                emin = ((emin<Z[i4-2]) ? emin : Z[i4-2]);
+                qmax = std::max(qmax, temp);
+                emin = std::min(emin, Z[i4-2]);
             }
             if (!loopbreak)
             {
@@ -4389,9 +5035,9 @@ public:
                             }
                             else
                             {
-                                qmax   = ((qmax>Z[i4+4])   ? qmax   : Z[i4+4]);
-                                emin   = ((emin<Z[i4+2])   ? emin   : Z[i4+2]);
-                                oldemn = ((oldemn<Z[i4+3]) ? oldemn : Z[i4+3]);
+                                qmax   = std::max(qmax,   Z[i4+4]);
+                                emin   = std::min(emin,   Z[i4+2]);
+                                oldemn = std::min(oldemn, Z[i4+3]);
                             }
                         }
                         Z[4*n0+2] = emin;
@@ -4602,17 +5248,10 @@ public:
                     Z[4*n0+pp+2] = Z[4*i0+pp+2];
                     Z[4*n0-pp+3] = Z[4*i0-pp+3];
                 }
-                temp = Z[4*n0+pp+2];
-                dmin2 = ((dmin2<temp) ? dmin2 : temp);
-                temp = Z[4*n0+pp+2];
-                temp = ((temp<Z[4*i0+pp+2]) ? temp : Z[4*i0+pp+2]);
-                Z[4*n0+pp+2] = ((temp<Z[4*i0+pp+6]) ? temp : Z[4*i0+pp+6]);
-                temp = Z[4*n0-pp+3];
-                temp = ((temp<Z[4*i0-pp+3]) ? temp : Z[4*i0-pp+3]);
-                Z[4*n0-pp+3] = ((temp<Z[4*i0-pp+7]) ? temp : Z[4*i0-pp+7]);
-                temp = Z[4*i0+pp];
-                temp = ((qmax>temp) ? qmax : temp);
-                qmax = ((temp>Z[4*i0+pp+4]) ? temp : Z[4*i0+pp+4]);
+                dmin2 = std::min(dmin2, Z[4*n0+pp+2]);
+                Z[4*n0+pp+2] = std::min(std::min(Z[4*n0+pp+2], Z[4*i0+pp+2]), Z[4*i0+pp+6]);
+                Z[4*n0-pp+3] = std::min(std::min(Z[4*n0-pp+3], Z[4*i0-pp+3]), Z[4*i0-pp+7]);
+                qmax = std::max(std::max(qmax, Z[4*i0+pp]), Z[4*i0+pp+4]);
                 dmin = -ZERO;
             }
         }
@@ -4640,7 +5279,7 @@ public:
             }
             else if (dmin<ZERO)
             {
-                // TAU too big. Select new TAU and try again.
+                // tau too big. Select new tau and try again.
                 nfail++;
                 if (ttype<-22)
                 {
@@ -5092,9 +5731,9 @@ public:
                         Z[j4-2] = d + Z[j4-1];
                         temp = Z[j4+1] / Z[j4-2];
                         d = d*temp - tau;
-                        dmin = ((dmin<d) ? dmin : d);
+                        dmin = std::min(dmin, d);
                         Z[j4] = Z[j4-1]*temp;
-                        emin = ((Z[j4]<emin) ? Z[j4] : emin);
+                        emin = std::min(Z[j4], emin);
                     }
                 }
                 else
@@ -5104,9 +5743,9 @@ public:
                         Z[j4-3] = d + Z[j4];
                         temp = Z[j4+2] / Z[j4-3];
                         d = d*temp - tau;
-                        dmin = ((dmin<d) ? dmin : d);
+                        dmin = std::min(dmin, d);
                         Z[j4-1] = Z[j4]*temp;
-                        emin = ((Z[j4-1]<emin) ? Z[j4-1] : emin);
+                        emin = std::min(Z[j4-1], emin);
                     }
                 }
                 // Unroll last two steps.
@@ -5117,14 +5756,14 @@ public:
                 Z[j4-2] = dnm2 + Z[j4p2];
                 Z[j4] = Z[j4p2+2] * (Z[j4p2]/Z[j4-2]);
                 dnm1 = Z[j4p2+2]*(dnm2/Z[j4-2]) - tau;
-                dmin = ((dmin<dnm1) ? dmin : dnm1);
+                dmin = std::min(dmin, dnm1);
                 dmin1 = dmin;
                 j4 += 4;
                 j4p2 = j4 + 2*pp - 1;
                 Z[j4-2] = dnm1 + Z[j4p2];
                 Z[j4] = Z[j4p2+2] * (Z[j4p2]/Z[j4-2]);
                 dn = Z[j4p2+2]*(dnm1/Z[j4-2]) - tau;
-                dmin = ((dmin<dn) ? dmin : dn);
+                dmin = std::min(dmin, dn);
             }
             else
             {
@@ -5143,8 +5782,8 @@ public:
                             Z[j4] = Z[j4+1] * (Z[j4-1]/Z[j4-2]);
                             d = Z[j4+1]*(d/Z[j4-2]) - tau;
                         }
-                        dmin = ((dmin<d) ? dmin : d);
-                        emin = ((emin<Z[j4]) ? emin : Z[j4]);
+                        dmin = std::min(dmin, d);
+                        emin = std::min(emin, Z[j4]);
                     }
                 }
                 else
@@ -5161,8 +5800,8 @@ public:
                             Z[j4-1] = Z[j4+2] * (Z[j4]/Z[j4-3]);
                             d = Z[j4+2]*(d/Z[j4-3]) - tau;
                         }
-                        dmin = ((dmin<d) ? dmin : d);
-                        emin = ((emin<Z[j4-1]) ? emin : Z[j4-1]);
+                        dmin = std::min(dmin, d);
+                        emin = std::min(emin, Z[j4-1]);
                     }
                 }
                 // Unroll last two steps.
@@ -5180,7 +5819,7 @@ public:
                     Z[j4] = Z[j4p2+2] * (Z[j4p2]/Z[j4-2]);
                     dnm1 = Z[j4p2+2]*(dnm2/Z[j4-2]) - tau;
                 }
-                dmin = ((dmin<dnm1) ? dmin : dnm1);
+                dmin = std::min(dmin, dnm1);
                 dmin1 = dmin;
                 j4 += 4;
                 j4p2 = j4 + 2*pp - 1;
@@ -5194,7 +5833,7 @@ public:
                     Z[j4] = Z[j4p2+2] * (Z[j4p2]/Z[j4-2]);
                     dn = Z[j4p2+2]*(dnm1/Z[j4-2]) - tau;
                 }
-                dmin = ((dmin<dn) ? dmin : dn);
+                dmin = std::min(dmin, dn);
             }
         }
         else
@@ -5219,9 +5858,9 @@ public:
                         {
                             d = ZERO;
                         }
-                        dmin = ((dmin<d) ? dmin : d);
+                        dmin = std::min(dmin, d);
                         Z[j4] = Z[j4-1]*temp;
-                        emin = ((Z[j4]<emin) ? Z[j4] : emin);
+                        emin = std::min(Z[j4], emin);
                     }
                 }
                 else
@@ -5235,9 +5874,9 @@ public:
                         {
                             d = ZERO;
                         }
-                        dmin = ((dmin<d) ? dmin : d);
+                        dmin = std::min(dmin, d);
                         Z[j4-1] = Z[j4]*temp;
-                        emin = ((Z[j4-1]<emin) ? Z[j4-1] : emin);
+                        emin = std::min(Z[j4-1], emin);
                     }
                 }
                 // Unroll last two steps.
@@ -5248,14 +5887,14 @@ public:
                 Z[j4-2] = dnm2 + Z[j4p2];
                 Z[j4] = Z[j4p2+2] * (Z[j4p2]/Z[j4-2]);
                 dnm1 = Z[j4p2+2]*(dnm2/Z[j4-2]) - tau;
-                dmin = ((dmin<dnm1) ? dmin : dnm1);
+                dmin = std::min(dmin, dnm1);
                 dmin1 = dmin;
                 j4 += 4;
                 j4p2 = j4 + 2*pp - 1;
                 Z[j4-2] = dnm1 + Z[j4p2];
                 Z[j4] = Z[j4p2+2] * (Z[j4p2]/Z[j4-2]);
                 dn = Z[j4p2+2]*(dnm1/Z[j4-2]) - tau;
-                dmin = ((dmin<dn) ? dmin : dn);
+                dmin = std::min(dmin, dn);
             }
             else
             {
@@ -5278,8 +5917,8 @@ public:
                         {
                             d = ZERO;
                         }
-                        dmin = ((dmin<d) ? dmin : d);
-                        emin = ((Z[j4]<emin) ? Z[j4] : emin);
+                        dmin = std::min(dmin, d);
+                        emin = std::min(Z[j4], emin);
                     }
                 }
                 else
@@ -5300,8 +5939,8 @@ public:
                         {
                             d = ZERO;
                         }
-                        dmin = ((dmin<d) ? dmin : d);
-                        emin = ((Z[j4-1]<emin) ? Z[j4-1] : emin);
+                        dmin = std::min(dmin, d);
+                        emin = std::min(Z[j4-1], emin);
                     }
                 }
                 // Unroll last two steps.
@@ -5319,7 +5958,7 @@ public:
                     Z[j4] = Z[j4p2+2] * (Z[j4p2]/Z[j4-2]);
                     dnm1 = Z[j4p2+2]*(dnm2/Z[j4-2]) - tau;
                 }
-                dmin = ((dmin<dnm1) ? dmin : dnm1);
+                dmin = std::min(dmin, dnm1);
                 dmin1 = dmin;
                 j4 += 4;
                 j4p2 = j4 + 2*pp - 1;
@@ -5333,7 +5972,7 @@ public:
                     Z[j4] = Z[j4p2+2] * (Z[j4p2]/Z[j4-2]);
                     dn = Z[j4p2+2]*(dnm1/Z[j4-2]) - tau;
                 }
-                dmin = ((dmin<dn) ? dmin : dn);
+                dmin = std::min(dmin, dn);
             }
         }
         Z[j4+2] = dn;
@@ -5395,8 +6034,8 @@ public:
                     Z[j4] = Z[j4+1] * (Z[j4-1]/Z[j4-2]);
                     d = Z[j4+1] * (d/Z[j4-2]);
                 }
-                dmin = ((dmin<d) ? dmin : d);
-                emin = ((emin<Z[j4]) ? emin : Z[j4]);
+                dmin = std::min(dmin, d);
+                emin = std::min(emin, Z[j4]);
             }
         }
         else
@@ -5422,8 +6061,8 @@ public:
                     Z[j4-1] = Z[j4+2] * (Z[j4]/Z[j4-3]);
                     d = Z[j4+2] * (d/Z[j4-3]);
                 }
-                dmin = ((dmin<d) ? dmin : d);
-                emin = ((emin<Z[j4-1]) ? emin : Z[j4-1]);
+                dmin = std::min(dmin, d);
+                emin = std::min(emin, Z[j4-1]);
             }
         }
         // Unroll last two steps.
@@ -5450,7 +6089,7 @@ public:
             Z[j4] = Z[j4p2+2] * (Z[j4p2]/Z[j4-2]);
             dnm1 = Z[j4p2+2] * (dnm2/Z[j4-2]);
         }
-        dmin = ((dmin<dnm1) ? dmin : dnm1);
+        dmin = std::min(dmin, dnm1);
         dmin1 = dmin;
         j4 += 4;
         j4p2 = j4 + 2*pp - 1;
@@ -5473,7 +6112,7 @@ public:
             Z[j4] = Z[j4p2+2] * (Z[j4p2]/Z[j4-2]);
             dn = Z[j4p2+2] * (dnm1/Z[j4-2]);
         }
-        dmin = ((dmin<dn) ? dmin : dn);
+        dmin = std::min(dmin, dn);
         Z[j4+2] = dn;
         Z[4*n0-pp+3] = emin;
     }
@@ -7825,6 +8464,7 @@ public:
      *          Univ.of California Berkeley
      *          Univ.of Colorado Denver
      *          NAG Ltd.
+     * Date: June 2017
      * Further Details:
      *     Little is known about how best to choose these parameters. It is possible to use
      *         different values of the parameters for each of chseqr, dhseqr, shseqr and zhseqr.
@@ -7865,7 +8505,7 @@ public:
     {
         const int INMIN=12, INWIN=13, INIBL=14, ISHFTS=15, IACC22=16, NMIN=75, K22MIN=14,
                   KACMIN=14, NIBBLE=14, KNWSWP=500;
-        int nh, ns = 0, nstemp;
+        int nh, ns = 0;
         if ((ispec==ISHFTS) || (ispec==INWIN) || (ispec==IACC22))
         {
             // Set the number simultaneous shifts
@@ -7881,8 +8521,7 @@ public:
             }
             if (nh>=150)
             {
-                nstemp = nh / int(std::log(real(nh))/std::log(TWO));
-                ns = ((10>nstemp) ? 10 : nstemp);
+                ns = std::max(10, nh / int(std::log(real(nh))/std::log(TWO)));
             }
             if (nh>=590)
             {
@@ -7896,8 +8535,7 @@ public:
             {
                 ns = 256;
             }
-            nstemp = ns - (ns%2);
-            ns = ((2>nstemp) ? 2 : nstemp);
+            ns = std::max(2, ns-(ns%2));
         }
         if (ispec==INMIN)
         {
@@ -7929,16 +8567,44 @@ public:
         }
         else if (ispec==IACC22)
         {
-            // IACC22: Whether to accumulate reflections before updating the far-from-diagonal elements
-            // and whether to use 2-by-2 block structure while doing it. A small amount of work could be
-            // saved by making this choice dependent also upon the nh = ihi-ilo+1.
-            if (ns>=KACMIN)
+            /* IACC22: Whether to accumulate reflections before updating the far-from-diagonal
+             * elements and whether to use 2-by-2 block structure while doing it. A small amount of
+             * work could be saved by making this choice dependent also upon the nh = ihi-ilo+1. */
+            // Convert NAME to upper case if the first character is lower case.
+            char subnam[6];
+            for (int i=0; i<6; i++)
             {
+                subnam[i] = std::toupper(name[i]);
+            }
+            if (std::strncmp(&subnam[1], "GGHRD", 5)==0 || std::strncmp(&subnam[1], "GGHD3", 5)==0)
+            {
+                if (nh>=K22MIN)
+                {
+                    return 2;
+                }
                 return 1;
             }
-            if (ns>=K22MIN)
+            else if (strncmp(&subnam[3], "EXC", 3)==0)
             {
-                return 2;
+                if (nh>=K22MIN)
+                {
+                    return 2;
+                }
+                if (nh>=KACMIN)
+                {
+                    return 1;
+                }
+            }
+            else if (strncmp(&subnam[1], "HSEQR", 5)==0 || strncmp(&subnam[1], "LAQR", 4)==0)
+            {
+                if(ns>=K22MIN)
+                {
+                    return 2;
+                }
+                if (ns>=KACMIN)
+                {
+                    return 1;
+                }
             }
             return 0;
         }

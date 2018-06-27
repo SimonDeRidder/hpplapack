@@ -8,6 +8,7 @@
 #include <string>
 #include <sstream>
 #include <cmath>
+#include <algorithm>
 
 #include "Blas.h"
 #include "Lapack_dyn.h"
@@ -41,7 +42,7 @@ public:
         real rmax, sfmin, temp, temp2, vmax;
         int* lmax = new int[3];
         real* A = new real[lda*lda];
-        real* AIN = new real[lda*lda];
+        real* Ain = new real[lda*lda];
         real* dummy = new real[1];
         real* scale = new real[lda];
         real* scalin = new real[lda];
@@ -90,7 +91,7 @@ public:
                         doubleStr[DInd] = 'e';
                     }
                     strStr.str(doubleStr);
-                    strStr >> AIN[i+lda*j];
+                    strStr >> Ain[i+lda*j];
                     strStr.clear();
                 }
             }
@@ -123,18 +124,16 @@ public:
             {
                 for (j=0; j<n; j++)
                 {
-                    temp = A[i+lda*j]>AIN[i+lda*j]?A[i+lda*j]:AIN[i+lda*j];
-                    temp = temp>sfmin?temp:sfmin;
-                    temp2 = fabs(A[i+lda*j]-AIN[i+lda*j])/temp;
-                    vmax = vmax>temp2?vmax:temp2;
+                    temp = std::max(A[i+lda*j], Ain[i+lda*j]);
+                    temp = std::max(temp, sfmin);
+                    vmax = std::max(vmax, std::fabs(A[i+lda*j]-Ain[i+lda*j])/temp);
                 }
             }
             for (i=0; i<n; i++)
             {
-                temp = scale[i]>scalin[i]?scale[i]:scalin[i];
-                temp = temp>sfmin?temp:sfmin;
-                temp2 = fabs(scale[i]-scalin[i])/temp;
-                vmax = vmax>temp2?vmax:temp2;
+                temp = std::max(scale[i], scalin[i]);
+                temp = std::max(temp, sfmin);
+                vmax = std::max(vmax, std::fabs(scale[i]-scalin[i])/temp);
             }
             if (vmax>rmax)
             {
@@ -144,8 +143,8 @@ public:
             nin >> n;
         }
         nout << " .. test output of DGEBAL .. \n";
-        nout << " value of largest test error            = " << std::setprecision(4) << std::setw(12);
-        nout << rmax << '\n';
+        nout << " value of largest test error            = " << std::setprecision(4);
+        nout << std::setw(12) << rmax << '\n';
         nout << " example number where info is not zero  = " << std::setw(4) << lmax[0] << '\n';
         nout << " example number where ILO or IHI wrong  = " << std::setw(4) << lmax[1] << '\n';
         nout << " example number having largest error    = " << std::setw(4) << lmax[2] << '\n';
@@ -153,7 +152,7 @@ public:
         nout << " total number of examples tested        = " << std::setw(4) << knt << std::endl;
         delete[] lmax;
         delete[] A;
-        delete[] AIN;
+        delete[] Ain;
         delete[] dummy;
         delete[] scale;
         delete[] scalin;

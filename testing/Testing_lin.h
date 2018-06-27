@@ -9,6 +9,7 @@
 #include <sstream>
 #include <cmath>
 #include <ctime>
+#include <algorithm>
 
 #include "Blas.h"
 #include "Lapack_dyn.h"
@@ -2167,7 +2168,7 @@ public:
         {
             // Do for each value of M in mval.
             m = mval[im];
-            lda = ((1>m) ? 1 : m);
+            lda = std::max(1, m);
             for (in=0; in<nn; in++)
             {
                 // Do for each value of N in nval.
@@ -2182,16 +2183,7 @@ public:
                     mnmin = m;
                     temp = n;
                 }
-                lwork = m*temp + 4*mnmin + temp;
-                temp = m*n + 2*mnmin + 4*n;
-                if (lwork<temp)
-                {
-                    lwork = temp;
-                }
-                if (lwork<1)
-                {
-                    lwork = 1;
-                }
+                lwork = std::max(std::max(m*temp+4*mnmin+temp, m*n+2*mnmin+4*n), 1);
                 for (imode=0; imode<NTYPES; imode++)
                 {
                     if (!dotype[imode])
@@ -2234,19 +2226,11 @@ public:
                             {
                                 ilow = 0;
                                 istep = 1;
-                                ihigh = n / 2;
-                                if (ihigh<1)
-                                {
-                                    ihigh = 1;
-                                }
+                                ihigh = std::max(n/2, 1);
                             }
                             else if (imode==4)
                             {
-                                ilow = n / 2 - 1;
-                                if (ilow<0)
-                                {
-                                    ilow = 0;
-                                }
+                                ilow = std::max(n/2-1, 0);
                                 istep = 1;
                                 ihigh = n;
                             }
@@ -2274,11 +2258,7 @@ public:
                         this->dlacpy("All", m, n, CopyA, lda, A, lda);
                         icopy(n, &iwork[0], 1, &iwork[n], 1);
                         // Compute the QR factorization with pivoting of A
-                        lw = 2*n + nb*(n+1);
-                        if (lw<1)
-                        {
-                            lw = 1;
-                        }
+                        lw = std::max(1, 2*n+nb*(n+1));
                         // Compute the QP3 factorization of A
                         std::strncpy(srnamc.srnam,"DGEQP3", 7);
                         this->dgeqp3(m, n, A, lda, &iwork[n], tau, work, lw, info);
@@ -2450,14 +2430,16 @@ public:
         {
             Blas<real>::dcopy(m, &Af[/*0+*/lda*j], 1, &work[j*m], 1);
         }
-        this->dormqr("Left","No transpose", m, n, k, Af, lda, tau, work, m, &work[m*n], lwork-m*n, info);
+        this->dormqr("Left","No transpose", m, n, k, Af, lda, tau, work, m, &work[m*n], lwork-m*n,
+                     info);
         for (j=0; j<n; j++)
         {
             // Compare i-th column of QR and jpvt[i]-th column of A
             Blas<real>::daxpy(m, -ONE, &A[/*0+*/lda*jpvt[j]], 1, &work[j*m], 1);
         }
         real rwork[1];
-        real dqpt01 = this->dlange("One-norm", m, n, work, m, rwork) / (real(m>n?m:n)*this->dlamch("Epsilon"));
+        real dqpt01 = this->dlange("One-norm", m, n, work, m, rwork) /
+                      (real(std::max(m,n))*this->dlamch("Epsilon"));
         real norma = this->dlange("One-norm", m, n, A, lda, rwork);
         if (norma!=ZERO)
         {
@@ -2539,10 +2521,10 @@ public:
     real dqrt12(int m, int n, real const* A, int lda, real const* s, real* work, int lwork)
     {
         // Test that enough workspace is supplied
-        int mn = m<n?m:n;
-        int maxmn = m>n?m:n;
+        int mn = std::min(m, n);
+        int maxmn = std::max(m, n);
         int mtn = m*n;
-        if (lwork<mtn+4*mn+maxmn || lwork<mtn+2*mn+4*n)
+        if (lwork<std::max(mtn+4*mn+maxmn, mtn+2*mn+4*n))
         {
             xerbla("DQRT12", 7);
             return ZERO;
@@ -2788,7 +2770,7 @@ public:
         else if (ispec==6)
         {
             // Compute SVD crossover point.
-            return int(real((n1<n2?n1:n2))*real(1.6E0));
+            return int(real(std::min(n1, n2))*real(1.6));
         }
         else if (ispec>=7 && ispec<=9)
         {
