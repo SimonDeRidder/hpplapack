@@ -25,7 +25,10 @@ public:
     static constexpr real HALF  = real(0.5);
     static constexpr real ONE   = real(1.0);
     static constexpr real TWO   = real(2.0);
+    static constexpr real THREE = real(3.0);
     static constexpr real FOUR  = real(4.0);
+    static constexpr real EIGHT = real(8.0);
+    static constexpr real TEN   = real(10.0);
     static constexpr real HNDRD = real(100.0);
 
     // LAPACK INSTALL (alphabetically)
@@ -199,7 +202,6 @@ public:
         const real NEGONE = real(-1.0);
         const real MEIGTH = real(-0.125);
         const real HNDRTH = real(0.01);
-        const real TEN    = real(10.0);
         const int MAXITR = 6;
         // Test the input parameters.
         info = 0;
@@ -1838,6 +1840,7 @@ public:
      * This routine will be called by dlaed4 when necessary. In most cases, the root sought is the
      * smallest in magnitude, though it might not be in some extremely rare situations.
      * Parameters: kniter: Refer to dlaed4 for its significance.
+     *                     NOTE: zero-based
      *             orgati: If orgati is true, the needed root is between d(2) and d(3); otherwise
      *                     it is between d(1) and d(2). See dlaed4 for further details.
      *             rho: Refer to the equation f(x) above.
@@ -1866,8 +1869,6 @@ public:
                        real& tau, int& info)
     {
         const int MAXIT = 40;
-        const real THREE = 3.0;
-        const real EIGHT = 8.0;
         info = 0;
         real lbd, ubd;
         if (orgati)
@@ -1891,7 +1892,7 @@ public:
         int niter = 0;
         tau = ZERO;
         real a, b, c, temp;
-        if (kniter==2)
+        if (kniter==1)
         {
             if (orgati)
             {
@@ -4189,6 +4190,1061 @@ public:
         } while (!done);
     }
 
+    /* dlasd4: This subroutine computes the square root of the i-th updated eigenvalue of a
+     * positive symmetric rank-one modification to a positive diagonal matrix whose entries are
+     * given as the squares of the corresponding entries in the array d, and that
+     *     0 <= d[i] < d[j]  for  i < j
+     * and that rho > 0. This is arranged by the calling routine, and is no loss in generality.
+     * The rank-one modified system is thus
+     *     diag( d ) * diag( d ) +  rho * z * z_transpose.
+     * where we assume the Euclidean norm of z is 1.
+     * The method consists of approximating the rational functions in the secular equation by
+     * simpler interpolating rational functions.
+     * Parameters: n: The length of all arrays.
+     *             i: The index of the eigenvalue to be computed. 0<=i<n.
+     *                NOTE: zero-based index!
+     *             d: an array, dimension (n)
+     *                The original eigenvalues. It is assumed that they are in order,
+     *                0 <= d[i] < d[j] for i < j.
+     *             z: an array, dimension (n)
+     *                The components of the updating vector.
+     *             delta: an array, dimension (n)
+     *                    If n!=1, delta contains (d[j] - sigma_I) in its j-th component.
+     *                    If n==1, then delta[0] = 1. The vector delta contains the information
+     *                             necessary to construct the (singular) eigenvectors.
+     *             rho: The scalar in the symmetric updating formula.
+     *             sigma: The computed sigma_i, the i-th updated eigenvalue.
+     *             work: an array, dimension (n)
+     *                   If n!=1, work contains (d[j] + sigma_I) in its j-th component.
+     *                   If n==1, then work[0] = 1.
+     *             info: ==0: successful exit
+     *                   > 0: if info==1, the updating process failed.
+     * Internal Parameters:
+     *     Logical variable orgati (origin-at-i?) is used for distinguishing whether d[i] or d[i+1]
+     *       is treated as the origin.
+     *         orgati==true    origin at i
+     *         orgati==false   origin at i+1
+     *     Logical variable swtch3 (switch-for-3-poles?) is for noting if we are working with THREE
+     *       poles!
+     *     MAXIT is the maximum number of iterations allowed for each eigenvalue.
+     * Authors: Univ.of Tennessee
+     *          Univ.of California Berkeley
+     *          Univ.of Colorado Denver
+     *          NAG Ltd.
+     * Date: December 2016
+     * Contributors:
+     *     Ren-Cang Li, Computer Science Division, University of California at Berkeley, USA     */
+    static void dlasd4(int n, int i, real const* d, real const* z, real* delta, real rho,
+                       real& sigma, real* work, int& info)
+    {
+        const int MAXIT = 400;
+        // Since this routine is called in an inner loop, we do no argument checking.
+        // Quick return for n==1 and 2.
+        info = 0;
+        if (n==1)
+        {
+            // Presumably, i==0 upon entry
+            sigma = std::sqrt(d[0]*d[0]+rho*z[0]*z[0]);
+            delta[0] = ONE;
+            work[0] = ONE;
+            return;
+        }
+        if (n==2)
+        {
+            dlasd5(i, d, z, delta, rho, sigma, work);
+            return;
+        }
+        // Compute machine epsilon
+        real eps = dlamch("Epsilon");
+        real rhoinv = ONE / rho;
+        real tau2 = ZERO;
+        int ii, iter, j, niter;
+        int nm1 = n-1;
+        int nm2 = n-2;
+        real a, b, c, delsq, dphi, dpsi, erretm, eta, phi, psi, tau, temp, temp1, w;
+        // The case i==n-1
+        if (i==nm1)
+        {
+            // Initialize some basic variables
+            ii = nm2;
+            niter = 0;
+            // Calculate initial guess
+            temp = rho / TWO;
+            // If ||z||_2 is not one, then temp should be set to rho * ||z||_2^2 / TWO
+            temp1 = temp / (d[nm1]+std::sqrt(d[nm1]*d[nm1]+temp));
+            for (j=0; j<n; j++)
+            {
+                work[j] = d[j] + d[nm1] + temp1;
+                delta[j] = (d[j]-d[nm1]) - temp1;
+            }
+            psi = ZERO;
+            for (j=0; j<nm2; j++)
+            {
+                psi += z[j]*z[j] / (delta[j]*work[j]);
+            }
+            c = rhoinv + psi;
+            w = c + z[ii]*z[ii]/(delta[ii]*work[ii]) + z[nm1]*z[nm1]/(delta[nm1]*work[nm1]);
+            if (w<=ZERO)
+            {
+                temp1 = std::sqrt(d[nm1]*d[nm1]+rho);
+                temp = z[nm2]*z[nm2] / ((d[nm2]+temp1)*(d[nm1]-d[nm2]+rho/(d[nm1]+temp1)))
+                     + z[nm1]*z[nm1] / rho;
+                // The following tau2 is to approximate SIGMA_n^2 - d[nm1]*d[nm1]
+                if (c<=temp)
+                {
+                    tau = rho;
+                }
+                else
+                {
+                    delsq = (d[nm1]-d[nm2])*(d[nm1]+d[nm2]);
+                    a = -c*delsq + z[nm2]*z[nm2] + z[nm1]*z[nm1];
+                    b = z[nm1]*z[nm1]*delsq;
+                    if (a<ZERO)
+                    {
+                       tau2 = TWO*b / (std::sqrt(a*a+FOUR*b*c)-a);
+                    }
+                    else
+                    {
+                       tau2 = (a+std::sqrt(a*a+FOUR*b*c)) / (TWO*c);
+                    }
+                    tau = tau2 / (d[nm1]+std::sqrt(d[nm1]*d[nm1]+tau2));
+                }
+                // It can be proven that
+                // d[nm1]^2+rho/2 <= sigma_n^2 < d[nm1]^2+tau2 <= d[nm1]^2+rho
+            }
+            else
+            {
+                delsq = (d[nm1]-d[nm2])*(d[nm1]+d[nm2]);
+                a = -c*delsq + z[nm2]*z[nm2] + z[nm1]*z[nm1];
+                b = z[nm1]*z[nm1]*delsq;
+                // The following tau2 is to approximate sigma_n^2 - d[nm1]*d[nm1]
+                if (a<ZERO)
+                {
+                   tau2 = TWO*b / (std::sqrt(a*a+FOUR*b*c)-a);
+                }
+                else
+                {
+                   tau2 = (a+std::sqrt(a*a+FOUR*b*c)) / (TWO*c);
+                }
+                tau = tau2 / (d[nm1]+std::sqrt(d[nm1]*d[nm1]+tau2));
+                // It can be proven that d[nm1]^2 < d[nm1]^2+tau2 < sigma[nm1]^2 < d[nm1]^2+rho/2
+            }
+            // The following tau is to approximate sigma_n - d[nm1]
+            //tau = tau2 / (d[nm1]+std::sqrt(d[nm1]*d[nm1]+tau2));
+            sigma = d[nm1] + tau;
+            for (j=0; j<n; j++)
+            {
+                delta[j] = (d[j]-d[nm1]) - tau;
+                work[j] = d[j] + d[nm1] + tau;
+            }
+            // Evaluate psi and the derivative dpsi
+            dpsi = ZERO;
+            psi = ZERO;
+            erretm = ZERO;
+            for (j=0; j<=ii; j++)
+            {
+                temp = z[j] / (delta[j]*work[j]);
+                psi += z[j]*temp;
+                dpsi += temp*temp;
+                erretm += psi;
+            }
+            erretm = std::fabs(erretm);
+            // Evaluate phi and the derivative dphi
+            temp = z[nm1] / (delta[nm1]*work[nm1]);
+            phi = z[nm1]*temp;
+            dphi = temp*temp;
+            erretm = EIGHT*(-phi-psi) + erretm - phi + rhoinv;
+                     //+ std::fabs(tau2)*(dpsi+dphi);
+            w = rhoinv + phi + psi;
+            // Test for convergence
+            if (std::fabs(w)<=eps*erretm)
+            {
+                return;
+            }
+            // Calculate the new step
+            niter++;
+            real dtnsq1 = work[nm2]*delta[nm2];
+            real dtnsq = work[nm1]*delta[nm1];
+            c = w - dtnsq1*dpsi - dtnsq*dphi;
+            a = (dtnsq+dtnsq1)*w - dtnsq*dtnsq1*(dpsi+dphi);
+            b = dtnsq*dtnsq1*w;
+            if (c<ZERO)
+            {
+                c = std::fabs(c);
+            }
+            if (c==ZERO)
+            {
+                eta = rho - sigma*sigma;
+            }
+            else if (a>=ZERO)
+            {
+                eta = (a+std::sqrt(std::fabs(a*a-FOUR*b*c))) / (TWO*c);
+            }
+            else
+            {
+                eta = TWO*b / (a-std::sqrt(std::fabs(a*a-FOUR*b*c)));
+            }
+            // Note, eta should be positive if w is negative, and eta should be negative otherwise.
+            // However, if for some reason caused by roundoff, eta*w > 0, we simply use one Newton
+            // step instead. This way will guarantee eta*w < 0.
+            if (w*eta>ZERO)
+            {
+                eta = -w / (dpsi+dphi);
+            }
+            temp = eta - dtnsq;
+            if (temp>rho)
+            {
+                eta = rho + dtnsq;
+            }
+            eta /= (sigma+std::sqrt(eta+sigma*sigma));
+            tau += eta;
+            sigma += eta;
+            for (j=0; j<n; j++)
+            {
+                delta[j] -= eta;
+                work[j] += eta;
+            }
+            // Evaluate psi and the derivative dpsi
+            dpsi = ZERO;
+            psi = ZERO;
+            erretm = ZERO;
+            for (j=0; j<=ii; j++)
+            {
+                temp = z[j] / (work[j]*delta[j]);
+                psi += z[j]*temp;
+                dpsi += temp*temp;
+                erretm += psi;
+            }
+            erretm = std::fabs(erretm);
+            // Evaluate phi and the derivative dphi
+            tau2 = work[nm1]*delta[nm1];
+            temp = z[nm1] / tau2;
+            phi = z[nm1]*temp;
+            dphi = temp*temp;
+            erretm = EIGHT*(-phi-psi) + erretm - phi + rhoinv;
+                     //+ std::fabs(tau2)*(dpsi+dphi);
+            w = rhoinv + phi + psi;
+            // Main loop to update the values of the array delta
+            iter = niter + 1;
+            for (niter=iter; niter<MAXIT; niter++)
+            {
+                // Test for convergence
+                if (std::fabs(w)<=eps*erretm)
+                {
+                    return;
+                }
+                // Calculate the new step
+                dtnsq1 = work[nm2]*delta[nm2];
+                dtnsq = work[nm1]*delta[nm1];
+                c = w - dtnsq1*dpsi - dtnsq*dphi;
+                a = (dtnsq+dtnsq1)*w - dtnsq1*dtnsq*(dpsi+dphi);
+                b = dtnsq1*dtnsq*w;
+                if (a>=ZERO)
+                {
+                   eta = (a+std::sqrt(std::fabs(a*a-FOUR*b*c))) / (TWO*c);
+                }
+                else
+                {
+                   eta = TWO*b / (a-std::sqrt(std::fabs(a*a-FOUR*b*c)));
+                }
+                // Note, eta should be positive if w is negative, and eta should be negative
+                // otherwise. However, if for some reason caused by roundoff, eta*w > 0, we simply
+                // use one Newton step instead. This way will guarantee eta*w < 0.
+                if (w*eta>ZERO)
+                {
+                    eta = -w / (dpsi+dphi);
+                }
+                temp = eta - dtnsq;
+                if (temp<=ZERO)
+                {
+                    eta /= TWO;
+                }
+                eta /= (sigma+std::sqrt(eta+sigma*sigma));
+                tau += eta;
+                for (j=0; j<n; j++)
+                {
+                    delta[j] -= eta;
+                    work[j] += eta;
+                }
+                // Evaluate psi and the derivative dpsi
+                dpsi = ZERO;
+                psi = ZERO;
+                erretm = ZERO;
+                for (j=0; j<=ii; j++)
+                {
+                    temp = z[j] / (work[j]*delta[j]);
+                    psi += z[j]*temp;
+                    dpsi += temp*temp;
+                    erretm += psi;
+                }
+                erretm = std::fabs(erretm);
+                // Evaluate phi and the derivative dphi
+                tau2 = work[nm1]*delta[nm1];
+                temp = z[nm1] / tau2;
+                phi = z[nm1]*temp;
+                dphi = temp*temp;
+                erretm = EIGHT*(-phi-psi) + erretm - phi + rhoinv;
+                         //+ std::fabs(tau2)*(dpsi+dphi);
+                w = rhoinv + phi + psi;
+            }
+            // Return with info = 1, niter = MAXIT-1 and not converged
+            info = 1;
+            return;
+            // End for the case i==n-1
+        }
+        else
+        {
+            // The case for i < n-1
+            niter = 0;
+            int ip1 = i + 1;
+            // Calculate initial guess
+            delsq = (d[ip1]-d[i])*(d[ip1]+d[i]);
+            real delsq2 = delsq / TWO;
+            real sq2 = std::sqrt((d[i]*d[i]+d[ip1]*d[ip1]) / TWO);
+            temp = delsq2 / (d[i]+sq2);
+            for (j=0; j<n; j++)
+            {
+                work[j] = d[j] + d[i] + temp;
+                delta[j] = (d[j]-d[i]) - temp;
+            }
+            psi = ZERO;
+            for (j=0; j<i; j++)
+            {
+                psi += z[j]*z[j] / (work[j]*delta[j]);
+            }
+            phi = ZERO;
+            for (j=nm1; j>i+1; j--)
+            {
+               phi += z[j]*z[j] / (work[j]*delta[j]);
+            }
+            c = rhoinv + psi + phi;
+            w = c + z[i]*z[i]/(work[i]*delta[i]) + z[ip1]*z[ip1]/(work[ip1]*delta[ip1]);
+            bool orgati;
+            real sglb, sgub;
+            bool geomavg = false;
+            if (w>ZERO)
+            {
+                // d(i)^2 < the ith sigma^2 < (d(i)^2+d(i+1)^2)/2
+                // We choose d(i) as origin.
+                orgati = true;
+                ii = i;
+                sglb = ZERO;
+                sgub = delsq2  / (d[i]+sq2);
+                a = c*delsq + z[i]*z[i] + z[ip1]*z[ip1];
+                b = z[i]*z[i]*delsq;
+                if (a>ZERO)
+                {
+                   tau2 = TWO*b / (a+std::sqrt(std::fabs(a*a-FOUR*b*c)));
+                }
+                else
+                {
+                   tau2 = (a-std::sqrt(std::fabs(a*a-FOUR*b*c))) / (TWO*c);
+                }
+                // tau2 now is an estimation of sigma^2 - d[i]^2. The following, however,
+                // is the corresponding estimation of sigma - d[i].
+                tau = tau2 / (d[i]+std::sqrt(d[i]*d[i]+tau2));
+                temp = std::sqrt(eps);
+                if (d[i]<=temp*d[ip1] && std::fabs(z[i])<=temp && d[i]>ZERO)
+                {
+                    tau = std::min(TEN*d[i], sgub);
+                    geomavg = true;
+                }
+            }
+            else
+            {
+                // (d(i)^2+d(i+1)^2)/2 <= the ith sigma^2 < d(i+1)^2/2
+                // We choose d(i+1) as origin.
+                orgati = false;
+                ii = ip1;
+                sglb = -delsq2  / (d[ii]+sq2);
+                sgub = ZERO;
+                a = c*delsq - z[i]*z[i] - z[ip1]*z[ip1];
+                b = z[ip1]*z[ip1]*delsq;
+                if (a<ZERO)
+                {
+                   tau2 = TWO*b / (a-std::sqrt(std::fabs(a*a+FOUR*b*c)));
+                }
+                else
+                {
+                   tau2 = -(a+std::sqrt(std::fabs(a*a+FOUR*b*c))) / (TWO*c);
+                }
+                // tau2 now is an estimation of sigma^2 - d[ip1]^2. The following, however,
+                // is the corresponding estimation of sigma - d[ip1].
+                tau = tau2 / (d[ip1]+std::sqrt(std::fabs(d[ip1]*d[ip1]+tau2)));
+            }
+            sigma = d[ii] + tau;
+            for (j=0; j<n; j++)
+            {
+                work[j] = d[j] + d[ii] + tau;
+                delta[j] = (d[j]-d[ii]) - tau;
+            }
+            int iim1 = ii - 1;
+            int iip1 = ii + 1;
+            // Evaluate psi and the derivative dpsi
+            dpsi = ZERO;
+            psi = ZERO;
+            erretm = ZERO;
+            for (j=0; j<=iim1; j++)
+            {
+                temp = z[j] / (work[j]*delta[j]);
+                psi += z[j]*temp;
+                dpsi += temp*temp;
+                erretm += psi;
+            }
+            erretm = std::fabs(erretm);
+            // Evaluate phi and the derivative dphi
+            dphi = ZERO;
+            phi = ZERO;
+            for (j=nm1; j>=iip1; j--)
+            {
+                temp = z[j] / (work[j]*delta[j]);
+                phi += z[j]*temp;
+                dphi += temp*temp;
+                erretm += phi;
+            }
+            w = rhoinv + phi + psi;
+            // w is the value of the secular function with its ii-th element removed.
+            bool swtch3 = false;
+            if (orgati)
+            {
+                if (w<ZERO)
+                {
+                    swtch3 = true;
+                }
+            }
+            else
+            {
+                if (w>ZERO)
+                {
+                    swtch3 = true;
+                }
+            }
+            if (ii==0 || ii==nm1)
+            {
+                swtch3 = false;
+            }
+            temp = z[ii] / (work[ii]*delta[ii]);
+            real dw = dpsi + dphi + temp*temp;
+            temp *= z[ii];
+            w += temp;
+            erretm = EIGHT*(phi-psi) + erretm + TWO*rhoinv + THREE*std::fabs(temp);
+                     //+ std::fabs(tau2)*dw;
+            // Test for convergence
+            if (std::fabs(w)<=eps*erretm)
+            {
+                return;
+            }
+            if (w<=ZERO)
+            {
+               sglb = std::max(sglb, tau);
+            }
+            else
+            {
+               sgub = std::min(sgub, tau);
+            }
+            // Calculate the new step
+            real dtiim, dtiip, dtipsq, dtisq;
+            real dd[3], zz[3];
+            niter++;
+            if (!swtch3)
+            {
+                dtipsq = work[ip1]*delta[ip1];
+                dtisq = work[i]*delta[i];
+                if (orgati)
+                {
+                   c = w - dtipsq*dw + delsq*(z[i]/dtisq)*(z[i]/dtisq);
+                }else{
+                   c = w - dtisq*dw - delsq*(z[ip1]/dtipsq)*(z[ip1]/dtipsq);
+                }
+                a = (dtipsq+dtisq)*w - dtipsq*dtisq*dw;
+                b = dtipsq*dtisq*w;
+                if (c==ZERO)
+                {
+                    if (a==ZERO)
+                    {
+                        if (orgati)
+                        {
+                            a = z[i]*z[i] + dtipsq*dtipsq*(dpsi+dphi);
+                        }
+                        else
+                        {
+                            a = z[ip1]*z[ip1] + dtisq*dtisq*(dpsi+dphi);
+                        }
+                    }
+                    eta = b / a;
+                }
+                else if (a<=ZERO)
+                {
+                    eta = (a-std::sqrt(std::fabs(a*a-FOUR*b*c))) / (TWO*c);
+                }
+                else
+                {
+                    eta = TWO*b / (a+std::sqrt(std::fabs(a*a-FOUR*b*c)));
+                }
+            }
+            else
+            {
+                // Interpolation using THREE most relevant poles
+                dtiim = work[iim1]*delta[iim1];
+                dtiip = work[iip1]*delta[iip1];
+                temp = rhoinv + psi + phi;
+                if (orgati)
+                {
+                    temp1 = z[iim1] / dtiim;
+                    temp1 *= temp1;
+                    c = (temp-dtiip*(dpsi+dphi)) - (d[iim1]-d[iip1])*(d[iim1]+d[iip1])*temp1;
+                    zz[0] = z[iim1]*z[iim1];
+                    if (dpsi<temp1)
+                    {
+                       zz[2] = dtiip*dtiip*dphi;
+                    }
+                    else
+                    {
+                       zz[2] = dtiip*dtiip*((dpsi-temp1)+dphi);
+                    }
+                }
+                else
+                {
+                    temp1 = z[iip1] / dtiip;
+                    temp1 *= temp1;
+                    c = (temp - dtiim*(dpsi+dphi)) - (d[iip1]-d[iim1])*(d[iim1]+d[iip1])*temp1;
+                    if (dphi<temp1)
+                    {
+                        zz[0] = dtiim*dtiim*dpsi;
+                    }
+                    else
+                    {
+                        zz[0] = dtiim*dtiim*(dpsi+(dphi-temp1));
+                    }
+                    zz[2] = z[iip1]*z[iip1];
+                }
+                zz[1] = z[ii]*z[ii];
+                dd[0] = dtiim;
+                dd[1] = delta[ii]*work[ii];
+                dd[2] = dtiip;
+                dlaed6(niter, orgati, c, dd, zz, w, eta, info);
+                if (info!=0)
+                {
+                    // If info is not 0, i.e., dlaed6 failed, switch back to 2 pole interpolation.
+                    swtch3 = false;
+                    info = 0;
+                    dtipsq = work[ip1]*delta[ip1];
+                    dtisq = work[i]*delta[i];
+                    if (orgati)
+                    {
+                        c = w - dtipsq*dw + delsq*(z[i]/dtisq)*(z[i]/dtisq);
+                    }
+                    else
+                    {
+                        c = w - dtisq*dw - delsq*(z[ip1]/dtipsq)*(z[ip1]/dtipsq);
+                    }
+                    a = (dtipsq+dtisq)*w - dtipsq*dtisq*dw;
+                    b = dtipsq*dtisq*w;
+                    if (c==ZERO)
+                    {
+                        if (a==ZERO)
+                        {
+                            if (orgati)
+                            {
+                                a = z[i]*z[i] + dtipsq*dtipsq*(dpsi+dphi);
+                            }
+                            else
+                            {
+                               a = z[ip1]*z[ip1] + dtisq*dtisq*(dpsi+dphi);
+                            }
+                        }
+                        eta = b / a;
+                    }
+                    else if (a<=ZERO)
+                    {
+                        eta = (a-std::sqrt(std::fabs(a*a-FOUR*b*c))) / (TWO*c);
+                    }
+                    else
+                    {
+                        eta = TWO*b / (a+std::sqrt(std::fabs(a*a-FOUR*b*c)));
+                    }
+                }
+            }
+            // Note, eta should be positive if w is negative, and eta should be negative otherwise.
+            // However, if for some reason caused by roundoff, eta*w > 0, we simply use one Newton
+            // step instead. This way will guarantee eta*w < 0.
+            if (w*eta>=ZERO)
+            {
+                eta = -w / dw;
+            }
+            eta /= (sigma+std::sqrt(sigma*sigma+eta));
+            temp = tau + eta;
+            if (temp>sgub || temp<sglb)
+            {
+                if (w<ZERO)
+                {
+                    eta = (sgub-tau) / TWO;
+                }
+                else
+                {
+                    eta = (sglb-tau) / TWO;
+                }
+                if (geomavg)
+                {
+                    if (w < ZERO)
+                    {
+                        if (tau > ZERO)
+                        {
+                            eta = std::sqrt(sgub*tau)-tau;
+                        }
+                    }
+                    else
+                    {
+                        if (sglb > ZERO)
+                        {
+                            eta = std::sqrt(sglb*tau)-tau;
+                        }
+                    }
+                }
+            }
+            real prew = w;
+            tau += eta;
+            sigma += eta;
+            for (j=0; j<n; j++)
+            {
+                work[j] += eta;
+                delta[j] -= eta;
+            }
+            // Evaluate psi and the derivative dpsi
+            dpsi = ZERO;
+            psi = ZERO;
+            erretm = ZERO;
+            for (j=0; j<=iim1; j++)
+            {
+                temp = z[j] / (work[j]*delta[j]);
+                psi += z[j]*temp;
+                dpsi += temp*temp;
+                erretm += psi;
+            }
+            erretm = std::fabs(erretm);
+            // Evaluate phi and the derivative dphi
+            dphi = ZERO;
+            phi = ZERO;
+            for (j=nm1; j>=iip1; j--)
+            {
+                temp = z[j] / (work[j]*delta[j]);
+                phi += z[j]*temp;
+                dphi += temp*temp;
+                erretm += phi;
+            }
+            tau2 = work[ii]*delta[ii];
+            temp = z[ii] / tau2;
+            dw = dpsi + dphi + temp*temp;
+            temp *= z[ii];
+            w = rhoinv + phi + psi + temp;
+            erretm = EIGHT*(phi-psi) + erretm + TWO*rhoinv + THREE*std::fabs(temp);
+                     //+ std::fabs(tau2)*dw
+            bool swtch = false;
+            if (orgati)
+            {
+                if (-w>std::fabs(prew) / TEN)
+                {
+                    swtch = true;
+                }
+            }
+            else
+            {
+                if (w>std::fabs(prew) / TEN)
+                {
+                    swtch = true;
+                }
+            }
+            // Main loop to update the values of the array delta and work
+            real temp2;
+            iter = niter + 1;
+            for (niter=iter; niter<MAXIT; niter++)
+            {
+                // Test for convergence
+                if (std::fabs(w)<=eps*erretm)
+                    //|| (sgub-sglb)<=EIGHT*std::fabs(sgub+sglb)){
+                {
+                    return;
+                }
+                if (w<=ZERO)
+                {
+                   sglb = std::max(sglb, tau);
+                }
+                else
+                {
+                   sgub = std::min(sgub, tau);
+                }
+                // Calculate the new step
+                if (!swtch3)
+                {
+                    dtipsq = work[ip1]*delta[ip1];
+                    dtisq = work[i]*delta[i];
+                    if (!swtch)
+                    {
+                        if (orgati)
+                        {
+                            c = w - dtipsq*dw + delsq*(z[i]/dtisq)*(z[i]/dtisq);
+                        }
+                        else
+                        {
+                            c = w - dtisq*dw - delsq*(z[ip1]/dtipsq)*(z[ip1]/dtipsq);
+                        }
+                    }
+                    else
+                    {
+                        temp = z[ii] / (work[ii]*delta[ii]);
+                        if (orgati)
+                        {
+                            dpsi += temp*temp;
+                        }
+                        else
+                        {
+                            dphi += temp*temp;
+                        }
+                        c = w - dtisq*dpsi - dtipsq*dphi;
+                    }
+                    a = (dtipsq+dtisq)*w - dtipsq*dtisq*dw;
+                    b = dtipsq*dtisq*w;
+                    if (c==ZERO)
+                    {
+                        if (a==ZERO)
+                        {
+                            if (!swtch)
+                            {
+                                if (orgati)
+                                {
+                                    a = z[i]*z[i] + dtipsq*dtipsq*(dpsi+dphi);
+                                }
+                                else
+                                {
+                                    a = z[ip1]*z[ip1] + dtisq*dtisq*(dpsi+dphi);
+                                }
+                            }
+                            else
+                            {
+                               a = dtisq*dtisq*dpsi + dtipsq*dtipsq*dphi;
+                            }
+                        }
+                        eta = b / a;
+                    }
+                    else if (a<=ZERO)
+                    {
+                        eta = (a-std::sqrt(std::fabs(a*a-FOUR*b*c))) / (TWO*c);
+                    }
+                    else
+                    {
+                        eta = TWO*b / (a+std::sqrt(std::fabs(a*a-FOUR*b*c)));
+                    }
+                }
+                else
+                {
+                    // Interpolation using THREE most relevant poles
+                    dtiim = work[iim1]*delta[iim1];
+                    dtiip = work[iip1]*delta[iip1];
+                    temp = rhoinv + psi + phi;
+                    if (swtch)
+                    {
+                        c = temp - dtiim*dpsi - dtiip*dphi;
+                        zz[0] = dtiim*dtiim*dpsi;
+                        zz[2] = dtiip*dtiip*dphi;
+                    }
+                    else
+                    {
+                        if (orgati)
+                        {
+                            temp1 = z[iim1] / dtiim;
+                            temp1 *= temp1;
+                            temp2 = (d[iim1]-d[iip1]) * (d[iim1]+d[iip1]) * temp1;
+                            c = temp - dtiip*(dpsi+dphi) - temp2;
+                            zz[0] = z[iim1]*z[iim1];
+                            if (dpsi<temp1)
+                            {
+                                zz[2] = dtiip*dtiip*dphi;
+                            }
+                            else
+                            {
+                                zz[2] = dtiip*dtiip*((dpsi-temp1)+dphi);
+                            }
+                        }
+                        else
+                        {
+                            temp1 = z[iip1] / dtiip;
+                            temp1 *= temp1;
+                            temp2 = (d[iip1]-d[iim1]) * (d[iim1]+d[iip1]) * temp1;
+                            c = temp - dtiim*(dpsi+dphi) - temp2;
+                            if (dphi<temp1)
+                            {
+                                zz[0] = dtiim*dtiim*dpsi;
+                            }
+                            else
+                            {
+                                zz[0] = dtiim*dtiim*(dpsi+(dphi-temp1));
+                            }
+                            zz[2] = z[iip1]*z[iip1];
+                        }
+                    }
+                    dd[0] = dtiim;
+                    dd[1] = delta[ii]*work[ii];
+                    dd[2] = dtiip;
+                    dlaed6(niter, orgati, c, dd, zz, w, eta, info);
+                    if (info!=0)
+                    {
+                        // If info is not 0, i.e., dlaed6 failed, switch back to two pole
+                        // interpolation
+                        swtch3 = false;
+                        info = 0;
+                        dtipsq = work[ip1]*delta[ip1];
+                        dtisq = work[i]*delta[i];
+                        if (!swtch)
+                        {
+                            if (orgati)
+                            {
+                                c = w - dtipsq*dw + delsq*(z[i]/dtisq)*(z[i]/dtisq);
+                            }
+                            else
+                            {
+                                c = w - dtisq*dw - delsq*(z[ip1]/dtipsq)*(z[ip1]/dtipsq);
+                            }
+                        }
+                        else
+                        {
+                            temp = z[ii] / (work[ii]*delta[ii]);
+                            if (orgati)
+                            {
+                               dpsi += temp*temp;
+                            }
+                            else
+                            {
+                               dphi += temp*temp;
+                            }
+                            c = w - dtisq*dpsi - dtipsq*dphi;
+                        }
+                        a = (dtipsq+dtisq)*w - dtipsq*dtisq*dw;
+                        b = dtipsq*dtisq*w;
+                        if (c==ZERO)
+                        {
+                            if (a==ZERO)
+                            {
+                                if (!swtch)
+                                {
+                                    if (orgati)
+                                    {
+                                        a = z[i]*z[i] + dtipsq*dtipsq*(dpsi+dphi);
+                                    }
+                                    else
+                                    {
+                                        a = z[ip1]*z[ip1] + dtisq*dtisq*(dpsi+dphi);
+                                    }
+                                }
+                                else
+                                {
+                                    a = dtisq*dtisq*dpsi + dtipsq*dtipsq*dphi;
+                                }
+                            }
+                            eta = b / a;
+                        }
+                        else if (a<=ZERO)
+                        {
+                            eta = (a-std::sqrt(std::fabs(a*a-FOUR*b*c))) / (TWO*c);
+                        }
+                        else
+                        {
+                            eta = TWO*b / (a+std::sqrt(std::fabs(a*a-FOUR*b*c)));
+                        }
+                    }
+                }
+                // Note, eta should be positive if w is negative, and eta should be negative
+                // otherwise. However, if for some reason caused by roundoff, eta*w > 0, we simply
+                // use one Newton step instead. This way will guarantee eta*w < 0.
+                if (w*eta>=ZERO)
+                {
+                    eta = -w / dw;
+                }
+                eta /= (sigma+std::sqrt(sigma*sigma+eta));
+                temp = tau+eta;
+                if (temp>sgub || temp<sglb)
+                {
+                    if (w<ZERO)
+                    {
+                        eta = (sgub-tau) / TWO;
+                    }
+                    else
+                    {
+                        eta = (sglb-tau) / TWO;
+                    }
+                    if (geomavg)
+                    {
+                        if (w < ZERO)
+                        {
+                            if (tau > ZERO)
+                            {
+                                eta = std::sqrt(sgub*tau)-tau;
+                            }
+                        }
+                        else
+                        {
+                            if (sglb > ZERO)
+                            {
+                                eta = std::sqrt(sglb*tau)-tau;
+                            }
+                        }
+                    }
+                }
+                prew = w;
+                tau += eta;
+                sigma += eta;
+                for (j=0; j<n; j++)
+                {
+                    work[j] += eta;
+                    delta[j] -= eta;
+                }
+                // Evaluate psi and the derivative dpsi
+                dpsi = ZERO;
+                psi = ZERO;
+                erretm = ZERO;
+                for (j=0; j<=iim1; j++)
+                {
+                    temp = z[j] / (work[j]*delta[j]);
+                    psi += z[j]*temp;
+                    dpsi += temp*temp;
+                    erretm += psi;
+                }
+                erretm = std::fabs(erretm);
+                // Evaluate phi and the derivative dphi
+                dphi = ZERO;
+                phi = ZERO;
+                for (j=nm1; j>=iip1; j--)
+                {
+                    temp = z[j] / (work[j]*delta[j]);
+                    phi += z[j]*temp;
+                    dphi += temp*temp;
+                    erretm += phi;
+                }
+                tau2 = work[ii]*delta[ii];
+                temp = z[ii] / tau2;
+                dw = dpsi + dphi + temp*temp;
+                temp *= z[ii];
+                w = rhoinv + phi + psi + temp;
+                erretm = EIGHT*(phi-psi) + erretm + TWO*rhoinv + THREE*std::fabs(temp);
+                         //+ std::fabs(tau2)*dw;
+                if (w*prew>ZERO && std::fabs(w)>std::fabs(prew) / TEN)
+                {
+                    swtch = !swtch;
+                }
+            }
+            // Return with info = 1, niter = MAXIT-1 and not converged
+            info = 1;
+        }
+    }
+
+    /* dlasd5: This subroutine computes the square root of the i-th eigenvalue of a positive
+     * symmetric rank-one modification of a 2-by-2 diagonal matrix
+     *     diag( D ) * diag( D ) +  rho * z * transpose(z).
+     * The diagonal entries in the array d are assumed to satisfy
+     *     0 <= d[i] < d[j]  for  i < j .
+     * We also assume rho > 0 and that the Euclidean norm of the vector z is one.
+     * Parameters: i: The index of the eigenvalue to be computed. i==0 or i==1.
+     *                NOTE: zero-based index!
+     *             d: an array, dimension (2)
+     *                The original eigenvalues. We assume 0 <= d[0] < d[1].
+     *             z: an array, dimension (2)
+     *                The components of the updating vector.
+     *             delta: an array, dimension (2)
+     *                    Contains (d[j] - sigma_I) in its  j-th component. The vector delta
+     *                    contains the information necessary to construct the eigenvectors.
+     *             rho: The scalar in the symmetric updating formula.
+     *             dsigma: The computed sigma_I, the i-th updated eigenvalue.
+     *             work: an array, dimension (2)
+     *                   work contains (d[j] + sigma_I) in its  j-th component.
+     * Authors: Univ.of Tennessee
+     *          Univ.of California Berkeley
+     *          Univ.of Colorado Denver
+     *          NAG Ltd.
+     * Date December 2016
+     * Contributors:
+     *     Ren-Cang Li, Computer Science Division, University of California at Berkeley, USA     */
+    static void dlasd5(int i, real const* d, real const* z, real* delta, real rho, real& dsigma,
+                       real* work)
+    {
+        real b, c, tau;
+        real del = d[1] - d[0];
+        real delsq = del*(d[1]+d[0]);
+        if (i==0)
+        {
+            real w = ONE
+                    + FOUR * rho * (z[1]*z[1]/(d[0]+THREE*d[1])-z[0]*z[0]/(THREE*d[0]+d[1])) / del;
+            if (w>ZERO)
+            {
+                b = delsq + rho*(z[0]*z[0]+z[1]*z[1]);
+                c = rho*z[0]*z[0]*delsq;
+                // b > ZERO, always
+                // The following tau is dsigma * dsigma - d[0] * d[0]
+                tau = TWO*c / (b+std::sqrt(std::fabs(b*b-FOUR*c)));
+                // The following tau is dsigma - d[0]
+                tau /= (d[0]+std::sqrt(d[0]*d[0]+tau));
+                dsigma = d[0] + tau;
+                delta[0] = -tau;
+                delta[1] = del - tau;
+                work[0] = TWO*d[0] + tau;
+                work[1] = (d[0]+tau) + d[1];
+                //delta[0] = -z[0] / tau;
+                //delta[1] = z[1] / (del-tau);
+            }
+            else
+            {
+                b = -delsq + rho*(z[0]*z[0]+z[1]*z[1]);
+                c = rho*z[1]*z[1]*delsq;
+                // The following tau is dsigma * dsigma - d[1] * d[1]
+                if (b>ZERO)
+                {
+                   tau = -TWO*c / (b+std::sqrt(b*b+FOUR*c));
+                }
+                else
+                {
+                   tau = (b-std::sqrt(b*b+FOUR*c)) / TWO;
+                }
+                // The following tau is dsigma - d[1]
+                tau /= (d[1]+std::sqrt(std::fabs(d[1]*d[1]+tau)));
+                dsigma = d[1] + tau;
+                delta[0] = -(del+tau);
+                delta[1] = -tau;
+                work[0] = d[0] + tau + d[1];
+                work[1] = TWO*d[1] + tau;
+                //delta[0] = -z[0] / (del+tau);
+                //delta[1] = -z[1] / tau;
+            }
+            //temp = std::sqrt(delta[0]*delta[0]+delta[1]*delta[1]);
+            //delta[0] /= temp;
+            //delta[1] /= temp;
+        }
+        else
+        {
+            // Now i==1
+            b = -delsq + rho*(z[0]*z[0]+z[1]*z[1]);
+            c = rho*z[1]*z[1]*delsq;
+            // The following tau is dsigma * dsigma - d[1] * d[1]
+            if (b>ZERO)
+            {
+               tau = (b+std::sqrt(b*b+FOUR*c)) / TWO;
+            }
+            else
+            {
+               tau = TWO*c / (-b+std::sqrt(b*b+FOUR*c));
+            }
+            // The following tau is dsigma - d[1]
+            tau /= (d[1]+std::sqrt(d[1]*d[1]+tau));
+            dsigma = d[1] + tau;
+            delta[0] = -(del+tau);
+            delta[1] = -tau;
+            work[0] = d[0] + tau + d[1];
+            work[1] = TWO*d[1] + tau;
+            //delta[0] = -z[0] / (del+tau);
+            //delta[1] = -z[1] / tau;
+            //temp = std::sqrt(delta[0]*delta[0]+delta[1]*delta[1]);
+            //delta[0] /= temp;
+            //delta[1] /= temp;
+        }
+    }
+
     /* dlasdq computes the singular value decomposition (SVD) of a real (upper or lower) bidiagonal
      * matrix with diagonal d and offdiagonal e, accumulating the transformations if desired.
      * Letting B denote the input bidiagonal matrix, the algorithm computes orthogonal matrices Q
@@ -5457,7 +6513,7 @@ public:
                         b2 = Z[nn-10] / Z[nn-12];
                         np = nn - 14;
                     }
-                    // Approximate contribution to norm squared from I<nn-1.
+                    // Approximate contribution to norm squared from i<nn-2.
                     a2 += b2;
                     for (i4=np; i4>=(4*i0+2+pp); i4-=4)
                     {
@@ -5490,7 +6546,7 @@ public:
                 // Case 5.
                 ttype = -5;
                 s = QURTR*dmin;
-                // Compute contribution to norm squared from I>nn-2.
+                // Compute contribution to norm squared from i>=nn-2.
                 np = nn - 2*pp - 1;
                 b1 = Z[np-2];
                 b2 = Z[np-6];
@@ -5500,7 +6556,7 @@ public:
                     return;
                 }
                 a2 = (Z[np-8]/b2) * (ONE+Z[np-4]/b1);
-                // Approximate contribution to norm squared from I<nn-2.
+                // Approximate contribution to norm squared from i<nn-3.
                 if (n0-i0>2)
                 {
                     b2 = Z[nn-14] / Z[nn-16];

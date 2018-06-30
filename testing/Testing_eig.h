@@ -39,7 +39,7 @@ public:
         const int lda = 20;
         int i, ihi=0, ihiin, ilo=0, iloin, info, j, knt, n, ninfo;
         //real anorm, meps;
-        real rmax, sfmin, temp, temp2, vmax;
+        real rmax, sfmin, temp, vmax;
         int* lmax = new int[3];
         real* A = new real[lda*lda];
         real* Ain = new real[lda*lda];
