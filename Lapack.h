@@ -20,6 +20,7 @@ class Lapack
 public:
     // constants
 
+    static constexpr real NEGONE= real(-1.0);
     static constexpr real ZERO  = real(0.0);
     static constexpr real QURTR = real(0.25);
     static constexpr real HALF  = real(0.5);
@@ -98,6 +99,19 @@ public:
             default:
                 return ZERO;
         }
+    }
+
+    /* dlamc3 is intended to force A and B to be stored prior to doing the addition of A and B,
+     * for use in situations where optimizers might hold one of these in a register.
+     * Author:
+     *     LAPACK is a software package provided by Univ. of Tennessee,
+     *     Univ. of California Berkeley, Univ. of Colorado Denver and NAG Ltd.
+     * Date: December 2016
+     * Paramters: A,
+     *            B: The values A and B.                                                         */
+    real dlamc3(real A, real B)
+    {
+        return A + B;
     }
 
     // LAPACK SRC (alphabetically)
@@ -199,7 +213,6 @@ public:
                        real* Vt, int ldvt, real* U, int ldu, real* C, int ldc, real* work,
                        int& info)
     {
-        const real NEGONE = real(-1.0);
         const real MEIGTH = real(-0.125);
         const real HNDRTH = real(0.01);
         const int MAXITR = 6;
@@ -3925,7 +3938,7 @@ public:
     }
 
     /* dlascl multiplies the m by n real matrix A by the real scalar cto/cfrom. This is done
-     * without over/underflow as long as the final result cto*A(I,J)/cfrom does not over/underflow.
+     * without over/underflow as long as the final result cto*A[i,j]/cfrom does not over/underflow.
      * type specifies that A may be full, upper triangular, lower triangular, upper Hessenberg, or
      * banded.
      * Parameters: type: indices the storage type of the input matrix.
@@ -4188,6 +4201,288 @@ public:
                 }
             }
         } while (!done);
+    }
+
+    /* dlasd3 finds all the square roots of the roots of the secular equation, as defined by the
+     * values in d and z. It makes the appropriate calls to dlasd4 and then updates the singular
+     * vectors by matrix multiplication.
+     * This code makes very mild assumptions about floating point arithmetic. It will work on
+     * machines with a guard digit in add/subtract, or on those binary machines without guard
+     * digits which subtract like the Cray XMP, Cray YMP, Cray C 90, or Cray 2. It could
+     * conceivably fail on hexadecimal or decimal machines without guard digits, but we know of
+     * none.
+     * dlasd3 is called from dlasd1.
+     * Parameters: nl: The row dimension of the upper block. nl>=1.
+     *             nr: The row dimension of the lower block. nr>=1.
+     *             sqre: ==0: the lower block is an nr-by-nr square matrix.
+     *                   ==1: the lower block is an nr-by-(nr+1) rectangular matrix.
+     *                   The bidiagonal matrix has N = nl+nr+1 rows and M = N+sqre >= N columns.
+     *             k: The size of the secular equation, 1 =< k = < N.
+     *             d: an array, dimension(k)
+     *                On exit the square roots of the roots of the secular equation, in ascending
+     *                order.
+     *             Q: an array, dimension (ldq,k)
+     *             ldq: The leading dimension of the array Q.  ldq >= k.
+     *             dsigma: an array, dimension(k)
+     *                     The first k elements of this array contain the old roots of the deflated
+     *                     updating problem. These are the poles of the secular equation.
+     *             U: an array, dimension (ldu, N)
+     *                The last N - k columns of this matrix contain the deflated left singular
+     *                vectors.
+     *             ldu: The leading dimension of the array U. ldu >= N.
+     *             U2: an array, dimension (ldu2, N)
+     *                 The first k columns of this matrix contain the non-deflated left singular
+     *                 vectors for the split problem.
+     *             ldu2: The leading dimension of the array U2. ldu2 >= N.
+     *             Vt: an array, dimension (ldvt, M)
+     *                 The last M - k columns of Vt^T contain the deflated right singular vectors.
+     *             ldvt: The leading dimension of the array Vt. ldvt >= N.
+     *             Vt2: an array, dimension (ldvt2, N)
+     *                  The first k columns of Vt2^T contain the non-deflated right singular
+     *                  vectors for the split problem.
+     *             ldvt2: The leading dimension of the array Vt2. ldvt2 >= N.
+     *             idxc: an integer array, dimension (N)
+     *                   The permutation used to arrange the columns of U (and rows of Vt) into
+     *                   three groups: the first group contains non-zero entries only at and above
+     *                   (or before) nl +1; the second contains non-zero entries only at and below
+     *                   (or after) nl+2; and the third is dense. The first column of U and the row
+     *                   of Vt are treated separately, however.
+     *                   The rows of the singular vectors found by dlasd4 must be likewise permuted
+     *                   before the matrix multiplies can take place.
+     *             ctot: an integer array, dimension (4)
+     *                   A count of the total number of the various types of columns in U (or rows
+     *                   in Vt), as described in idxc. The fourth column type is any column which
+     *                   has been deflated.
+     *             z: an array, dimension (k)
+     *                The first k elements of this array contain the components of the
+     *                deflation-adjusted updating row vector.
+     *             info: ==0:  successful exit.
+     *                   < 0:  if info = -i, the i-th argument had an illegal value.
+     *                   > 0:  if info = 1, a singular value did not converge
+     * Authors: Univ.of Tennessee
+     *          Univ.of California Berkeley
+     *          Univ.of Colorado Denver
+     *          NAG Ltd.
+     * Date June 2017
+     * Contributors:
+     *     Ming Gu and Huan Ren, Computer Science Division,
+     *     University of California at Berkeley, USA                                             */
+    static void dlasd3(int nl, int nr, int sqre, int k, real* d, real* Q, int ldq, real* dsigma,
+                       real* U, int ldu, real const* U2, int ldu2, real* Vt, int ldvt, real* Vt2,
+                       int ldvt2, int const* idxc, int const* ctot, real* z, int& info)
+    {
+        // Test the input parameters.
+        info = 0;
+        if (nl<1)
+        {
+            info = -1;
+        }
+        else if (nr<1)
+        {
+            info = -2;
+        }
+        else if (sqre!=1 && sqre!=0)
+        {
+            info = -3;
+        }
+        int n = nl + nr + 1;
+        int m = n + sqre;
+        int nlp1 = nl + 1;
+        if (k<1 || k>n)
+        {
+            info = -4;
+        }
+        else if (ldq<k)
+        {
+            info = -7;
+        }
+        else if (ldu<n)
+        {
+            info = -10;
+        }
+        else if (ldu2<n)
+        {
+            info = -12;
+        }
+        else if (ldvt<m)
+        {
+            info = -14;
+        }
+        else if (ldvt2<m)
+        {
+            info = -16;
+        }
+        if (info!=0)
+        {
+            xerbla("DLASD3", -info);
+            return;
+        }
+        // Quick return if possible
+        int i;
+        if (k==1)
+        {
+            d[0] = std::fabs(z[0]);
+            Blas<real>::dcopy(m, Vt2, ldvt2, Vt, ldvt);
+            if (z[0]>ZERO)
+            {
+                Blas<real>::dcopy(n, U2, 1, U, 1);
+            }
+            else
+            {
+                for (i=0; i<n; i++)
+                {
+                    &U[i] = -U2[i];
+                }
+            }
+            return;
+        }
+        /* Modify values dsigma[i] to make sure all dsigma[i]-dsigma[j] can be computed with high
+         * relative accuracy (barring over/underflow). This is a problem on machines without a
+         * guard digit in add/subtract (Cray XMP, Cray YMP, Cray C 90 and Cray 2). The following
+         * code replaces dsigma[i] by 2*dsigma[i]-dsigma[i], which on any of these machines zeros
+         * out the bottommost bit of dsigma[i] if it is 1; this makes the subsequent subtractions
+         * dsigma[i]-dsigma[j] unproblematic when cancellation occurs. On binary machines with a
+         * guard digit (almost all machines) it does not change dsigma[i] at all. On hexadecimal
+         * and decimal machines with a guard digit, it slightly changes the bottommost bits of
+         * dsigma[i]. It does not account for hexadecimal or decimal machines without guard digits
+         * (we know of none). We use a subroutine call to compute 2*dsigma[i] to prevent optimizing
+         * compilers from eliminating this code.                                                 */
+        for (i=0; i<k; i++)
+        {
+            dsigma[i] = dlamc3(dsigma[i], dsigma[i]) - dsigma[i];
+        }
+        // Keep a copy of z.
+        Blas<real>::dcopy(k, z, 1, Q, 1);
+        // Normalize z.
+        real rho = Blas<real>::dnrm2(k, z, 1);
+        dlascl("G", 0, 0, rho, ONE, k, 1, z, k, info);
+        rho *= rho;
+        // Find the new singular values.
+        int j;
+        for (j=0; j<k; j++)
+        {
+            dlasd4(k, j, dsigma, z, &U[ldu*j], rho, &d[j], &Vt[ldvt*j], info);
+            // If the zero finder fails, report the convergence failure.
+            if (info!=0)
+            {
+                return;
+            }
+        }
+        // Compute updated z.
+        for (i=0; i<k; i++)
+        {
+            z[i] = U[i+ldu*(k-1)]*Vt[i+ldvt*(k-1)];
+            for (j=0; j<i; j++)
+            {
+                z[i] *= (U[i+ldu*j]*Vt[i+ldvt*j] / (dsigma[i]-dsigma[j]) / (dsigma[i]+dsigma[j]));
+            }
+            for (j=i; j<k-1; j++)
+            {
+                z[i] *= (U[i+ldu*j]*Vt[i+ldvt*j] / (dsigma[i]-dsigma[j+1]) / (dsigma[i]+dsigma[j+1]));
+            }
+            z[i] = std::sqrt(std::fabs(z[i])) * ((ZERO<Q[i])-(Q[i]<ZERO));
+        }
+        // Compute left singular vectors of the modified diagonal matrix, and store related
+        // information for the right singular vectors.
+        int jc, ldui, ldvti;
+        real temp;
+        for (i=0; i<k; i++)
+        {
+            ldui = ldu*i;
+            ldvti = ldvt*i;
+            Vt[ldvti] = z[0] / U[ldui] / Vt[ldvti];
+            U[ldui] = NEGONE;
+            for (j=1; j<k; j++)
+            {
+                Vt[j+ldvti] = z[j] / U[j+ldui] / Vt[j+ldvti];
+                U[j+ldui] = dsigma[j]*Vt[j+ldvti];
+            }
+            temp = Blas<real>::dnrm2(k, &U[ldui], 1);
+            Q[ldq*i] = U[ldui] / temp;
+            for (j=1; j<k; j++)
+            {
+                jc = idxc[j]-1;
+                Q[j+ldq*i] = U[jc+ldui] / temp;
+            }
+        }
+        // Update the left singular vector matrix.
+        int ctemp, ktempm1;
+        if (k==2)
+        {
+            Blas<real>::dgemm("N", "N", n, k, k, ONE, U2, ldu2, Q, ldq, ZERO, U, ldu);
+        }
+        else
+        {
+            if (ctot[0]>0)
+            {
+                Blas<real>::dgemm("N", "N", nl, k, ctot[0], ONE, &U2[ldu2], ldu2, &Q[1], ldq, ZERO,
+                                  U, ldu);
+                if (ctot[2]>0)
+                {
+                    ktempm1 = 1 + ctot[0] + ctot[1];
+                    Blas<real>::dgemm("N", "N", nl, k, ctot[2], ONE, &U2[ldu2*ktempm1], ldu2,
+                                      &Q[ktempm1], ldq, ONE, U, ldu);
+                }
+            }
+            else if (ctot[2]>0)
+            {
+                ktempm1 = 1 + ctot[0] + ctot[1];
+                Blas<real>::dgemm("N", "N", nl, k, ctot[2], ONE, &U2[ldu2*ktempm1], ldu2, &Q[ktempm1],
+                                  ldq, ZERO, U, ldu);
+            }
+            else
+            {
+                dlacpy("F", nl, k, U2, ldu2, U, ldu);
+            }
+            Blas<real>::dcopy(k, Q, ldq, &U[nl], ldu);
+            ktempm1 = 1 + ctot[0];
+            ctemp = ctot[1] + ctot[2];
+            Blas<real>::dgemm("N", "N", nr, k, ctemp, ONE, &U2[nlp1+ldu2*ktempm1], ldu2, &Q[ktempm1], ldq,
+                              ZERO, &U[nlp1], ldu);
+        }
+        // Generate the right singular vectors.
+        for (i=0; i<k; i++)
+        {
+            ldvti = ldvt*i;
+            temp = dnrm2(k, &Vt[ldvti], 1);
+            Q[i] = Vt[ldvti] / temp;
+            for (j=1; j<k; j++)
+            {
+                jc = idxc[j]-1;
+                Q[i+ldq*j] = Vt[jc+ldvti] / temp;
+            }
+        }
+        // Update the right singular vector matrix.
+        if (k==2)
+        {
+            Blas<real>::dgemm("N", "N", k, m, k, ONE, Q, ldq, Vt2, ldvt2, ZERO, Vt, ldvt);
+            return;
+        }
+        ktempm1 = ctot[0];
+        Blas<real>::dgemm("N", "N", k, nlp1, ktempm1+1, ONE, Q, ldq, Vt2, ldvt2, ZERO, Vt, ldvt);
+        ktempm1 = 1 + ctot[0] + ctot[1];
+        if (ktempm1<ldvt2)
+        {
+            Blas<real>::dgem("N", "N", k, nlp1, ctot[2], ONE, &Q[ldq*ktempm1], ldq, &Vt2[ktempm1],
+                             ldvt2, ONE, Vt, ldvt);
+        }
+        ktempm1 = ctot[0];
+        int nrp1 = nr + sqre;
+        int qind = ldq*ktempm1;
+        if (ktempm1>0)
+        {
+            for (i=0; i<k; i++)
+            {
+                Q[i+qind] = Q[i];
+            }
+            for (i=nlp1; i<m; i++)
+            {
+                Vt2[ktempm1+ldvt2*i] = Vt2[ldvt2*i];
+            }
+        }
+        ctemp = 1 + ctot[1] + ctot[2];
+        Blas<real>::dgem("N", "N", k, nrp1, ctemp, ONE, &Q[qind], ldq, &Vt2[ktempm1+ldvt2*nlp1],
+                         ldvt2, ZERO, &Vt[ldvt*nlp1], ldvt);
     }
 
     /* dlasd4: This subroutine computes the square root of the i-th updated eigenvalue of a
@@ -5251,7 +5546,7 @@ public:
      * and P such that B = Q * S * P^T (P^T denotes the transpose of P). The singular values S are
      * overwritten on d.
      * The input matrix U  is changed to U  * Q  if desired.
-     * The input matrix VT is changed to P^T * VT if desired.
+     * The input matrix Vt is changed to P^T * Vt if desired.
      * The input matrix C  is changed to Q^T * C  if desired.
      * See "Computing  Small Singular Values of Bidiagonal Matrices With Guaranteed High Relative
      * Accuracy," by J. Demmel and W. Kahan, LAPACK Working Note #3, for a detailed description of
@@ -5267,7 +5562,7 @@ public:
      *                   M = n + sqre >= n columns.
      *             n: On entry, n specifies the number of rows and columns in the matrix.
      *                          n must be at least 0.
-     *             ncvt: On entry, ncvt specifies the number of columns of the matrix VT.
+     *             ncvt: On entry, ncvt specifies the number of columns of the matrix Vt.
      *                             ncvt must be at least 0.
      *             nru: On entry, nru specifies the number of rows of the matrix U.
      *                            nru must be at least 0.
