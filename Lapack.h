@@ -308,7 +308,7 @@ public:
                     dlasr("L", "V", "F", n, ncc, &work[0], &work[n-1], C, ldc);
                 }
             }
-            // Compute singular values to relative accuracy TOL (By setting TOL to be negative,
+            // Compute singular values to relative accuracy tol (By setting tol to be negative,
             // algorithm will compute singular values to absolute accuracy
             // abs(tol)*norm(input matrix))
             real tolmul = std::pow(eps, MEIGTH);
@@ -3973,7 +3973,7 @@ public:
      *          Univ.of California Berkeley
      *          Univ.of Colorado Denver
      *          NAG Ltd.
-     * Date June 2016                                                                            */
+     * Date: June 2016                                                                           */
     static void dlascl(char const* type, int kl, int ku, real cfrom, real cto, int m, int n,
                        real* A, int lda, int& info)
     {
@@ -4203,6 +4203,740 @@ public:
         } while (!done);
     }
 
+    /* Using a divide and conquer approach, dlasd0 computes the singular value decomposition (SVD)
+     * of a real upper bidiagonal n-by-m matrix B with diagonal d and offdiagonal e, where
+     * m = n+sqre. The algorithm computes orthogonal matrices U and Vt such that B = U * S * Vt.
+     * The singular values S are overwritten on d.
+     * A related subroutine, dlasda, computes only the singular values, and optionally, the
+     * singular vectors in compact form.
+     * Parameters: n: On entry, the row dimension of the upper bidiagonal matrix.
+     *                This is also the dimension of the main diagonal array d.
+     *             sqre: Specifies the column dimension of the bidiagonal matrix.
+     *                   ==0: The bidiagonal matrix has column dimension m = n;
+     *                   ==1: The bidiagonal matrix has column dimension m = n+1;
+     *             d: an array, dimension (n)
+     *                On entry d contains the main diagonal of the bidiagonal matrix.
+     *                On exit d, if info==0, contains its singular values.
+     *             e: an array, dimension (m-1)
+     *                Contains the subdiagonal entries of the bidiagonal matrix.
+     *                On exit, e has been destroyed.
+     *             U: an array, dimension (ldu, n)
+     *                On exit, U contains the left singular vectors.
+     *             ldu: On entry, leading dimension of U.
+     *             Vt: an array, dimension (ldvt, m)
+     *                 On exit, Vt^T contains the right singular vectors.
+     *             ldvt: On entry, leading dimension of Vt.
+     *             smlsiz: On entry, maximum size of the subproblems at the bottom of the
+     *                     computation tree.
+     *             iwork: an integer array, dimension (8*n)
+     *             work: an array, dimension (3*m**2+2*m)
+     *             info: ==0: successful exit.
+     *                   < 0: if info==-i, the i-th argument had an illegal value.
+     *                   > 0: if info==1, a singular value did not converge
+     * Authors: Univ.of Tennessee
+     *          Univ.of California Berkeley
+     *          Univ.of Colorado Denver
+     *          NAG Ltd.
+     * Date: June 2017
+     * Contributors:
+     *     Ming Gu and Huan Ren, Computer Science Division,
+     *     University of California at Berkeley, USA                                             */
+    static void dlasd0(int n, int sqre, real* d, real* e, real* U, int ldu, real* Vt, int ldvt,
+                       int smlsiz, int* iwork, real* work, int& info)
+    {
+        // Test the input parameters.
+        info = 0;
+        if (n<0)
+        {
+            info = -1;
+        }
+        else if (sqre<0 || sqre>1)
+        {
+            info = -2;
+        }
+        int m = n + sqre;
+        if (ldu<n)
+        {
+            info = -6;
+        }
+        else if (ldvt<m)
+        {
+            info = -8;
+        }
+        else if (smlsiz<3)
+        {
+            info = -9;
+        }
+        if (info!=0)
+        {
+            xerbla("DLASD0", -info);
+            return;
+        }
+        // If the input matrix is too small, call dlasdq to find the SVD.
+        if (n<=smlsiz)
+        {
+            dlasdq("U", sqre, n, m, n, 0, d, e, Vt, ldvt, U, ldu, U, ldu, work, info);
+            return;
+        }
+        // Set up the computation tree.
+        int inode = 0;
+        int ndiml = inode + n;
+        int ndimr = ndiml + n;
+        int idxq  = ndimr + n;
+        int iwk   = idxq  + n;
+        int nlvl;
+        int nd;
+        dlasdt(n, nlvl, nd, &iwork[inode], &iwork[ndiml], &iwork[ndimr], smlsiz);
+        // For the nodes on bottom level of the tree, solve their subproblems by dlasdq.
+        int ndb1 = (nd+1) / 2;
+        int ncc = 0;
+        int i, ic, itemp, j, nl, nlf, nr, nrf, nrp1, sqrei;
+        for (i=ndb1-1; i<nd; i++)
+        {
+            // ic : center row of each node
+            // nl : number of rows of left  subproblem
+            // nr : number of rows of right subproblem
+            // nlf: starting row of the left  subproblem
+            // nrf: starting row of the right subproblem
+            ic = iwork[inode+i];
+            nl = iwork[ndiml+i];
+            nr = iwork[ndimr+i];
+            nlf = ic - nl;
+            nrf = ic + 1;
+            sqrei = 1;
+            dlasdq("U", sqrei, nl, nl+1, nl, ncc, &d[nlf], &e[nlf], &Vt[nlf+ldvt*nlf], ldvt,
+                   &U[nlf+ldu*nlf], ldu, &U[nlf+ldu*nlf], ldu, work, info);
+            if (info!=0)
+            {
+                return;
+            }
+            itemp = idxq + nlf;
+            for (j=0; j<nl; j++)
+            {
+                iwork[itemp+j] = j;
+            }
+            if (i==nd-1)
+            {
+                sqrei = sqre;
+            }
+            else
+            {
+                sqrei = 1;
+            }
+            nrp1 = nr + sqrei;
+            dlasdq("U", sqrei, nr, nrp1, nr, ncc, &d[nrf], &e[nrf], &Vt[nrf+ldvt*nrf], ldvt,
+                   &U[nrf+ldu*nrf], ldu, &U[nrf+ldu*nrf], ldu, work, info);
+            if (info!=0)
+            {
+                return;
+            }
+            itemp = idxq + ic + 1;
+            for (j=0; j<nr; j++)
+            {
+                iwork[itemp+j] = j;
+            }
+        }
+        // Now conquer each subproblem bottom-up.
+        int idxqc, lf, ll, lvl;
+        real alpha, beta;
+        for (lvl=nlvl-1; lvl>=0; lvl--)
+        {
+            // Find the first node lf and last node ll on the current level lvl.
+            if (lvl==0)
+            {
+                lf = 0;
+                ll = 0;
+            }
+            else
+            {
+                lf = (1 << lvl) - 1;
+                ll = 2*lf;
+            }
+            for (i=lf; i<=ll; i++)
+            {
+                ic = iwork[inode+i];
+                nl = iwork[ndiml+i];
+                nr = iwork[ndimr+i];
+                nlf = ic - nl;
+                if (sqre==0 && i==ll)
+                {
+                    sqrei = sqre;
+                }
+                else
+                {
+                    sqrei = 1;
+                }
+                idxqc = idxq + nlf;
+                alpha = d[ic];
+                beta = e[ic];
+                dlasd1(nl, nr, sqrei, &d[nlf], alpha, beta, &U[nlf+ldu*nlf], ldu,
+                       &Vt[nlf+ldvt*nlf], ldvt, &iwork[idxqc], &iwork[iwk], work, info);
+                // Report the possible convergence failure.
+                if (info!=0)
+                {
+                    return;
+                }
+            }
+        }
+    }
+
+    /* dlasd1 computes the SVD of an upper bidiagonal n-by-m matrix B, where n = nl+nr+1 and
+     * m = n+sqre. dlasd1 is called from dlasd0.
+     * A related subroutine dlasd7 handles the case in which the singular values (and the singular
+     * vectors in factored form) are desired.
+     * dlasd1 computes the SVD as follows:
+     *                 ( d1(in)   0    0      0 )
+     *     B = U(in) * (   Z1^T   a   Z2^T    b ) * Vt(in)
+     *                 (   0      0   D2(in)  0 )
+     *       = U(out) * ( d(out) 0) * Vt(out)
+     * where Z^T = (Z1^T a Z2^T b) = u^T Vt^T, and u is a vector of dimension m with alpha and beta
+     * in the nl+1 and nl+2 th entries and zeros elsewhere; and the entry b is empty if sqre==0.
+     * The left singular vectors of the original matrix are stored in U, and the transpose of the
+     * right singular vectors are stored in Vt, and the singular values are in d. The algorithm
+     * consists of three stages:
+     *   The first stage consists of deflating the size of the problem when there are multiple
+     *     singular values or when there are zeros in the Z vector. For each such occurrence the
+     *     dimension of the secular equation problem is reduced by one. This stage is performed by
+     *     the routine dlasd2.
+     *   The second stage consists of calculating the updated singular values. This is done by
+     *     finding the square roots of the roots of the secular equation via the routine dlasd4
+     *     (as called by DLASD3). This routine also calculates the singular vectors of the current
+     *     problem.
+     *   The final stage consists of computing the updated singular vectors directly using the
+     *     updated singular values. The singular vectors for the current problem are multiplied
+     *     with the singular vectors from the overall problem.
+     * Parameters: nl: The row dimension of the upper block. nl>=1.
+     *             nr: The row dimension of the lower block. nr>=1.
+     *             sqre: ==0: the lower block is an nr-by-nr square matrix.
+     *                   ==1: the lower block is an nr-by-(nr+1) rectangular matrix.
+     *                   The bidiagonal matrix has row dimension n = nl+nr+1, and column dimension
+     *                   m = n+sqre.
+     *             d: an array, dimension (n = nl+nr+1).
+     *                On entry d[0:nl-1,0:nl-1] contains the singular values of the upper block;
+     *                and d[nl+1:n-1] contains the singular values of the lower block.
+     *                On exit d[0:n-1] contains the singular values of the modified matrix.
+     *             alpha: Contains the diagonal element associated with the added row.
+     *             beta: Contains the off-diagonal element associated with the added row.
+     *             U: an array, dimension(ldu,n)
+     *                On entry U[0:nl-1,0:nl-1] contains the left singular vectors of the upper
+     *                block; U[nl+1:n-1,nl+1:n-1] contains the left singular vectors of the lower
+     *                block.
+     *                On exit U contains the left singular vectors of the bidiagonal matrix.
+     *             ldu: The leading dimension of the array U. ldu>=max(1, n).
+     *             Vt: an array, dimension(ldvt,m) where m = n+sqre.
+     *                 On entry Vt[0:nl, 0:nl]^T contains the right singular vectors of the upper
+     *                 block; Vt[nl+1:m-1,nl+1:m-1]^T contains the right singular vectors of the
+     *                 lower block.
+     *                 On exit Vt^T contains the right singular vectors of the bidiagonal matrix.
+     *             ldvt: The leading dimension of the array Vt. ldvt>=max(1, m).
+     *             idxq: an integer array, dimension(n)
+     *                   This contains the permutation which will reintegrate the subproblem just
+     *                   solved back into sorted order, i.e. d[idxq[0:n-1]] will be in ascending
+     *                   order.
+     *                   NOTE: zero-based indexing!
+     *             iwork: an integer array, dimension(4*n)
+     *             work: an array, dimension(3*m^2 + 2*m)
+     *             info: ==0: successful exit.
+     *                   < 0: if info==-i, the i-th argument had an illegal value.
+     *                   > 0: if info==1, a singular value did not converge
+     * Authors: Univ.of Tennessee
+     *          Univ.of California Berkeley
+     *          Univ.of Colorado Denver
+     *          NAG Ltd.
+     * Date: June 2016
+     * Contributors:
+     *     Ming Gu and Huan Ren, Computer Science Division,
+     *     University of California at Berkeley, USA                                             */
+    static void dlasd1(int nl, int nr, int sqre, real* d, real& alpha, real& beta, real* U,
+                       int ldu, real* Vt, int ldvt, int* idxq, int* iwork, real* work, int& info)
+    {
+        // Test the input parameters.
+        info = 0;
+        if (nl<1)
+        {
+            info = -1;
+        }
+        else if (nr<1)
+        {
+            info = -2;
+        }
+        else if (sqre<0 || sqre>1)
+        {
+            info = -3;
+        }
+        if (info!=0)
+        {
+            xerbla("DLASD1", -info);
+            return;
+        }
+        int n = nl + nr + 1;
+        int m = n + sqre;
+        // The following values are for bookkeeping purposes only. They are integer pointers which
+        // indicate the portion of the workspace used by a particular array in dlasd2 and dlasd3.
+        int ldu2 = n;
+        int ldvt2 = m;
+        int iz = 0;
+        int isigma = iz + m;
+        int iu2 = isigma + n;
+        int ivt2 = iu2 + ldu2*n;
+        int iq = ivt2 + ldvt2*m;
+        int idx = 0;
+        int idxc = idx + n;
+        int coltyp = idxc + n;
+        int idxp = coltyp + n;
+        // Scale.
+        real orgnrm = std::max(std::fabs(alpha), std::fabs(beta));
+        d[nl] = ZERO;
+        for (int i=0; i<n; i++)
+        {
+            if (std::fabs(d[i])>orgnrm)
+            {
+                orgnrm = std::fabs(d[i]);
+            }
+        }
+        dlascl("G", 0, 0, orgnrm, ONE, n, 1, d, n, info);
+        alpha /= orgnrm;
+        beta /= orgnrm;
+        // Deflate singular values.
+        int k;
+        dlasd2(nl, nr, sqre, k, d, &work[iz], alpha, beta, U, ldu, Vt, ldvt, &work[isigma],
+               &work[iu2], ldu2, &work[ivt2], ldvt2, &iwork[idxp], &iwork[idx], &iwork[idxc], idxq,
+               &iwork[coltyp], info);
+        // Solve Secular Equation and update singular vectors.
+        int ldq = k;
+        dlasd3(nl, nr, sqre, k, d, &work[iq], ldq, &work[isigma], U, ldu, &work[iu2], ldu2, Vt,
+               ldvt, &work[ivt2], ldvt2, &iwork[idxc], &iwork[coltyp], &work[iz], info);
+        // Report the convergence failure.
+        if (info!=0)
+        {
+            return;
+        }
+        // Unscale.
+        dlascl("G", 0, 0, ONE, orgnrm, n, 1, d, n, info);
+        // Prepare the idxq sorting permutation.
+        dlamrg(k, n-k, d, 1, -1, idxq);
+    }
+
+    /* dlasd2 merges the two sets of singular values together into a single sorted set. Then it
+     * tries to deflate the size of the problem. There are two ways in which deflation can occur:
+     * when two or more singular values are close together or if there is a tiny entry in the z
+     * vector. For each such occurrence the order of the related secular equation problem is
+     * reduced by one.
+     * dlasd2 is called from dlasd1.
+     * Parameters: nl: The row dimension of the upper block. nl>=1.
+     *             nr: The row dimension of the lower block. nr>=1.
+     *             sqre: ==0: the lower block is an nr-by-nr square matrix.
+     *                   ==1: the lower block is an nr-by-(nr+1) rectangular matrix.
+     *                   The bidiagonal matrix has n = nl+nr+1 rows and m = n+sqre >= n columns.
+     *             k: Contains the dimension of the non-deflated matrix, This is the order of the
+     *                related secular equation. 1<=k<=n.
+     *             d: an array, dimension(n)
+     *                On entry d contains the singular values of the two submatrices to be
+     *                combined.
+     *                On exit d contains the trailing (n-k) updated singular values (those which
+     *                were deflated) sorted into increasing order.
+     *             z: an array, dimension(n)
+     *                On exit z contains the updating row vector in the secular equation.
+     *             alpha: Contains the diagonal element associated with the added row.
+     *             beta: Contains the off-diagonal element associated with the added row.
+     *             U: an array, dimension(ldu,n)
+     *                On entry U contains the left singular vectors of two submatrices in the two
+     *                square blocks with corners at (1,1), (nl, nl), and (nl+2, nl+2), (n,n).
+     *                On exit U contains the trailing (n-k) updated left singular vectors (those
+     *                which were deflated) in its last n-k columns.
+     *             ldu: The leading dimension of the array U. ldu>=n.
+     *             Vt: an array, dimension(ldvt,m)
+     *                 On entry Vt^T contains the right singular vectors of two submatrices in the
+     *                 two square blocks with corners at (1,1), (nl+1, nl+1), and (nl+2, nl+2),
+     *                 (m,m).
+     *                 On exit Vt^T contains the trailing (n-k) updated right singular vectors
+     *                 (those which were deflated) in its last n-k columns.
+     *                 In case sqre==1, the last row of Vt spans the right null space.
+     *             ldvt: The leading dimension of the array Vt. ldvt>=m.
+     *             dsigma: an array, dimension (n)
+     *                     Contains a copy of the diagonal elements (k-1 singular values and one
+     *                     zero) in the secular equation.
+     *             U2: an array, dimension(ldu2,n)
+     *                 Contains a copy of the first k-1 left singular vectors which will be used by
+     *                 dlasd3 in a matrix multiply (dgemm) to solve for the new left singular
+     *                 vectors. U2 is arranged into four blocks. The first block contains a column
+     *                 with 1 at nl+1 and zero everywhere else; the second block contains non-zero
+     *                 entries only at and above nl; the third contains non-zero entries only below
+     *                 nl+1; and the fourth is dense.
+     *             ldu2: The leading dimension of the array U2. ldu2>=n.
+     *             Vt2: an array, dimension(ldvt2,n)
+     *                  Vt2^T contains a copy of the first k right singular vectors which will be
+     *                  used by dlasd3 in a matrix multiply (dgemm) to solve for the new right
+     *                  singular vectors. Vt2 is arranged into three blocks. The first block
+     *                  contains a row that corresponds to the special 0 diagonal element in SIGMA;
+     *                  the second block contains non-zeros only at and before nl +1; the third
+     *                  block contains non-zeros only at and after nl +2.
+     *             ldvt2: The leading dimension of the array Vt2. ldvt2>=m.
+     *             idxp: an integer array, dimension(n)
+     *                   This will contain the permutation used to place deflated values of d at
+     *                   the end of the array. On output idxp[1:k-1] points to the nondeflated
+     *                   d-values and idxp[k:n-1] points to the deflated singular values.
+     *                   NOTE: zero-based indices!
+     *             idx: an integer array, dimension(n)
+     *                  This will contain the permutation used to sort the contents of d into
+     *                  ascending order.
+     *                  NOTE: zero-based indices!
+     *             idxc: an integer array, dimension(n)
+     *                   This will contain the permutation used to arrange the columns of the
+     *                   deflated U matrix into three groups: the first group contains non-zero
+     *                   entries only at and above nl, the second contains non-zero entries only
+     *                   below nl+2, and the third is dense.
+     *                   NOTE: zero-based indices!
+     *             idxq: an integer array, dimension(n)
+     *                   This contains the permutation which separately sorts the two sub-problems
+     *                   in d into ascending order. Note that entries in the first half of this
+     *                   permutation must first be moved one position backward; and entries in the
+     *                   second half must first have nl+1 added to their values.
+     *                   NOTE: zero-based indices!
+     *             coltyp: an integer array, dimension(n)
+     *                     As workspace, this will contain a label which will indicate which of the
+     *                     following types a column in the U2 matrix or a row in the Vt2 matrix is:
+     *                         0: non-zero in the upper half only
+     *                         1: non-zero in the lower half only
+     *                         2: dense
+     *                         3: deflated
+     *                     On exit, it is an array of dimension 4, with coltyp[I] being the
+     *                     dimension of the I-th type columns.
+     *                     NOTE: zero-based indices!
+     *             info: ==0: successful exit.
+     *                   < 0: if info==-i, the i-th argument had an illegal value.
+     * Authors: Univ.of Tennessee
+     *          Univ.of California Berkeley
+     *          Univ.of Colorado Denver
+     *          NAG Ltd.
+     * Contributors:
+     *     Ming Gu and Huan Ren, Computer Science Division,
+     *     University of California at Berkeley, USA                                             */
+    static void dlasd2(int nl, int nr, int sqre, int& k, real* d, real* z, real alpha, real beta,
+                       real* U, int ldu, real* Vt, int ldvt, real* dsigma, real* U2, int ldu2,
+                       real* Vt2, int ldvt2, int* idxp, int* idx, int* idxc, int* idxq,
+                       int* coltyp, int& info)
+    {
+        // Test the input parameters.
+        info = 0;
+        if (nl<1)
+        {
+            info = -1;
+        }
+        else if (nr<1)
+        {
+            info = -2;
+        }
+        else if (sqre!=1 && sqre!=0)
+        {
+            info = -3;
+        }
+        int n = nl + nr + 1;
+        int m = n + sqre;
+        if (ldu<n)
+        {
+            info = -10;
+        }
+        else if (ldvt<m)
+        {
+            info = -12;
+        }
+        else if (ldu2<n)
+        {
+            info = -15;
+        }
+        else if (ldvt2<m)
+        {
+            info = -17;
+        }
+        if (info!=0)
+        {
+            xerbla("DLASD2", -info);
+            return;
+        }
+        // Generate the first part of the vector z; and move the singular values in the first part
+        // of d one position backward.
+        real z1 = alpha*Vt[nl+ldvt*nl];
+        z[0] = z1;
+        int i, tind=ldvt*nl;
+        int nlp1 = nl + 1;
+        for (i=nl-1; i>=0; i--)
+        {
+            z[i+1] = alpha*Vt[i+tind];
+            d[i+1] = d[i];
+            idxq[i+1] = idxq[i] + 1;
+        }
+        // Generate the second part of the vector z.
+        tind = ldvt*nlp1;
+        for (i=nlp1; i<m; i++)
+        {
+            z[i] = beta*Vt[i+tind];
+        }
+        // Initialize some reference arrays.
+        for (i=1; i<nlp1; i++)
+        {
+            coltyp[i] = 0;
+        }
+        for (i=nlp1; i<n; i++)
+        {
+            coltyp[i] = 1;
+        }
+        // Sort the singular values into increasing order
+        for (i=nlp1; i<n; i++)
+        {
+            idxq[i] += nlp1;
+        }
+        // dsigma, idxc, idxc, and the first column of U2 are used as storage space.
+        for (i=1; i<n; i++)
+        {
+            dsigma[i] = d[idxq[i]];
+            U2[i] = z[idxq[i]];
+            idxc[i] = coltyp[idxq[i]];
+        }
+        dlamrg(nl, nr, &dsigma[1], 1, 1, &idx[1]);// TODO: convert idx to zero-based!
+        int idxi;
+        for (i=1; i<n; i++)
+        {
+            idxi = 1 + idx[i];
+            d[i] = dsigma[idxi];
+            z[i] = U2[idxi];
+            coltyp[i] = idxc[idxi];
+        }
+        // Calculate the allowable deflation tolerance
+        real eps = dlamch("Epsilon");
+        real tol = std::max(std::fabs(alpha), std::fabs(beta));
+        tol = EIGHT*eps*std::max(std::fabs(d[n-1]), tol);
+        /* There are 2 kinds of deflation -- first a value in the z-vector is small, second two
+         * (or more) singular values are very close together (their difference is small).
+         * If the value in the z-vector is small, we simply permute the array so that the
+         * corresponding singular value is moved to the end.
+         * If two values in the d-vector are close, we perform a two-sided rotation designed to
+         * make one of the corresponding z-vector entries zero, and then permute the array so that
+         * the deflated singular value is moved to the end.
+         * If there are multiple singular values then the problem deflates. Here the number of
+         * equal singular values are found. As each equal singular value is found, an elementary
+         * reflector is computed to rotate the corresponding singular subspace so that the
+         * corresponding components of z are zero in this new basis.                             */
+        k = 1;
+        int k2 = n;
+        bool skip_deflation = false;
+        int j, jprev;
+        for (j=1; j<n; j++)
+        {
+            if (std::fabs(z[j])<=tol)
+            {
+                // Deflate due to small z component.
+                k2--;
+                idxp[k2] = j;
+                coltyp[j] = 3;
+                if (j==n-1)
+                {
+                    skip_deflation = true;
+                    break;
+                }
+            }
+            else
+            {
+                jprev = j;
+                break;
+            }
+        }
+        int idxj;
+        real c, s;
+        if (!skip_deflation)
+        {
+            int idxjp;
+            real tau;
+            j = jprev;
+            while (true)
+            {
+                j++;
+                if (j>=n)
+                {
+                    break;
+                }
+                if (std::fabs(z[j])<=tol)
+                {
+                    // Deflate due to small z component.
+                    k2--;
+                    idxp[k2] = j;
+                    coltyp[j] = 3;
+                }
+                else
+                {
+                    // Check if singular values are close enough to allow deflation.
+                    if (std::fabs(d[j]-d[jprev])<=tol)
+                    {
+                        // Deflation is possible.
+                        s = z[jprev];
+                        c = z[j];
+                        // Find sqrt(a^2+b^2) without overflow or destructive underflow.
+                        tau = dlapy2(c, s);
+                        c /= tau;
+                        s = -s / tau;
+                        z[j] = tau;
+                        z[jprev] = ZERO;
+                        // Apply back the Givens rotation to the left and right singular vector
+                        // matrices.
+                        idxjp = idxq[idx[jprev]+1];
+                        idxj = idxq[idx[j]+1];
+                        if (idxjp<nlp1)
+                        {
+                            idxjp--;
+                        }
+                        if (idxj<nlp1)
+                        {
+                            idxj--;
+                        }
+                        Blas<real>::drot(n, &U[ldu*idxjp], 1, &U[ldu*idxj], 1, c, s);
+                        Blas<real>::drot(m, &Vt[idxjp], ldvt, &Vt[idxj], ldvt, c, s);
+                        if (coltyp[j]!=coltyp[jprev])
+                        {
+                            coltyp[j] = 2;
+                        }
+                        coltyp[jprev] = 3;
+                        k2--;
+                        idxp[k2] = jprev;
+                        jprev = j;
+                    }
+                    else
+                    {
+                        k++;
+                        U2[k-1] = z[jprev];
+                        dsigma[k-1] = d[jprev];
+                        idxp[k-1] = jprev;
+                        jprev = j;
+                    }
+                }
+            }
+            // Record the last singular value.
+            k++;
+            U2[k-1] = z[jprev];
+            dsigma[k-1] = d[jprev];
+            idxp[k-1] = jprev;
+        }
+        // Count up the total number of the various types of columns, then form a permutation which
+        // positions the four column types into four groups of uniform structure (although one or
+        // more of these groups may be empty).
+        int ctot[4], psm[4];
+        int ct;
+        for (j=0; j<4; j++)
+        {
+            ctot[j] = 0;
+        }
+        for (j=1; j<n; j++)
+        {
+            ct = coltyp[j];
+            ctot[ct]++;
+        }
+        // psm[*] = Position in SubMatrix (of types 0 through 3) (zero-based!)
+        psm[0] = 1;
+        psm[1] = 1 + ctot[0];
+        psm[2] = psm[1] + ctot[1];
+        psm[3] = psm[2] + ctot[2];
+        // Fill out the idxc array so that the permutation which it induces will place all type-1
+        // columns first, all type-2 columns next, then all type-3's, and finally all type-4's,
+        // starting from the second column. This applies similarly to the rows of Vt.
+        int jp;
+        for (j=1; j<n; j++)
+        {
+            jp = idxp[j];
+            ct = coltyp[jp];
+            idxc[psm[ct]] = j;
+            psm[ct]++;
+        }
+        // Sort the singular values and corresponding singular vectors into dsigma, U2, and Vt2
+        // respectively. The singular values/vectors which were not deflated go into the first k
+        // slots of dsigma, U2, and Vt2 respectively, while those which were deflated go into the
+        // last n-k slots, except that the first column/row will be treated separately.
+        for (j=1; j<n; j++)
+        {
+            jp = idxp[j];
+            dsigma[j] = d[jp];
+            idxj = idxq[idx[idxp[idxc[j]]]+1];
+            if (idxj<nlp1)
+            {
+               idxj--;
+            }
+            Blas<real>::dcopy(n, &U[ldu*idxj], 1, &U2[ldu2*j], 1);
+            Blas<real>::dcopy(m, &Vt[idxj], ldvt, &Vt2[j], ldvt2);
+        }
+        // Determine dsigma[0], dsigma[1] and z[0]
+        dsigma[0] = ZERO;
+        real hlftol = tol / TWO;
+        if (std::fabs(dsigma[1])<=hlftol)
+        {
+            dsigma[1] = hlftol;
+        }
+        if (m>n)
+        {
+            z[0] = dlapy2(z1, z[m-1]);
+            if (z[0]<=tol)
+            {
+                c = ONE;
+                s = ZERO;
+                z[0] = tol;
+            }
+            else
+            {
+                c = z1 / z[0];
+                s = z[m-1] / z[0];
+            }
+        }
+        else
+        {
+            if (std::fabs(z1)<=tol)
+            {
+                z[0] = tol;
+            }
+            else
+            {
+                z[0] = z1;
+            }
+        }
+        // Move the rest of the updating row to z.
+        Blas<real>::dcopy(k-1, &U2[1], 1, &z[1], 1);
+        // Determine the first column of U2, the first row of Vt2 and the last row of Vt.
+        dlaset("A", n, 1, ZERO, ZERO, U2, ldu2);
+        U2[nl] = ONE;
+        if (m>n)
+        {
+            for (i=0; i<nlp1; i++)
+            {
+                tind = ldvt*i;
+                Vt[m-1+tind] = -s*Vt[nl+tind];
+                Vt2[ldvt2*i] = c*Vt[nl+tind];
+            }
+            for (i=nlp1; i<m; i++)
+            {
+                tind = m-1+ldvt*i;
+                Vt2[ldvt2*i] = s*Vt[tind];
+                Vt[tind] *= c;
+            }
+        }
+        else
+        {
+            Blas<real>::dcopy(m, &Vt[nl], ldvt, Vt2, ldvt2);
+        }
+        if (m>n)
+        {
+            Blas<real>::dcopy(m, &Vt[m-1], ldvt, &Vt2[m-1], ldvt2);
+        }
+        // The deflated singular values and their corresponding vectors go into the back of d, U,
+        // and V respectively.
+        if (n>k)
+        {
+            Blas<real>::dcopy(n-k, dsigma[k], 1, d[k], 1);
+            dlacpy("A", n, n-k, &U2[ldu2*k], ldu2, &U[ldu*k], ldu);
+            dlacpy("A", n-k, m, &Vt2[k], ldvt2, &Vt[k], ldvt);
+        }
+        // Copy ctot into coltyp for referencing in dlasd3.
+        for (j=0; j<4; j++)
+        {
+            coltyp[j] = ctot[j];
+        }
+    }
+
     /* dlasd3 finds all the square roots of the roots of the secular equation, as defined by the
      * values in d and z. It makes the appropriate calls to dlasd4 and then updates the singular
      * vectors by matrix multiplication.
@@ -4216,8 +4950,8 @@ public:
      *             nr: The row dimension of the lower block. nr>=1.
      *             sqre: ==0: the lower block is an nr-by-nr square matrix.
      *                   ==1: the lower block is an nr-by-(nr+1) rectangular matrix.
-     *                   The bidiagonal matrix has N = nl+nr+1 rows and M = N+sqre >= N columns.
-     *             k: The size of the secular equation, 1 =< k = < N.
+     *                   The bidiagonal matrix has n = nl+nr+1 rows and m = n+sqre >= n columns.
+     *             k: The size of the secular equation, 1 =< k = < n.
      *             d: an array, dimension(k)
      *                On exit the square roots of the roots of the secular equation, in ascending
      *                order.
@@ -4226,29 +4960,30 @@ public:
      *             dsigma: an array, dimension(k)
      *                     The first k elements of this array contain the old roots of the deflated
      *                     updating problem. These are the poles of the secular equation.
-     *             U: an array, dimension (ldu, N)
-     *                The last N - k columns of this matrix contain the deflated left singular
+     *             U: an array, dimension (ldu, n)
+     *                The last n - k columns of this matrix contain the deflated left singular
      *                vectors.
-     *             ldu: The leading dimension of the array U. ldu >= N.
-     *             U2: an array, dimension (ldu2, N)
+     *             ldu: The leading dimension of the array U. ldu >= n.
+     *             U2: an array, dimension (ldu2, n)
      *                 The first k columns of this matrix contain the non-deflated left singular
      *                 vectors for the split problem.
-     *             ldu2: The leading dimension of the array U2. ldu2 >= N.
-     *             Vt: an array, dimension (ldvt, M)
-     *                 The last M - k columns of Vt^T contain the deflated right singular vectors.
-     *             ldvt: The leading dimension of the array Vt. ldvt >= N.
-     *             Vt2: an array, dimension (ldvt2, N)
+     *             ldu2: The leading dimension of the array U2. ldu2 >= n.
+     *             Vt: an array, dimension (ldvt, m)
+     *                 The last m - k columns of Vt^T contain the deflated right singular vectors.
+     *             ldvt: The leading dimension of the array Vt. ldvt >= n.
+     *             Vt2: an array, dimension (ldvt2, n)
      *                  The first k columns of Vt2^T contain the non-deflated right singular
      *                  vectors for the split problem.
-     *             ldvt2: The leading dimension of the array Vt2. ldvt2 >= N.
-     *             idxc: an integer array, dimension (N)
+     *             ldvt2: The leading dimension of the array Vt2. ldvt2 >= n.
+     *             idxc: an integer array, dimension (n)
      *                   The permutation used to arrange the columns of U (and rows of Vt) into
-     *                   three groups: the first group contains non-zero entries only at and above
-     *                   (or before) nl +1; the second contains non-zero entries only at and below
-     *                   (or after) nl+2; and the third is dense. The first column of U and the row
-     *                   of Vt are treated separately, however.
+     *                   three groups: the first group contains non-negative entries only at and
+     *                   above (or before) nl; the second contains non-negative entries only at and
+     *                   below (or after) nl+1; and the third is dense. The first column of U and
+     *                   the row of Vt are treated separately, however.
      *                   The rows of the singular vectors found by dlasd4 must be likewise permuted
      *                   before the matrix multiplies can take place.
+     *                   NOTE: zero-based indices!
      *             ctot: an integer array, dimension (4)
      *                   A count of the total number of the various types of columns in U (or rows
      *                   in Vt), as described in idxc. The fourth column type is any column which
@@ -4401,7 +5136,7 @@ public:
             Q[ldq*i] = U[ldui] / temp;
             for (j=1; j<k; j++)
             {
-                jc = idxc[j]-1;
+                jc = idxc[j];
                 Q[j+ldq*i] = U[jc+ldui] / temp;
             }
         }
@@ -4448,7 +5183,7 @@ public:
             Q[i] = Vt[ldvti] / temp;
             for (j=1; j<k; j++)
             {
-                jc = idxc[j]-1;
+                jc = idxc[j];
                 Q[i+ldq*j] = Vt[jc+ldvti] / temp;
             }
         }
@@ -5558,8 +6293,8 @@ public:
      *             sqre: ==0: then the input matrix is n-by-n.
      *                   ==1: then the input matrix is n-by-(n+1) if UPLU=='U' and (n+1)-by-n if
      *                        UPLU=='L'.
-     *                   The bidiagonal matrix has n = NL + NR + 1 rows and
-     *                   M = n + sqre >= n columns.
+     *                   The bidiagonal matrix has n = nl + nr + 1 rows and
+     *                   m = n + sqre >= n columns.
      *             n: On entry, n specifies the number of rows and columns in the matrix.
      *                          n must be at least 0.
      *             ncvt: On entry, ncvt specifies the number of columns of the matrix Vt.
@@ -5800,6 +6535,60 @@ public:
         }
     }
 
+    /* dlasdt creates a tree of subproblems for bidiagonal divide and sconquer.
+     * Parameters: n: On entry, the number of diagonal elements of the bidiagonal matrix.
+     *             lvl: On exit, the number of levels on the computation tree.
+     *             nd: On exit, the number of nodes on the tree.
+     *             inode: an integer array, dimension (n)
+     *                    On exit, centers of subproblems.
+     *                    NOTE: zero-based indices!
+     *             ndiml: an integer array, dimension (n)
+     *                    On exit, row dimensions of left children.
+     *             ndimr: an integer array, dimension (n)
+     *                    On exit, row dimensions of right children.
+     *             msub: On entry, the maximum row dimension each subproblem at the bottom of the
+     *                   tree can be of.
+     * Authors: Univ.of Tennessee
+     *          Univ.of California Berkeley
+     *          Univ.of Colorado Denver
+     *          NAG Ltd.
+     * Date: December 2016
+     * Contributors:
+     *     Ming Gu and Huan Ren, Computer Science Division,
+     *     University of California at Berkeley, USA                                             */
+    static void dlasdt(int n, int& lvl, int& nd, int* inode, int* ndiml, int* ndimr, int msub)
+    {
+        // Find the number of levels on the tree.
+        lvl = int(std::log(real(std::max(1, n))/real(msub+1)) / std::log(TWO)) + 1;
+        int i = n / 2;
+        inode[0] = i;
+        ndiml[0] = i;
+        ndimr[0] = n - i - 1;
+        int il = -1;
+        int ir = 0;
+        int llst = 1;
+        int ncrnt, nlvl;
+        for (nlvl=1; nlvl<=lvl-1; nlvl++)
+        {
+            // Constructing the tree at (nlvl+1)-st level.
+            // The number of nodes created on this level is llst*2.
+            for (i=0; i<llst; i++)
+            {
+                il += 2;
+                ir += 2;
+                ncrnt = llst + i - 1;
+                ndiml[il] = ndiml[ncrnt] / 2;
+                ndimr[il] = ndiml[ncrnt] - ndiml[il] - 1;
+                inode[il] = inode[ncrnt] - ndimr[il] - 1;
+                ndiml[ir] = ndimr[ncrnt] / 2;
+                ndimr[ir] = ndimr[ncrnt] - ndiml[ir] - 1;
+                inode[ir] = inode[ncrnt] + ndiml[ir] + 1;
+            }
+            llst *= 2;
+        }
+        nd = llst*2 - 1;
+    }
+
     /* dlaset initializes an m-by-n matrix A to beta on the diagonal and alpha on the offdiagonals.
      * Parameters: uplo: Specifies the part of the matrix A to be set.
      *                   ='U': Upper triangular part is set; the strictly lower triangular part of
@@ -5827,7 +6616,7 @@ public:
         int i, j, ldaj;
         if (toupper(uplo[0])=='U')
         {
-            // Set the strictly upper triangular or trapezoidal part of the array to ALPHA.
+            // Set the strictly upper triangular or trapezoidal part of the array to alpha.
             for (j=1; j<n; j++)
             {
                 ldaj = lda*j;
@@ -5839,7 +6628,7 @@ public:
         }
         else if (toupper(uplo[0])=='L')
         {
-            // Set the strictly lower triangular or trapezoidal part of the array to ALPHA.
+            // Set the strictly lower triangular or trapezoidal part of the array to alpha.
             for (j=0; j<m && j<n; j++)
             {
                 ldaj = lda*j;
@@ -5851,7 +6640,7 @@ public:
         }
         else
         {
-            // Set the leading m-by-n submatrix to ALPHA.
+            // Set the leading m-by-n submatrix to alpha.
             for (j=0; j<n; j++)
             {
                 ldaj = lda*j;
@@ -5861,7 +6650,7 @@ public:
                 }
             }
         }
-        // Set the first min(m,n) diagonal elements to BETA.
+        // Set the first min(m,n) diagonal elements to beta.
         for (i=0; i<m && i<n; i++)
         {
             A[i+lda*i] = beta;
@@ -6255,7 +7044,7 @@ public:
                 break;
             }
             // While array unfinished do
-            // E[n0] holds the value of SIGMA when submatrix in i0:n0 splits from the rest of the
+            // e[n0] holds the value of SIGMA when submatrix in i0:n0 splits from the rest of the
             // array, but is negated.
             desig = ZERO;
             if (n0==n-1)
@@ -6272,7 +7061,7 @@ public:
                 return;
             }
             // Find last unreduced submatrix's top index i0, find QMAX and EMIN.
-            // Find Gershgorin-type bound if Q's much greater than E's.
+            // Find Gershgorin-type bound if Q's much greater than e's.
             emax = ZERO;
             if (n0>i0)
             {
@@ -6530,14 +7319,14 @@ public:
             nn = 4*n0 + pp + 4;
             if (n0!=(i0+1))
             {
-                // Check whether E[n0-1] is negligible, 1 eigenvalue.
+                // Check whether e[n0-1] is negligible, 1 eigenvalue.
                 if (Z[nn-6]<=tol2*(sigma+Z[nn-4]) || Z[nn-2*pp-5]<=tol2*Z[nn-8])
                 {
                     Z[4*n0] = Z[4*n0+pp] + sigma;
                     n0--;
                     continue;
                 }
-                // Check  whether E[n0-2] is negligible, 2 eigenvalues.
+                // Check  whether e[n0-2] is negligible, 2 eigenvalues.
                 if (Z[nn-10]>tol2*sigma && Z[nn-2*pp-9]>tol2*Z[nn-12])
                 {
                     break;
@@ -8281,7 +9070,7 @@ public:
                 }
                 // Note that 0 <= r <= 1 + 1/macheps
                 a = HALF * (s+r);
-                // Note that 1 <= a <= 1 + abs(M)
+                // Note that 1 <= a <= 1 + abs(m)
                 ssmin = ha / a;
                 ssmax = fa * a;
                 if (mm==ZERO)
