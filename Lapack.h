@@ -3210,7 +3210,7 @@ public:
         else
         {
             // general case
-            beta = -dlapy2(alpha, xnorm) * real((ZERO<=alpha) - (alpha<ZERO));
+            beta = -std::copysign(dlapy2(alpha, xnorm), alpha);
             safmin = dlamch("SafeMin") / dlamch("Epsilon");
             knt = 0;
             if (fabs(beta)<safmin)
@@ -3226,7 +3226,7 @@ public:
                 } while (fabs(beta)<safmin);
                 // New beta is at most 1, at least SAFMIN
                 xnorm = Blas<real>::dnrm2(n-1, x, incx);
-                beta = -dlapy2(alpha, xnorm) * real((ZERO<=alpha) - (alpha<ZERO));
+                beta = -std::copysign(dlapy2(alpha, xnorm), alpha);
             }
             tau = (beta-alpha) / beta;
             Blas<real>::dscal(n-1, ONE/(alpha-beta), x, incx);
@@ -4693,7 +4693,7 @@ public:
             U2[i] = z[idxq[i]];
             idxc[i] = coltyp[idxq[i]];
         }
-        dlamrg(nl, nr, &dsigma[1], 1, 1, &idx[1]);// TODO: convert idx to zero-based!
+        dlamrg(nl, nr, &dsigma[1], 1, 1, &idx[1]);
         int idxi;
         for (i=1; i<n; i++)
         {
@@ -4998,7 +4998,7 @@ public:
      *          Univ.of California Berkeley
      *          Univ.of Colorado Denver
      *          NAG Ltd.
-     * Date June 2017
+     * Date: June 2017
      * Contributors:
      *     Ming Gu and Huan Ren, Computer Science Division,
      *     University of California at Berkeley, USA                                             */
@@ -6273,6 +6273,534 @@ public:
             //delta[0] /= temp;
             //delta[1] /= temp;
         }
+    }
+
+    /* dlasd7 merges the two sets of singular values together into a single sorted set. Then it
+     * tries to deflate the size of the problem. There are two ways in which deflation can occur:
+     * when two or more singular values are close together or if there is a tiny entry in the Z
+     * vector. For each such occurrence the order of the related secular equation problem is
+     * reduced by one.
+     * dlasd7 is called from dlasd6.
+     * Parameters: icompq: Specifies whether singular vectors are to be computed in compact form,
+     *                     as follows:
+     *                     0: Compute singular values only.
+     *                     1: Compute singular vectors of upper bidiagonal matrix in compact form.
+     *             nl: The row dimension of the upper block. nl>=1.
+     *             nr: The row dimension of the lower block. nr>=1.
+     *             sqre: ==0: the lower block is an nr-by-nr square matrix.
+     *                   ==1: the lower block is an nr-by-(nr+1) rectangular matrix.
+     *                   The bidiagonal matrix has n = nl+nr+1 rows and m = n+sqre >= n columns.
+     *             k: Contains the dimension of the non-deflated matrix, this is the order of the
+     *                related secular equation. 1 <= k <=n.
+     *             d: an array, dimension (n)
+     *                On entry d contains the singular values of the two submatrices to be
+     *                combined. On exit d contains the trailing (n-k) updated singular values
+     *                (those which were deflated) sorted into increasing order.
+     *             z: an array, dimension (m)
+     *                On exit z contains the updating row vector in the secular equation.
+     *             zw: an array, dimension (m)
+     *                 Workspace for z.
+     *             vf: an array, dimension (m)
+     *                 On entry, vf[0:nl] contains the first components of all right singular
+     *                 vectors of the upper block; and vf[nl+1:m-1] contains the first components
+     *                 of all right singular vectors of the lower block.
+     *                 On exit, vf contains the first components of all right singular vectors of
+     *                 the bidiagonal matrix.
+     *             vfw: an array, dimension (m)
+     *                  Workspace for vf.
+     *             vl: an array, dimension (m)
+     *                 On entry, vl[0:nl] contains the last components of all right singular
+     *                 vectors of the upper block; and vl[nl+1:m-1] contains the last components of
+     *                 all right singular vectors of the lower block.
+     *                 On exit, vl contains the last components of all right singular vectors of
+     *                 the bidiagonal matrix.
+     *             vlw: an array, dimension (m)
+     *                  Workspace for vl.
+     *             alpha: Contains the diagonal element associated with the added row.
+     *             beta: Contains the off-diagonal element associated with the added row.
+     *             dsigma: an array, dimension (n)
+     *                     Contains a copy of the diagonal elements (k-1 singular values and one
+     *                     zero) in the secular equation.
+     *             idx: an integer array, dimension (n)
+     *                  This will contain the permutation used to sort the contents of d into
+     *                  ascending order.
+     *                  NOTE: zero-based indices!
+     *             idxp: an integer array, dimension (n)
+     *                   This will contain the permutation used to place deflated values of d at
+     *                   the end of the array. On output idxp[1:k-1] points to the nondeflated
+     *                   d-values and idxp[k:n-1] points to the deflated singular values.
+     *                   NOTE: zero-based indices!
+     *             idxq: an array, dimension (n)
+     *                   This contains the permutation which separately sorts the two sub-problems
+     *                   in d into ascending order. Note that entries in the first half of this
+     *                   permutation must first be moved one position backward; and entries in the
+     *                   second half must first have nl+1 added to their values.
+     *                   NOTE: zero-based indices!
+     *             perm: an integer array, dimension (n)
+     *                   The permutations (from deflation and sorting) to be applied to each
+     *                   singular block. Not referenced if icompq==0.
+     *                   NOTE: zero-based indices!
+     *             givptr: The number of Givens rotations which took place in this subproblem.
+     *                     Not referenced if icompq==0.
+     *             Givcol: an integer array, dimension (ldgcol, 2)
+     *                     Each pair of numbers indicates a pair of columns to take place in a
+     *                     Givens rotation. Not referenced if icompq==0.
+     *             ldgcol: The leading dimension of Givcol, must be at least n.
+     *             Givnum: an array, dimension (ldgnum, 2)
+     *                     Each number indicates the c or s value to be used in the corresponding
+     *                     Givens rotation. Not referenced if icompq==0.
+     *             ldgnum: The leading dimension of Givnum, must be at least n.
+     *             c: contains garbage if sqre==0 and the c-value of a Givens rotation related to
+     *                the right null space if sqre==1.
+     *             s: contains garbage if sqre==0 and the s-value of a Givens rotation related to
+     *                the right null space if sqre==1.
+     *             info: ==0: successful exit.
+     *                   < 0: if info==-i, the i-th argument had an illegal value.
+     * Authors: Univ.of Tennessee
+     *          Univ.of California Berkeley
+     *          Univ.of Colorado Denver
+     *          NAG Ltd.
+     * Date: December 2016
+     * Contributors:
+     *     Ming Gu and Huan Ren, Computer Science Division,
+     *     University of California at Berkeley, USA                                             */
+    static void dlasd7(int icompq, int nl, int nr, int sqre, int& k, real* d, real* z, real* zw,
+                       real* vf, real* vfw, real* vl, real* vlw, real alpha, real beta,
+                       real* dsigma, int* idx, int* idxp, int* idxq, int* perm, int& givptr,
+                       int* Givcol, int ldgcol, real* Givnum, int ldgnum, int& c, int& s,
+                       int& info)
+    {
+        // Test the input parameters.
+        info = 0;
+        int n = nl + nr + 1;
+        int m = n + sqre;
+        if (icompq<0 || icompq>1)
+        {
+            info = -1;
+        }
+        else if (nl<1)
+        {
+            info = -2;
+        }
+        else if (nr<1)
+        {
+            info = -3;
+        }
+        else if (sqre<0 || sqre>1)
+        {
+            info = -4;
+        }
+        else if (ldgcol<n)
+        {
+            info = -22;
+        }
+        else if (ldgnum<n)
+        {
+            info = -24;
+        }
+        if (info!=0)
+        {
+            xerbla("DLASD7", -info);
+            return;
+        }
+        int nlp1 = nl + 1;
+        if (icompq==1)
+        {
+            givptr = 0;
+        }
+        // Generate the first part of the vector z and move the singular values in the first part
+        // of d one position backward.
+        real z1 = alpha*vl[nl];
+        vl[nl] = ZERO;
+        real tau = vf[nl];
+        int i;
+        for (i=nl-1; i>=0; i--)
+        {
+            z[i+1]    = alpha*vl[i];
+            vl[i]     = ZERO;
+            vf[i+1]   = vf[i];
+            d[i+1]    = d[i];
+            idxq[i+1] = idxq[i] + 1;
+        }
+        vf[0] = tau;
+        // Generate the second part of the vector z.
+        for (i=nlp1; i<m; i++)
+        {
+            z[i] = beta*vf[i];
+            vf[i] = ZERO;
+        }
+        // Sort the singular values into increasing order
+        for (i=nlp1; i<n; i++)
+        {
+            idxq[i] += nlp1;
+        }
+        // dsigma, IDXC, IDXC, and zw are used as storage space.
+        for (i=1; i<n; i++)
+        {
+            dsigma[i] =  d[idxq[i]];
+            zw[i]     =  z[idxq[i]];
+            vfw[i]    = vf[idxq[i]];
+            vlw[i]    = vl[idxq[i]];
+        }
+        dlamrg(nl, nr, &dsigma[1], 1, 1, &idx[1]);
+        int idxi;
+        for (i=1; i<n; i++)
+        {
+            idxi  = 1 + idx[i];
+            d[i]  = dsigma[idxi];
+            z[i]  = zw[idxi];
+            vf[i] = vfw[idxi];
+            vl[i] = vlw[idxi];
+        }
+        // Calculate the allowable deflation tolerence
+        real eps = dlamch("Epsilon");
+        real tol = std::max(std::fabs(alpha), std::fabs(beta));
+        tol = EIGHT * EIGHT * eps * std::max(std::fabs(d[n-1]), tol);
+        // There are 2 kinds of deflation -- first a value in the z-vector is small, second two
+        // (or more) singular values are very close together (their difference is small).
+        // If the value in the z-vector is small, we simply permute the array so that the
+        // corresponding singular value is moved to the end.
+        // If two values in the d-vector are close, we perform a two-sided rotation designed to
+        // make one of the corresponding z-vector entries zero, and then permute the array so that
+        // the deflated singular value is moved to the end.
+        // If there are multiple singular values then the problem deflates. Here the number of
+        // equal singular values are found. As each equal singular value is found, an elementary
+        // reflector is computed to rotate the corresponding singular subspace so that the
+        // corresponding components of z are zero in this new basis.
+        k = 1;
+        int k2 = n;
+        bool deflate = true;
+        int j, jprev, km1;
+        for (j=1; j<n; j++)
+        {
+            if (std::fabs(z[j])<=tol)
+            {
+                // Deflate due to small z component.
+                k2--;
+                idxp[k2] = j;
+                if (j==n-1)
+                {
+                    deflate = false;
+                    break;
+                }
+            }
+            else
+            {
+                jprev = j;
+                break;
+            }
+        }
+        if (deflate)
+        {
+            int idxj, idxjp, gptrm1;
+            j = jprev;
+            while (true)
+            {
+                j++;
+                if (j>=n)
+                {
+                    break;
+                }
+                if (std::fabs(z[j])<=tol)
+                {
+                    // Deflate due to small z component.
+                    k2--;
+                    idxp[k2] = j;
+                }
+                else
+                {
+                    // Check if singular values are close enough to allow deflation.
+                    if (std::fabs(d[j]-d[jprev])<=tol)
+                    {
+                        // Deflation is possible.
+                        s = z[jprev];
+                        c = z[j];
+                        // Find sqrt(a^2+b^2) without overflow or destructive underflow.
+                        tau = dlapy2(c, s);
+                        z[j] = tau;
+                        z[jprev] = ZERO;
+                        c /= tau;
+                        s = -s / tau;
+                        // Record the appropriate Givens rotation
+                        if (icompq==1)
+                        {
+                            givptr++;
+                            idxjp = idxq[idx[jprev]+1];
+                            idxj  = idxq[idx[j]+1];
+                            if (idxjp<=nl)
+                            {
+                                idxjp--;
+                            }
+                            if (idxj<=nl)
+                            {
+                                idxj--;
+                            }
+                            gptrm1 = givptr-1;
+                            Givcol[gptrm1+ldgcol] = idxjp;
+                            Givcol[gptrm1]        = idxj;
+                            Givnum[gptrm1+ldgnum] = c;
+                            Givnum[gptrm1]        = s;
+                        }
+                        Blas<real>::drot(1, &vf[jprev], 1, &vf[j], 1, c, s);
+                        Blas<real>::drot(1, &vl[jprev], 1, &vl[j], 1, c, s);
+                        k2--;
+                        idxp[k2] = jprev;
+                        jprev = j;
+                    }
+                    else
+                    {
+                       k++;
+                       km1 = k - 1;
+                       zw[km1]     = z[jprev];
+                       dsigma[km1] = d[jprev];
+                       idxp[km1]   = jprev;
+                       jprev = j;
+                    }
+                }
+            }
+            // Record the last singular value.
+            k++;
+            km1 = k - 1;
+            zw[km1]     = z[jprev];
+            dsigma[km1] = d[jprev];
+            idxp[km1]   = jprev;
+        }
+        // Sort the singular values into dsigma. The singular values which were not deflated go
+        // into the first k slots of dsigma, except that dsigma[0] is treated separately.
+        int jp;
+        for (j=1; j<n; j++)
+        {
+            jp = idxp[j];
+            dsigma[j] = d[jp];
+            vfw[j]    = vf[jp];
+            vlw[j]    = vl[jp];
+        }
+        if (icompq==1)
+        {
+            for (j=1; j<n; j++)
+            {
+                jp = idxp[j];
+                perm[j] = idxq[idx[jp]+1];
+                if (perm[j]<=nl)
+                {
+                    perm[j]--;
+                }
+            }
+        }
+        // The deflated singular values go back into the last n - k slots of d.
+        Blas<real>::dcopy(n-k, &dsigma[k], 1, &d[k], 1);
+        // Determine dsigma[0], dsigma[1], z[0], vf[0], vl[0], vf[m-1], and vl[m-1].
+        dsigma[0] = ZERO;
+        real hlftol = tol / TWO;
+        if (std::fabs(dsigma[1])<=hlftol)
+        {
+            dsigma[1] = hlftol;
+        }
+        if (m>n)
+        {
+            z[0] = dlapy2(z1, z[m-1]);
+            if (z[0]<=tol)
+            {
+                c = ONE;
+                s = ZERO;
+                z[0] = tol;
+            }
+            else
+            {
+                c = z1 / z[0];
+                s = -z[m-1] / z[0];
+            }
+            Blas<real>::drot(1, &vf[m-1], 1, &vf[0], 1, c, s);
+            Blas<real>::drot(1, &vl[m-1], 1, &vl[0], 1, c, s);
+        }
+        else
+        {
+            if (std::fabs(z1)<=tol)
+            {
+                z[0] = tol;
+            }
+            else
+            {
+                z[0] = z1;
+            }
+        }
+        // Restore z, vf, and vl.
+        Blas<real>::dcopy(k-1,  &zw[1], 1,  &z[1], 1);
+        Blas<real>::dcopy(n-1, &vfw[1], 1, &vf[1], 1);
+        Blas<real>::dcopy(n-1, &vlw[1], 1, &vl[1], 1);
+    }
+
+    /* dlasd8 finds the square roots of the roots of the secular equation, as defined by the values
+     * in dsigma and z. It makes the appropriate calls to dlasd4, and stores, for each  element in
+     * d, the distance to its two nearest poles (elements in dsigma). It also updates the arrays vf
+     * and vl, the first and last components of all the right singular vectors of the original
+     * bidiagonal matrix.
+     * dlasd8 is called from dlasd6.
+     * Parameters: icompq: Specifies whether singular vectors are to be computed in factored form
+     *                     in the calling routine:
+     *                     ==0: Compute singular values only.
+     *                     ==1: Compute singular vectors in factored form as well.
+     *             k: The number of terms in the rational function to be solved by dlasd4. k>=1.
+     *             d: an array, dimension (k)
+     *                On output, d contains the updated singular values.
+     *             z: an array, dimension (k)
+     *                On entry, the first k elements of this array contain the components of the
+     *                deflation-adjusted updating row vector.
+     *                On exit, z is updated.
+     *             vf: an array, dimension (k)
+     *                 On entry, vf contains information passed through dbede8.
+     *                 On exit, vf contains the first k components of the first components of all
+     *                 right singular vectors of the bidiagonal matrix.
+     *             vl: an array, dimension (k)
+     *                 On entry, vl contains information passed through dbede8.
+     *                 On exit, vl contains the first k components of the last components of all
+     *                 right singular vectors of the bidiagonal matrix.
+     *             difl: an array, dimension (k)
+     *                   On exit, difl[i] = d[i] - dsigma[i].
+     *             Difr: an array, dimension (lddifr, 2) if icompq==1 and
+     *                             dimension (k) if icompq==0.
+     *                   On exit, Difr[i,0] = d[i] - dsigma[i+1], Difr[k-1,0] is not defined and will
+     *                   not be referenced.
+     *                   If icompq==1, Difr[0:k-1,1] is an array containing the normalizing factors
+     *                   for the right singular vector matrix.
+     *             lddifr: The leading dimension of Difr, must be at least k.
+     *             dsigma: an array, dimension (k)
+     *                     On entry, the first k elements of this array contain the old roots of
+     *                     the deflated updating problem. These are the poles of the secular
+     *                     equation.
+     *                     On exit, the elements of dsigma may be very slightly altered in value.
+     *             work: an array, dimension (3*k)
+     *             info: ==0: successful exit.
+     *                   < 0: if info==-i, the i-th argument had an illegal value.
+     *                   > 0: if info==1, a singular value did not converge
+     * Authors: Univ.of Tennessee
+     *          Univ.of California Berkeley
+     *          Univ.of Colorado Denver
+     *          NAG Ltd.
+     * Date: June 2017
+     * Contributors:
+     *     Ming Gu and Huan Ren, Computer Science Division,
+     *     University of California at Berkeley, USA                                             */
+    static void dlasd8(int icompq, int k, real* d, real* z, real* vf, real* vl, real* difl,
+                       real* Difr, int lddifr, real* dsigma, real* work, int& info)
+    {
+        // Test the input parameters.
+        info = 0;
+        if (icompq<0 || icompq>1)
+        {
+            info = -1;
+        }
+        else if (k<1)
+        {
+            info = -2;
+        }
+        else if (lddifr<k)
+        {
+            info = -9;
+        }
+        if (info!=0)
+        {
+            xerbla("DLASD8", -info);
+            return;
+        }
+        // Quick return if possible
+        if (k==1)
+        {
+            d[0] = std::fabs(z[0]);
+            difl[0] = d[0];
+            if (icompq==1)
+            {
+                difl[1] = ONE;
+                Difr[lddifr] = ONE;
+            }
+            return;
+        }
+        /* Modify values dsigma[i] to make sure all dsigma[i]-dsigma[j] can be computed with high
+         * relative accuracy (barring over/underflow). This is a problem on machines without a
+         * guard digit in add/subtract (Cray XMP, Cray YMP, Cray C 90 and Cray 2). The following
+         * code replaces dsigma[i] by 2*dsigma[i]-dsigma[i], which on any of these machines zeros
+         * out the bottommost bit of dsigma[i] if it is 1; this makes the subsequent subtractions
+         * dsigma[i]-dsigma[j] unproblematic when cancellation occurs. On binary machines with a
+         * guard digit (almost all machines) it does not change dsigma[i] at all. On hexadecimal
+         * and decimal machines with a guard digit, it slightly changes the bottommost bits of
+         * dsigma[i]. It does not account for hexadecimal or decimal machines without guard digits
+         * (we know of none). We use a subroutine call to compute 2*dlambda[i] to prevent
+         * optimizing compilers from eliminating this code.                                      */
+        int i;
+        for (i=0; i<k; i++)
+        {
+            dsigma[i] = dlamc3(dsigma[i], dsigma[i]) - dsigma[i];
+        }
+        // Book keeping.
+        int iwk1 = 0;
+        int iwk2 = iwk1 + k;
+        int iwk3 = iwk2 + k;
+        // Normalize z.
+        real rho = Blas<real>::dnrm2(k, z, 1);
+        dlascl("G", 0, 0, rho, ONE, k, 1, z, k, info);
+        rho *= rho;
+        // Initialize work[iwk3].
+        dlaset("A", k, 1, ONE, ONE, &work[iwk3], k);
+        // Compute the updated singular values, the arrays difl, Difr, and the updated z.
+        int j;
+        for (j=0; j<k; j++)
+        {
+            dlasd4(k, j, dsigma, z, &work[iwk1], rho, d[j], &work[iwk2], info);
+            // If the root finder fails, report the convergence failure.
+            if (info!=0)
+            {
+                return;
+            }
+            work[iwk3+j] *= work[j]*work[iwk2+j];
+            difl[j] = -work[j];
+            Difr[j] = -work[j+1];
+            for (i=0; i<j; i++)
+            {
+                work[iwk3+i] *= work[i] * work[iwk2+i] / (dsigma[i]-dsigma[j])
+                                 / (dsigma[i]+dsigma[j]);
+            }
+            for (i=j+1; i<k; i++)
+            {
+                work[iwk3+i] *= work[i] * work[iwk2+i] / (dsigma[i]-dsigma[j])
+                                 / (dsigma[i]+dsigma[j]);
+            }
+        }
+        // Compute updated z.
+        for (i=0; i<k; i++)
+        {
+            z[i] = std::copysign(std::sqrt(std::fabs(work[iwk3+i])), z[i]);
+        }
+        // Update vf and vl.
+        real diflj, difrj, dj, dsigj, dsigjp, temp;
+        for (j=0; j<k; j++)
+        {
+            diflj = difl[j];
+            dj = d[j];
+            dsigj = -dsigma[j];
+            if (j<k-1)
+            {
+                difrj = -Difr[j];
+                dsigjp = -dsigma[j+1];
+            }
+            work[j] = -z[j] / diflj / (dsigma[j]+dj);
+            for (i=0; i<j; i++)
+            {
+                work[i] = z[i] / (dlamc3(dsigma[i], dsigj)-diflj) / (dsigma[i]+dj);
+            }
+            for (i=j+1; i<k; i++)
+            {
+                work[i] = z[i] / (dlamc3(dsigma[i], dsigjp)+difrj) / (dsigma[i]+dj);
+            }
+            temp = Blas<real>::dnrm2(k, work, 1);
+            work[iwk2+j] = Blas<real>::ddot(k, work, 1, vf, 1) / temp;
+            work[iwk3+j] = Blas<real>::ddot(k, work, 1, vl, 1) / temp;
+            if (icompq==1)
+            {
+                Difr[j+lddifr] = temp;
+            }
+        }
+        Blas<real>::dcopy(k, &work[iwk2], 1, vf, 1);
+        Blas<real>::dcopy(k, &work[iwk3], 1, vl, 1);
     }
 
     /* dlasdq computes the singular value decomposition (SVD) of a real (upper or lower) bidiagonal
@@ -9078,11 +9606,11 @@ public:
                     // Note that m is very tiny
                     if (l==ZERO)
                     {
-                        t = real((ZERO<=ft)-(ft<ZERO)) * TWO * real((ZERO<=gt)-(gt<ZERO));
+                        t = std::copysign(TWO, ft) * real((ZERO<=gt)-(gt<ZERO));
                     }
                     else
                     {
-                        t = gt / (real((ZERO<=ft)-(ft<ZERO))*std::fabs(d)) + m / t;
+                        t = gt/std::copysign(d, ft) + m/t;
                     }
                 }
                 else
@@ -9126,8 +9654,8 @@ public:
             tsign = real((ZERO<=snr)-(snr<ZERO)) * real((ZERO<=snl)-(snl<ZERO))
                   * real((ZERO<=h)-(h<ZERO));
         }
-        ssmax = tsign * std::fabs(ssmax);
-        ssmin = tsign * real((ZERO<=f)-(f<ZERO)) * real((ZERO<=h)-(h<ZERO)) * std::fabs(ssmin);
+        ssmax = std::copysign(ssmax, tsign);
+        ssmin = std::copysign(ssmin, tsign*real((ZERO<=f)-(f<ZERO))*real((ZERO<=h)-(h<ZERO)));
     }
 
     /* dorg2r generates an m by n real matrix Q with orthonormal columns,

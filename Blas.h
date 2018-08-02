@@ -41,7 +41,7 @@ public:
             {
                 for (i=0; i<m; i++)
                 {
-                    dtemp += fabs(dx[i]);
+                    dtemp += std::fabs(dx[i]);
                 }
                 if (n<6)
                 {
@@ -50,8 +50,8 @@ public:
             }
             for (i=m; i<n; i+=6)
             {
-                dtemp += fabs(dx[i])+fabs(dx[i+1])+fabs(dx[i+2])
-                        +fabs(dx[i+3])+fabs(dx[i+4])+fabs(dx[i+5]);
+                dtemp += std::fabs(dx[i])+std::fabs(dx[i+1])+std::fabs(dx[i+2])
+                        +std::fabs(dx[i+3])+std::fabs(dx[i+4])+std::fabs(dx[i+5]);
             }
         }
         else
@@ -60,7 +60,7 @@ public:
             int nincx = n*incx;
             for (i=0; i<nincx; i+=incx)
             {
-                dtemp += fabs(dx[i]);
+                dtemp += std::fabs(dx[i]);
             }
         }
         return dtemp;
@@ -851,14 +851,14 @@ public:
      *          NAG Ltd.										*/
     static real dnrm2(int n, real const* x, int incx)
     {
-        real absxi, norm, scale, ssq;
+        real absxi, norm, scale, ssq, temp;
         int ix;
         if (n < 1 || incx < 0)
         {
             norm = ZERO;
         } else if (n == 1)
         {
-            norm = fabs(x[0]);
+            norm = std::fabs(x[0]);
         } else
         {
             scale = ZERO;
@@ -869,18 +869,20 @@ public:
             {
                 if (x[ix] != ZERO)
                 {
-                    absxi = fabs(x[ix]);
+                    absxi = std::fabs(x[ix]);
                     if (scale < absxi)
                     {
-                        ssq = ONE + ssq * (scale / absxi)*(scale / absxi);
+                        temp = scale / absxi;
+                        ssq = ONE + ssq * temp * temp;
                         scale = absxi;
                     } else
                     {
-                        ssq = ssq + (absxi / scale)*(absxi / scale);
+                        temp = absxi / scale;
+                        ssq += temp * temp;
                     }
                 }
             }
-            norm = scale * sqrt(ssq);
+            norm = scale * std::sqrt(ssq);
         }
         return norm;
     }
@@ -2114,10 +2116,10 @@ public:
         if (incx==1)
         {
             // code for increment equal to 1
-            dmax = fabs(dx[0]);
+            dmax = std::fabs(dx[0]);
             for (i=1; i<n; i++)
             {
-                dnext = fabs(dx[i]);
+                dnext = std::fabs(dx[i]);
                 if (dnext > dmax)
                 {
                     ida = i;
@@ -2127,11 +2129,11 @@ public:
         } else
         {
             // code for increment not equal to 1
-            dmax = fabs(dx[0]);
+            dmax = std::fabs(dx[0]);
             int ix = incx;
             for (i=1; i<n; i++)
             {
-                dnext = fabs(dx[ix]);
+                dnext = std::fabs(dx[ix]);
                 if (dnext > dmax)
                 {
                     ida = i;

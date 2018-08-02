@@ -109,7 +109,7 @@ public:
                 // generate random reflection
                 this->dlarnv(3, iseed, m-i, work);
                 wn = Blas<real>::dnrm2(m-i, work, 1);
-                wa = std::fabs(wn)*real((ZERO<=work[0])-(work[0]<ZERO));
+                wa = std::copysign(wn, work[0]);
                 if (wn==ZERO)
                 {
                     tau = ZERO;
@@ -131,7 +131,7 @@ public:
                 // generate random reflection
                 this->dlarnv(3, iseed, n-i, work);
                 wn = Blas<real>::dnrm2(n-i, work, 1);
-                wa = std::fabs(wn) * real((ZERO<=work[0])-(work[0]<ZERO));
+                wa = std::copysign(wn, work[0]);
                 if (wn==ZERO)
                 {
                     tau = ZERO;
@@ -160,7 +160,7 @@ public:
                     aind = kl+i+lda*i;
                     // generate reflection to annihilate A[kl+i+1:m-1,i]
                     wn = Blas<real>::dnrm2(m-kl-i, &A[aind], 1);
-                    wa = std::fabs(wn) * real((ZERO<=A[aind])-(A[aind]<ZERO));
+                    wa = std::copysign(wn, A[aind]);
                     if (wn==ZERO)
                     {
                         tau = ZERO;
@@ -183,7 +183,7 @@ public:
                     aind = i+lda*(ku+i);
                     // generate reflection to annihilate A[i,ku+i+1:n-1]
                     wn = Blas<real>::dnrm2(n-ku-i, &A[aind], lda);
-                    wa = std::fabs(wn) * real((ZERO<=A[aind])-(A[aind]<ZERO));
+                    wa = std::copysign(wn, A[aind]);
                     if (wn==ZERO)
                     {
                         tau = ZERO;
@@ -210,7 +210,7 @@ public:
                     aind = i+lda*(ku+i);
                     // generate reflection to annihilate A[i,ku+i+1:n-1]
                     wn = Blas<real>::dnrm2(n-ku-i, &A[aind], lda);
-                    wa = std::fabs(wn) * real((ZERO<=A[aind])-(A[aind]<ZERO));
+                    wa = std::copysign(wn, A[aind]);
                     if (wn==ZERO)
                     {
                         tau = ZERO;
@@ -233,7 +233,7 @@ public:
                     aind = kl+i+lda*i;
                     // generate reflection to annihilate A[kl+i+1:m-1,i]
                     wn = Blas<real>::dnrm2(m-kl-i, &A[aind], 1);
-                    wa = std::fabs(wn) * real((ZERO<=A[aind])-(A[aind]<ZERO));
+                    wa = std::copysign(wn, A[aind]);
                     if (wn==ZERO)
                     {
                         tau = ZERO;
@@ -335,7 +335,7 @@ public:
             // generate random reflection
             this->dlarnv(3, iseed, n-i, work);
             wn = Blas<real>::dnrm2(n-i, work, 1);
-            wa = std::fabs(wn) * real((ZERO<=work[0])-(work[0]<ZERO));
+            wa = std::copysign(wn, work[0]);
             if (wn==ZERO)
             {
                 tau = ZERO;
@@ -363,7 +363,7 @@ public:
             aind = k+i+lda*i;
             // generate reflection to annihilate A[k+i+1:n-1,i]
             wn = Blas<real>::dnrm2(n-k-i, &A[aind], 1);
-            wa = std::fabs(wn) * real((ZERO<=A[aind])-(A[aind]<ZERO));
+            wa = std::copysign(wn, A[aind]);
             if (wn==ZERO)
             {
                 tau = ZERO;
