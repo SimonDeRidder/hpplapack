@@ -6275,9 +6275,202 @@ public:
         }
     }
 
+    /* dlasd6 computes the SVD of an updated upper bidiagonal matrix B obtained by merging two
+     * smaller ones by appending a row. This routine is used only for the problem which requires
+     * all singular values and optionally singular vector matrices in factored form. B is an n-by-m
+     * matrix with n = nl+nr+1 and m = n+sqre. A related subroutine, dlasd1, handles the case in
+     * which all singular values and singular vectors of the bidiagonal matrix are desired.
+     * dlasd6 computes the SVD as follows:
+     *                 ( D1(in)   0    0      0 )
+     *     B = U(in) * (   z1^T   a   z2^T    b ) * VT(in)
+     *                 (   0      0   D2(in)  0 )
+     *       = U(out) * ( d(out) 0) * VT(out)
+     * where z^T = (z1^T a z2^T b) = u^T VT^T, and u is a vector of dimension m with alpha and beta
+     * in the nl+1 and nl+2 th entries and zeros elsewhere; and the entry b is empty if sqre==0.
+     * The singular values of B can be computed using D1, D2, the first components of all the right
+     * singular vectors of the lower block, andthe last components of all the right singular
+     * vectors of the upper block. These components are stored and updated in vf and vl,
+     * respectively, in dlasd6. Hence U and VT are not explicitly referenced.
+     * The singular values are stored in d. The algorithm consists of two stages:
+     *   The first stage consists of deflating the size of the problem when there are multiple
+     *     singular values or if there is a zero in the z vector. For each such occurrence the
+     *     dimension of the secular equation problem is reduced by one. This stage is performed by
+     *     the routine dlasd7.
+     *   The second stage consists of calculating the updated
+     *     singular values. This is done by finding the roots of the secular equation via the
+     *     routine dlasd4 (as called by dlasd8). This routine also updates vf and vl and computes
+     *     the distances between the updated singular values and the old singular values.
+     * dlasd6 is called from dlasda.
+     * Parameters: icompq: Specifies whether singular vectors are to be computed in factored form:
+     *                     ==0: Compute singular values only.
+     *                     ==1: Compute singular vectors in factored form as well.
+     *             nl: The row dimension of the upper block. nl>=1.
+     *             nr: The row dimension of the lower block. nr>=1.
+     *             sqre: ==0: the lower block is an nr-by-nr square matrix.
+     *                   ==1: the lower block is an nr-by-(nr+1) rectangular matrix.
+     *                   The bidiagonal matrix has row dimension n = nl+nr+1, and column dimension
+     *                   m = n+sqre.
+     *             d: an array, dimension (nl+nr+1).
+     *                On entry d[0:nl-1,0:nl-1] contains the singular values of the upper block,
+     *                and d[nl+1:n-1] contains the singular values of the lower block.
+     *                On exit d[0:n-1] contains the singular values of the modified matrix.
+     *             vf: an array, dimension (m)
+     *                 On entry, vf[0:nl] contains the first components of all right singular
+     *                 vectors of the upper block; and vf[nl+1:m-1] contains the first components of
+     *                 all right singular vectors of the lower block.
+     *                 On exit, vf contains the first components of all right singular vectors of
+     *                 the bidiagonal matrix.
+     *             vl: an array, dimension (m)
+     *                 On entry, vl[0:nl] contains the  last components of all right singular
+     *                 vectors of the upper block; and vl[nl+1:m-1] contains the last components of
+     *                 all right singular vectors of the lower block.
+     *                 On exit, vl contains the last components of all right singular vectors of
+     *                 the bidiagonal matrix.
+     *             alpha: Contains the diagonal element associated with the added row.
+     *             beta: Contains the off-diagonal element associated with the added row.
+     *             idxq: an integer array, dimension (n)
+     *                   This contains the permutation which will reintegrate the subproblem just
+     *                   solved back into sorted order, i.e. d[idxq[0:n-1]] will be in
+     *                   ascending order.
+     *                   NOTE: zero-based indices!
+     *             perm: an integer array, dimension (n)
+     *                   The permutations (from deflation and sorting) to be applied to each block.
+     *                   Not referenced if icompq==0.
+     *                   NOTE: zero-based indices!
+     *             givptr: The number of Givens rotations which took place in this subproblem.
+     *                     Not referenced if icompq==0.
+     *             Givcol: an integer array, dimension (ldgcol, 2)
+     *                     Each pair of numbers indicates a pair of columns to take place in a
+     *                     Givens rotation. Not referenced if icompq==0.
+     *                     NOTE: zero-based indices!
+     *             ldgcol: leading dimension of Givcol, must be at least n.
+     *             Givnum: an array, dimension (ldgnum, 2)
+     *                     Each number indicates the c or s value to be used in the corresponding
+     *                     Givens rotation. Not referenced if icompq==0.
+     *             ldgnum: The leading dimension of Givnum and Poles, must be at least n.
+     *             Poles: an array, dimension (ldgnum, 2)
+     *                    On exit, Poles[:,0] is an array containing the new singular values
+     *                    obtained from solving the secular equation, and Poles[:,1] is an array
+     *                    containing the poles in the secular equation.
+     *                    Not referenced if icompq==0.
+     *             difl: an array, dimension (n)
+     *                   On exit, difl[i] is the distance between i-th updated (undeflated)
+     *                   singular value and the i-th (undeflated) old singular value.
+     *             Difr: an array, dimension (LDDIFR, 2) if icompq==1 and
+     *                             dimension (k)         if icompq==0.
+     *                   On exit, Difr[i,0] = d[i] - DSIGMA(I+1), Difr[k-1,0] is not defined and
+     *                   will not be referenced.
+     *                   If icompq==1, Difr[0:k-1,1] is an array containing the normalizing factors
+     *                   for the right singular vector matrix.
+     *                   See dlasd8 for details on difl and Difr.
+     *             z: an array, dimension (m)
+     *                The first elements of this array contain the components of the
+     *                deflation-adjusted updating row vector.
+     *             k: Contains the dimension of the non-deflated matrix,
+     *                This is the order of the related secular equation. 1 <= k <= n.
+     *             c: c contains garbage if sqre==0 and the c-value of a Givens rotation related to
+     *                the right null space if sqre==1.
+     *             s: s contains garbage if sqre==0 and the s-value of a Givens rotation related to
+     *                the right null space if sqre==1.
+     *             work: an array, dimension (4*m)
+     *             iwork: an integer array, dimension (3*n)
+     *             info: ==0: Successful exit.
+     *                   < 0: if info==-i, the i-th argument had an illegal value.
+     *                   > 0: if info==1, a singular value did not converge
+     * Authors: Univ.of Tennessee
+     *          Univ.of California Berkeley
+     *          Univ.of Colorado Denver
+     *          NAG Ltd.
+     * Date: June 2016
+     * Contributors:
+     *     Ming Gu and Huan Ren, Computer Science Division,
+     *     University of California at Berkeley, USA                                             */
+    static void dlasd6(int icompq, int nl, int nr, int sqre, real* d, real* vf, real* vl,
+                       real& alpha, real& beta, int* idxq, int* perm, int& givptr, int* Givcol,
+                       int ldgcol, real* Givnum, int ldgnum, real* Poles, real* difl, real* Difr,
+                       real* z, int& k, real& c, real& s, real* work, int* iwork, int& info)
+    {
+        // Test the input parameters.
+        info = 0;
+        int n = nl + nr + 1;
+        int m = n + sqre;
+        if (icompq<0 || icompq>1)
+        {
+            info = -1;
+        }
+        else if (nl<1)
+        {
+            info = -2;
+        }
+        else if (nr<1)
+        {
+            info = -3;
+        }
+        else if (sqre<0 || sqre>1)
+        {
+            info = -4;
+        }
+        else if (ldgcol<n)
+        {
+            info = -14;
+        }
+        else if (ldgnum<n)
+        {
+            info = -16;
+        }
+        if (info!=0)
+        {
+            xerbla("DLASD6", -info);
+            return;
+        }
+        // The following values are for bookkeeping purposes only. They are integer pointers which
+        // indicate the portion of the workspace used by a particular array in dlasd7 and dlasd8.
+        int isigma = 0;
+        int iw     = isigma + n;
+        int ivfw   = iw + m;
+        int ivlw   = ivfw + m;
+        int idx  = 0;
+        int idxc = idx + n;
+        int idxp = idxc + n;
+        // Scale.
+        real orgnrm = std::max(std::fabs(alpha), std::fabs(beta));
+        d[nl] = ZERO;
+        for (int I=1; I<=n; I++)
+        {
+            if (std::fabs(d[I-1])>orgnrm)
+            {
+                orgnrm = std::fabs(d[I-1]);
+            }
+        }
+        dlascl("G", 0, 0, orgnrm, ONE, n, 1, d, n, info);
+        alpha /= orgnrm;
+        beta  /= orgnrm;
+        // Sort and Deflate singular values.
+        dlasd7(icompq, nl, nr, sqre, k, d, z, &work[iw], vf, &work[ivfw], vl, &work[ivlw], alpha,
+               beta, &work[isigma], &iwork[idx], &iwork[idxp], idxq, perm, givptr, Givcol, ldgcol,
+               Givnum, ldgnum, c, s, info);
+        // Solve Secular Equation, compute difl, Difr, and update vf, vl.
+        dlasd8(icompq, k, d, z, vf, vl, difl, Difr, ldgnum, &work[isigma], &work[iw], info);
+        // Report the possible convergence failure.
+        if (info!=0)
+        {
+            return;
+        }
+        // Save the poles if icompq==1.
+        if (icompq==1)
+        {
+            Blas<real>::dcopy(k, d, 1, Poles, 1);
+            Blas<real>::dcopy(k, &work[isigma], 1, &Poles[ldgnum], 1);
+        }
+        // Unscale.
+        dlascl("G", 0, 0, ONE, orgnrm, n, 1, d, n, info);
+        // Prepare the idxq sorting permutation.
+        dlamrg(k, n-k, d, 1, -1, idxq);
+    }
+
     /* dlasd7 merges the two sets of singular values together into a single sorted set. Then it
      * tries to deflate the size of the problem. There are two ways in which deflation can occur:
-     * when two or more singular values are close together or if there is a tiny entry in the Z
+     * when two or more singular values are close together or if there is a tiny entry in the z
      * vector. For each such occurrence the order of the related secular equation problem is
      * reduced by one.
      * dlasd7 is called from dlasd6.
@@ -6345,6 +6538,7 @@ public:
      *             Givcol: an integer array, dimension (ldgcol, 2)
      *                     Each pair of numbers indicates a pair of columns to take place in a
      *                     Givens rotation. Not referenced if icompq==0.
+     *                     NOTE: zero-based indices!
      *             ldgcol: The leading dimension of Givcol, must be at least n.
      *             Givnum: an array, dimension (ldgnum, 2)
      *                     Each number indicates the c or s value to be used in the corresponding
@@ -6967,7 +7161,7 @@ public:
             iuplo = 2;
             sqre = 0;
             // Update singular vectors if desired.
-            if (ncvt>0 )
+            if (ncvt>0)
             {
                 dlasr("L", "V", "F", np1, ncvt, work, &work[n], Vt, ldvt);
             }
