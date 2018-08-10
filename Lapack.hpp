@@ -11,7 +11,7 @@
 #include <cmath>
 #include <algorithm>
 
-#include "Blas.h"
+#include "Blas.hpp"
 
 
 template<class real>
@@ -11367,7 +11367,7 @@ public:
     {
         const int INMIN=12, INWIN=13, INIBL=14, ISHFTS=15, IACC22=16, NMIN=75, K22MIN=14,
                   KACMIN=14, NIBBLE=14, KNWSWP=500;
-        int nh, ns = 0;
+        int nh = 0, ns = 0;
         if ((ispec==ISHFTS) || (ispec==INWIN) || (ispec==IACC22))
         {
             // Set the number simultaneous shifts

@@ -11,9 +11,9 @@
 #include <ctime>
 #include <algorithm>
 
-#include "Blas.h"
-#include "Lapack_dyn.h"
-#include "Testing_matgen.h"
+#include "Blas.hpp"
+#include "Lapack_dyn.hpp"
+#include "Testing_matgen.hpp"
 
 template<class real>
 class Testing_lin : public Lapack_dyn<real>

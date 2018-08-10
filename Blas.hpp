@@ -572,7 +572,7 @@ public:
         } else if (n < 0)
         {
             info = 3;
-        } else if (lda < std::max(0, m-1))
+        } else if (lda < std::max(1, m))
         {
             info = 6;
         } else if (incx == 0)

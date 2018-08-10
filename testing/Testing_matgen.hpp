@@ -10,8 +10,8 @@
 #include <cmath>
 #include <algorithm>
 
-#include "Blas.h"
-#include "Lapack_dyn.h"
+#include "Blas.hpp"
+#include "Lapack_dyn.hpp"
 
 template<class real>
 class Testing_matgen : public Lapack_dyn<real>

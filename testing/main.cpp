@@ -2,8 +2,8 @@
 #include <sstream>
 #include <fstream>
 
-#include "Testing_eig.h"
-#include "Testing_lin.h"
+#include "Testing_eig.hpp"
+#include "Testing_lin.hpp"
 
 using namespace std;
 

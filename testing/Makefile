@@ -19,17 +19,17 @@ all: $(OBJDIR) $(MAIN)
 $(MAIN): $(OBJS)
 	$(CC) $(CFLAGS) $(INCLUDES) -o $(MAIN) $(OBJS) $(LFLAGS) $(LIBS)
 
-$(OBJDIR)/%.o: %.cpp Lapack_dyn.h
+$(OBJDIR)/%.o: %.cpp Lapack_dyn.hpp
 	$(CC) $(CFLAGS) $(INCLUDES) -c $<  -o $@
 
 $(OBJDIR):
 	mkdir $(OBJDIR)
 
-Lapack_dyn.h: ../Lapack.h
+Lapack_dyn.hpp: ../Lapack.hpp
 	sed -e 's/static //' -e 's/int ilaenv/virtual int ilaenv/' -e 's/class Lapack/class Lapack_dyn/' -e 's/constexpr/const/' -e 's/void xerbla/virtual void xerbla/' -e 's/\/\/ constants/virtual ~Lapack_dyn(){}\n\n    \/\/ constants/' $< > $@
 
 clean:
-	$(RM) $(OBJDIR)/*.o *~ $(MAIN) Lapack_dyn.h
+	$(RM) $(OBJDIR)/*.o *~ $(MAIN) Lapack_dyn.hpp
 	rmdir $(OBJDIR)
 
 depend: $(SRCS)
