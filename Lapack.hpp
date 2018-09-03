@@ -14,49 +14,73 @@
 #include "Blas.hpp"
 
 
+/*!\class Lapack
+ * \brief A template class containing LAPACK routines.
+ * Lapack contains the LAPACK routines as static members.
+ * Any routine can be called using Lapack<type>::routine(...).
+ * The template type is meant to be double, but can be any floating point type                   */
 template<class real>
 class Lapack
 {
-public:
+private:
     // constants
 
-    static constexpr real NEGONE= real(-1.0);
-    static constexpr real ZERO  = real(0.0);
-    static constexpr real QURTR = real(0.25);
-    static constexpr real HALF  = real(0.5);
-    static constexpr real ONE   = real(1.0);
-    static constexpr real TWO   = real(2.0);
-    static constexpr real THREE = real(3.0);
-    static constexpr real FOUR  = real(4.0);
-    static constexpr real EIGHT = real(8.0);
-    static constexpr real TEN   = real(10.0);
-    static constexpr real HNDRD = real(100.0);
+    static constexpr real NEGONE= real(-1.0); //!< A constant negative one (-1.0)  value
+    static constexpr real ZERO  = real(0.0);  //!< A constant zero         (0.0)   value
+    static constexpr real QURTR = real(0.25); //!< A constant one quarter  (0.25)  value
+    static constexpr real HALF  = real(0.5);  //!< A constant one half     (0.5)   value
+    static constexpr real ONE   = real(1.0);  //!< A constant one          (1.0)   value
+    static constexpr real TWO   = real(2.0);  //!< A constant two          (2.0)   value
+    static constexpr real THREE = real(3.0);  //!< A constant three        (3.0)   value
+    static constexpr real FOUR  = real(4.0);  //!< A constant four         (4.0)   value
+    static constexpr real EIGHT = real(8.0);  //!< A constant eight        (8.0)   value
+    static constexpr real TEN   = real(10.0); //!< A constant ten          (10.0)  value
+    static constexpr real HNDRD = real(100.0);//!< A constant one hundred  (100.0) value
 
+public:
     // LAPACK INSTALL (alphabetically)
 
-    /* dlamch determines double precision machine parameters.
-     * Parameters: cmach: cmach[0] Specifies the value to be returned by DLAMCH:
-     *                    'E' or 'e', DLAMCH := eps: relative machine precision
-     *                    'S' or 's , DLAMCH := sfmin: safe minimum, such that 1 / sfmin does not
-     *                                                 overflow
-     *                    'B' or 'b', DLAMCH := base: base of the machine (radix)
-     *                    'P' or 'p', DLAMCH := eps*base
-     *                    'N' or 'n', DLAMCH := t: number of(base) digits in the mantissa
-     *                    'R' or 'r', DLAMCH := rnd: 1.0 when rounding occurs in addition, 0.0
-     *                                               otherwise
-     *                    'M' or 'm', DLAMCH := emin: minimum exponent before(gradual) underflow
-     *                    'U' or 'u', DLAMCH := rmin: underflow threshold - base^(emin - 1)
-     *                    'L' or 'l', DLAMCH := emax: largest exponent before overflow
-     *                    'O' or 'o', DLAMCH := rmax: overflow threshold - (base^emax)*(1 - eps)
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.																*/
+    /*! §dlamc3
+     *
+     * §dlamc3 is intended to force §A and §B to be stored prior to doing the addition of §A and
+     * §B, for use in situations where optimizers might hold one of these in a register.
+     * \param[in] A
+     * \param[in] B The values §A and §B.
+     * \return The sum of §A and §B
+     * \authors
+     *     LAPACK is a software package provided by Univ. of Tennessee,
+     *     Univ. of California Berkeley, Univ. of Colorado Denver and NAG Ltd.
+     * \date December 2016                                                                       */
+    static real dlamc3(real A, real B)
+    {
+        return A + B;
+    }
+
+    /*! §dlamch
+     *
+     * §dlamch determines double precision machine parameters.
+     * \param[in] cmach §cmach[0] Specifies the value to be returned by §dlamch: \n
+     *                  'E' or 'e': eps:   Relative machine precision.\n
+     *                  'S' or 's': sfmin: Safe minimum, such that 1/sfmin does not overflow.\n
+     *                  'B' or 'b': base:  Base of the machine (radix).\n
+     *                  'P' or 'p': prec:  $\{eps}\cdot\{base}$.\n
+     *                  'N' or 'n': t:     Number of(base) digits in the mantissa.\n
+     *                  'R' or 'r': rnd:   1.0 when rounding occurs in addition, 0.0 otherwise.\n
+     *                  'M' or 'm': emin:  Minimum exponent before(gradual) underflow.\n
+     *                  'U' or 'u': rmin:  Underflow threshold: $\{base}^{\{emin}-1}$.\n
+     *                  'L' or 'l': emax:  Largest exponent before overflow.\n
+     *                  'O' or 'o': rmax:  Overflow threshold: $(\{base}^\{emax})(1-\{eps})$.
+     * \return The value specified by §cmach, or zero when §cmach is not recognized.
+     * \authors Univ. of Tennessee
+     * \authors Univ. of California Berkeley
+     * \authors Univ. of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                       */
     static real dlamch(char const* cmach)
     {
-        real eps;
         // Assume rounding, not chopping.Always.
         real rnd = ONE;
+        real eps;
         if (ONE==rnd)
         {
             eps = std::numeric_limits<real>::epsilon() * HALF;
@@ -66,17 +90,17 @@ public:
             eps = std::numeric_limits<real>::epsilon();
         }
         real sfmin, small;
-        switch (toupper(cmach[0]))
+        switch (std::toupper(cmach[0]))
         {
             case 'E':
                 return eps;
             case 'S':
                 sfmin = std::numeric_limits<real>::min();
                 small = ONE / std::numeric_limits<real>::max();
-                if (small>sfmin)
+                if (small>=sfmin)
                 {
                     //Use SMALL plus a bit, to avoid the possibility of rounding
-                    // causing overflow when computing  1 / sfmin.
+                    // causing overflow when computing  1/sfmin.
                     sfmin = small * (ONE+eps);
                 }
                 return sfmin;
@@ -101,120 +125,152 @@ public:
         }
     }
 
-    /* dlamc3 is intended to force A and B to be stored prior to doing the addition of A and B,
-     * for use in situations where optimizers might hold one of these in a register.
-     * Author:
-     *     LAPACK is a software package provided by Univ. of Tennessee,
-     *     Univ. of California Berkeley, Univ. of Colorado Denver and NAG Ltd.
-     * Date: December 2016
-     * Paramters: A,
-     *            B: The values A and B.                                                         */
-    real dlamc3(real A, real B)
+    /*! §ilaver returns the LAPACK version.
+     *
+     * This subroutine returns the LAPACK version.
+     * \param[out] vers_major return the lapack major version
+     * \param[out] vers_minor return the lapack minor version from the major version.
+     * \param[out] vers_patch return the lapack patch version from the minor version
+     * \authors Univ. of Tennessee
+     * \authors Univ. of California Berkeley
+     * \authors Univ. of Colorado Denver
+     * \authors NAG Ltd.
+     * \date June 2017                                                                           */
+    static void ilaver(int& vers_major, int& vers_minor, int& vers_patch)
     {
-        return A + B;
+        vers_major = 3;
+        vers_minor = 8;
+        vers_patch = 0;
     }
 
     // LAPACK SRC (alphabetically)
 
-    /* dbdsqr computes the singular values and, optionally, the right and/or left singular vectors
-     * from the singular value decomposition (SVD) of a real n-by-n (upper or lower) bidiagonal
-     * matrix B using the implicit zero-shift QR algorithm. The SVD of B has the form
-     *     B = Q * S * P^T
-     * where S is the diagonal matrix of singular values, Q is an orthogonal matrix of left
-     * singular vectors, and P is an orthogonal matrix of right singular vectors. If left singular
-     * vectors are requested, this subroutine actually returns U*Q instead of Q, and, if right
-     * singular vectors are requested, this subroutine returns P^T*Vt instead of P^T, for given
-     * real input matrices U and Vt. When U and Vt are the orthogonal matrices that reduce a
-     * general matrix A to bidiagonal form: A = U*B*Vt, as computed by DGEBRD, then
-     *     A = (U*Q) * S * (P^T*Vt)
-     * is the SVD of A. Optionally, the subroutine may also compute Q^T*C for a given real input
-     * matrix C.
+    /*! \fn dbdsqr
+     *
+     * \brief §dbdsqr
+     *
+     * \details §dbdsqr computes the singular values and, optionally, the right and/or left
+     * singular vectors from the singular value decomposition (SVD) of a real §n by §n (upper or
+     * lower) bidiagonal matrix $B$ using the implicit zero-shift QR algorithm. The SVD of $B$ has
+     * the form\n
+     *     $B = Q S P^T$\n
+     * where $S$ is the diagonal matrix of singular values, $Q$ is an orthogonal matrix of left
+     * singular vectors, and $P$ is an orthogonal matrix of right singular vectors. If left
+     * singular vectors are requested, this subroutine actually returns $UQ$ instead of $Q$, and,
+     * if right singular vectors are requested, this subroutine returns $P^TV_T$ instead of $P^T$,
+     * for given real input matrices $U$ and $V_T$. When $U$ and $V_T$ are the orthogonal matrices
+     * that reduce a general matrix $A$ to bidiagonal form: $A = U B V_T$, as computed by §dgebrd,
+     * then\n
+     *     $A = (UQ) S (P^TV_T)$\n
+     * is the SVD of $A$. Optionally, the subroutine may also compute $Q^TC$ for a given real input
+     * matrix $C$.n
      * See "Computing Small Singular Values of Bidiagonal Matrices With Guaranteed High Relative
      *     Accuracy," by J. Demmel and W. Kahan, LAPACK Working Note #3 (or SIAM J. Sci. Statist.
-     *     Comput. vol. 11, no. 5, pp. 873-912, Sept 1990)
+     *     Comput. vol. 11, no. 5, pp. 873-912, Sept 1990)\n
      * and "Accurate singular values and differential qd algorithms," by B. Parlett and
      *     V. Fernando, Technical Report CPAM-554, Mathematics Department, University of California
-     *     at Berkeley, July 1992
+     *     at Berkeley, July 1992\n
      * for a detailed description of the algorithm.
-     * Parameters: uplo: ='U': B is upper bidiagonal.
-     *                   ='L': B is lower bidiagonal.
-     *             n: The order of the matrix B. n >= 0.
-     *             ncvt: The number of columns of the matrix Vt. ncvt >= 0.
-     *             nru: The number of rows of the matrix U. nru >= 0.
-     *             ncc: The number of columns of the matrix C. ncc >= 0.
-     *             d: an array, dimension (n)
-     *                On entry, the n diagonal elements of the bidiagonal matrix B.
-     *                On exit, if info=0, the singular values of B in decreasing order.
-     *             e: an array, dimension (n-1)
-     *                On entry, the n-1 offdiagonal elements of the bidiagonal matrix B.
-     *                On exit, if info==0, e is destroyed; if info>0, d and e will contain the
-     *                         diagonal and superdiagonal elements of a bidiagonal matrix
-     *                         orthogonally equivalent to the one given as input.
-     *             Vt: an array, dimension (ldvt, ncvt)
-     *                 On entry, an n-by-ncvt matrix Vt.
-     *                 On exit, Vt is overwritten by P^T * Vt.
-     *                 Not referenced if ncvt==0.
-     *             ldvt: The leading dimension of the array Vt.
-     *                   ldvt>=max(1,n) if ncvt>0; ldvt>=1 if ncvt==0.
-     *             U: an array, dimension (ldu, n)
-     *                On entry, an nru-by-n matrix U.
-     *                On exit, U is overwritten by U * Q.
-     *                Not referenced if nru==0.
-     *             ldu: The leading dimension of the array U. ldu >= max(1,nru).
-     *             C: an array, dimension (ldc, ncc)
-     *                On entry, an n-by-ncc matrix C.
-     *                On exit, C is overwritten by Q^T * C.
-     *                Not referenced if ncc = 0.
-     *             ldc: The leading dimension of the array C.
-     *                  ldc>=max(1,n) if ncc>0; ldc>=1 if ncc==0.
-     *             work: an array, dimension (4*n)
-     *             info: =0: successful exit
-     *                   <0: If info = -i, the i-th argument had an illegal value
-     *                   >0: if ncvt = nru = ncc = 0,
-     *                       = 1, a split was marked by a positive value in e
-     *                       = 2, current block of Z not diagonalized after 30*n iterations
-     *                            (in inner while loop)
-     *                       = 3, termination criterion of outer while loop not met
-     *                            (program created more than n unreduced blocks)
-     *                       else
-     *                            the algorithm did not converge; d and e contain the elements of a
-     *                            bidiagonal matrix which is orthogonally similar to the input
-     *                            matrix B; if info==i, i elements of e have not converged to zero.
-     * Internal Parameters: TOLMUL: default = max(10,min(100,EPS^(-1/8)))
-     *                              TOLMUL controls the convergence criterion of the QR loop.
-     *                              If it is positive, TOLMUL*EPS is the desired relative precision
-     *                                  in the computed singular values.
-     *                              If it is negative, abs(TOLMUL*EPS*sigma_max) is the desired
-     *                                  absolute accuracy in the computed singular values
-     *                                  (corresponds to relative accuracy abs(TOLMUL*EPS) in the
-     *                                  largest singular value.)
-     *                              abs(TOLMUL) should be between 1 and 1/EPS, and preferably
-     *                                  between 10 (for fast convergence) and 0.1/EPS
-     *                                  (for there to be some accuracy in the results).
-     *                              Default is to lose at either one eighth or 2 of the available
-     *                                  decimal digits in each computed singular value
-     *                                  (whichever is smaller).
-     *                      MAXITR: default = 6
-     *                              MAXITR controls the maximum number of passes of the algorithm
-     *                              through its inner loop. The algorithms stops (and so fails to
-     *                              converge) if the number of passes through the inner loop
-     *                              exceeds MAXITR*n^2.
-     * Note:
-     *     Bug report from Cezary Dendek.
-     *         On March 23rd 2017, the integer variable MAXIT = MAXITR*n^2 is removed since it can
-     *         overflow pretty easily (for n larger or equal than 18,919). We instead use
-     *         maxitdivn = MAXITR*n.
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date June 2017                                                                            */
+     * \param[in] uplo
+     *     'U': $B$ is upper bidiagonal.\n
+     *     'L': $B$ is lower bidiagonal.
+     *
+     * \param[in] n    The order of the matrix $B$. $\{n} \ge 0$.
+     * \param[in] ncvt The number of columns of the matrix $V_T$. $\{ncvt} \ge 0$.
+     * \param[in] nru  The number of rows of the matrix $U$. $\{nru} \ge 0$.
+     * \param[in] ncc  The number of columns of the matrix $C$. $\{ncc} \ge 0$.
+     * \param[in,out] d
+     *     an array, dimension (§n)\n
+     *     On entry, the §n diagonal elements of the bidiagonal matrix $B$.\n
+     *     On exit, if §info = 0, the singular values of $B$ in decreasing order.
+     *
+     * \param[in,out] e
+     *     an array, dimension (§n-1)\n
+     *     On entry, the §n-1 offdiagonal elements of the bidiagonal matrix $B$.\n
+     *     On exit, if §info = 0, §e is destroyed; if §info > 0, §d and §e will contain the
+     *     diagonal and superdiagonal elements of a bidiagonal matrix orthogonally equivalent to
+     *     the one given as input.
+     *
+     * \param[in,out] Vt
+     *     an array, dimension (§ldvt, §ncvt)\n
+     *     On entry, an §n by §ncvt matrix $V_T$.\n
+     *     On exit, §Vt is overwritten by $P^T V_T$.\n
+     *     Not referenced if §ncvt = 0.
+     *
+     * \param[in] ldvt
+     *     The leading dimension of the array §Vt.\n
+     *     $\{ldvt}\ge\max(1,\{n})$ if §ncvt > 0;\n
+     *     $\{ldvt}\ge 1$ if §ncvt = 0.
+     *
+     * \param[in,out] U
+     *     an array, dimension (§ldu, §n)\n
+     *     On entry, an §nru by §n matrix $U$.\n
+     *     On exit, §U is overwritten by $U Q$.\n
+     *     Not referenced if §nru = 0.
+     *
+     * \param[in] ldu The leading dimension of the array §U. $\{ldu} \ge \max(1,\{nru})$.
+     * \param[in] C
+     *     an array, dimension (§ldc, §ncc)\n
+     *     On entry, an §n by §ncc matrix $C$.\n
+     *     On exit, §C is overwritten by $Q^T C$.\n
+     *     Not referenced if §ncc = 0.
+     *
+     * \param[in] ldc
+     *     The leading dimension of the array §C.\n
+     *     $\{ldc}\ge\max(1,\{n})$ if §ncc > 0;\n
+     *     $\{ldc}\ge 1$ if §ncc = 0.
+     *
+     * \param[out] work an array, dimension (4§n)
+     * \param[out] info
+     *     =0: Successful exit.\n
+     *     <0: If §info = -§i, the §i-th argument had an illegal value.\n
+     *     >0:\n
+     *     if §ncvt = §nru = §ncc = 0,
+     *     \li = 1, a split was marked by a positive value in §e.
+     *     \li = 2, current block of Z not diagonalized after 30*§n iterations
+     *              (in inner while loop)
+     *     \li = 3, termination criterion of outer while loop not met
+     *              (program created more than n unreduced blocks)
+     *
+     *     else\n the algorithm did not converge; §d and §e contain the elements of a bidiagonal
+     *            matrix which is orthogonally similar to the input matrix $B$;\n
+     *            if §info = §i, §i elements of §e have not converged to zero.
+     * \remark
+     *     Bug report from Cezary Dendek.\n
+     *     On March 23rd 2017, the integer variable §maxit = $\{MAXITR}\cdot\{n}^2$ is removed
+     *     since it can overflow pretty easily (for §n larger or equal than 18,919). We instead use
+     *     §maxitdivn = $\{MAXITR}\cdot\{n}$.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date June 2017                                                                            */
     static void dbdsqr(char const* uplo, int n, int ncvt, int nru, int ncc, real* d, real* e,
                        real* Vt, int ldvt, real* U, int ldu, real* C, int ldc, real* work,
                        int& info)
     {
         const real MEIGTH = real(-0.125);
         const real HNDRTH = real(0.01);
+        /* tolmul
+         *
+         * default = max(10, min(100, eps^(-1/8)))\n
+         * §tolmul controls the convergence criterion of the QR loop.\n
+         * If it is positive, §tolmul * eps is the desired relative precision in the computed
+         *     singular values.\n
+         * If it is negative, $|\{tolmul}\ \{eps}\ \{sigma}_\{max}|$ is the desired absolute
+         *     accuracy in the computed singular values (corresponds to relative accuracy
+         *     $|\{tolmul}\ \{eps}|$ in the largest singular value.)\n
+         * $|\{tolmul}|$ should be between 1 and 1/eps, and preferably between 10
+         *     (for fast convergence) and 0.1/EPS (for there to be some accuracy in the results).\n
+         * Default is to lose at either one eighth or 2 of the available decimal digits in each
+         * computed singular value (whichever is smaller).                                       */
+        real tolmul;
+        /* MAXITR
+         *
+         * default = 6\n
+         * §MAXITR controls the maximum number of passes of the algorithm through its inner loop.
+         * The algorithms stops (and so fails to converge) if the number of passes through the
+         * inner loop exceeds $\{MAXITR}\{n}^2$.                                                 */
         const int MAXITR = 6;
         // Test the input parameters.
         info = 0;
@@ -311,15 +367,7 @@ public:
             // Compute singular values to relative accuracy tol (By setting tol to be negative,
             // algorithm will compute singular values to absolute accuracy
             // abs(tol)*norm(input matrix))
-            real tolmul = std::pow(eps, MEIGTH);
-            if (HNDRD<tolmul)
-            {
-                tolmul = HNDRD;
-            }
-            if (TEN>tolmul)
-            {
-                tolmul = TEN;
-            }
+            tolmul = std::max(TEN, std::min(HNDRD, std::pow(eps, MEIGTH)));
             real tol = tolmul * eps;
             // Compute approximate maximum, minimum singular values
             real smax = ZERO, temp;
@@ -878,60 +926,71 @@ public:
         }
     }
 
-    /* dgebal balances a general real matrix A. This involves, first, permuting A by a similarity
-     * transformation to isolate eigenvalues in the first 0 to ilo-1 and last ihi+1 to N elements
-     * on the diagonal; and second, applying a diagonal similarity transformation to rows and
-     * columns ilo to ihi to make the rows and columns as close in norm as possible. Both steps are
-     * optional. Balancing may reduce the 1-norm of the matrix, and improve the accuracy of the
-     * computed eigenvalues and/or eigenvectors.
-     * Parameters: job: Specifies the operations to be performed on A:
-     *                  'N': none: simply set ilo = 0, ihi = n-1, scale[i] = 1.0 for i = 0,...,n-1;
-     *                  'P':  permute only;
-     *                  'S':  scale only;
-     *                  'B':  both permute and scale.
-     *             n: The order of the matrix A. n >= 0.
-     *             A: an array of dimension (lda,n)
-     *                On entry, the input matrix A.
-     *                On exit, A is overwritten by the balanced matrix.
-     *                If job = 'N', A is not referenced. See Further Details.
-     *             lda: The leading dimension of the array A. lda >= max(1,n).
-     *             ilo,
-     *             ihi: ilo and ihi are set to integers such that on exit A[i,j] = 0 if i > j and
-     *                  j = 0,...,ilo-1 or i = ihi+1,...,n-1. If job=='N' or 'S', ilo==0 and
-     *                  ihi==n-1.
-     *                  NOTE: zero-based indices!
-     *             scale: an array of dimension (n)
-     *                    Details of the permutations and scaling factors applied to A. If P[j] is
-     *                    the index of the row and column interchanged with row and column j and
-     *                    D[j] is the scaling factor applied to row and column j, then
-     *                    scale[j] = P[j]    for j = 0,...,ilo-1
-     *                             = D[j]    for j = ilo,...,ihi
-     *                             = P[j]    for j = ihi+1,...,n-1.
-     *                    The order in which the interchanges are made is n-1 to ihi+1, then 0 to
-     *                    ilo-1.
-     *             info: = 0:  successful exit.
-     *                   < 0:  if info = -i, the i-th argument had an illegal value.
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date: June 2017
-     * Further Details:
-     *     The permutations consist of row and column interchanges which put the matrix in the form
-     *             ( T1   X   Y  )
-     *     P A P = (  0   B   Z  )
-     *             (  0   0   T2 )
-     *     where T1 and T2 are upper triangular matrices whose eigenvalues lie along the diagonal.
-     *     The column indices ilo and ihi mark the starting and ending columns of the submatrix B.
-     *     Balancing consists of applying a diagonal similarity transformation inv(D) * B * D to
-     *     make the 1-norms of each row of B and its corresponding column nearly equal.
-     *     The output matrix is
-     *     ( T1     X*D          Y    )
-     *     (  0  inv(D)*B*D  inv(D)*Z ).
-     *     (  0      0           T2   )
-     *     Information about the permutations P and the diagonal matrix D is returned in the
-     *     vector scale.
-     *     This subroutine is based on the EISPACK routine BALANC.
+    /*! §dgebal
+     *
+     * §dgebal balances a general real matrix $A$. This involves, first, permuting $A$ by a
+     * similarity transformation to isolate eigenvalues in the first 0 to §ilo-1 and last §ihi+1 to
+     * §n elements on the diagonal; and second, applying a diagonal similarity transformation to
+     * rows and columns §ilo to §ihi to make the rows and columns as close in norm as possible.
+     * Both steps are optional. Balancing may reduce the 1-norm of the matrix, and improve the
+     * accuracy of the computed eigenvalues and/or eigenvectors.
+     * \param[in] job
+     *     Specifies the operations to be performed on A:\n
+     *     'N': none: simply set §ilo = 0, §ihi = n-1, §scale[§i] = 1.0 for §i = 0,...,§n-1;\n
+     *     'P': permute only;\n
+     *     'S': scale only;\n
+     *     'B': both permute and scale.
+     *
+     * \param[in]     n The order of the matrix $A$. $\{n} \ge 0$.
+     * \param[in,out] A
+     *     an array of dimension (§lda,§n)\n
+     *     On entry, the input matrix $A$.\n
+     *     On exit, §A is overwritten by the balanced matrix.\n
+     *     If §job = 'N', §A is not referenced. See remark.
+     *
+     * \param[in]  lda The leading dimension of the array §A. $\{lda}\ge\max(1,\{n})$.
+     * \param[out] ilo
+     * \param[out] ihi §ilo and §ihi are set to integers such that on exit §A[§i,§j] = 0 if §i > §j
+     *             and §j = 0,...,§ilo-1 or §i = §ihi+1,...,§n-1. If §job = 'N' or 'S', §ilo = 0
+     *             and §ihi = §n-1.\n
+     *             NOTE: These are zero-based indices!
+     *
+     * \param[out] scale
+     *     an array of dimension (§n)
+     *     Details of the permutations and scaling factors applied to §A. If §P[j] is the index of
+     *     the row and column interchanged with row and column j and §D[j] is the scaling factor
+     *     applied to row and column j, then\n
+     *                   §scale[§j] = §P[§j]    for j = 0,...,§ilo-1 \n
+     *     &emsp;&emsp;&emsp;&emsp; = §D[§j]    for j = §ilo,...,§ihi \n
+     *     &emsp;&emsp;&emsp;&emsp; = §P[§j]    for j = §ihi+1,...,§n-1.\n
+     *     The order in which the interchanges are made is §n-1 to §ihi+1, then 0 to §ilo-1.
+     *
+     * \param[out] info
+     *     = 0: Successful exit.
+     *     < 0:  if §info = -§i, the §i-th argument had an illegal value.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date June 2017
+     * \remark
+     *     The permutations consist of row and column interchanges which put the matrix in the
+     *     form\n
+     *     $P A P =
+     *      \b{bm} T_1 & X &  Y  \\
+     *              0  & B &  Z  \\
+     *              0  & 0 & T_2 \e{bm}$\n
+     *     where $T_1$ and $T_2$ are upper triangular matrices whose eigenvalues lie along the
+     *     diagonal. The column indices §ilo and §ihi mark the starting and ending columns of the
+     *     submatrix $B$. Balancing consists of applying a diagonal similarity transformation
+     *     $D^{-1} B D$ to make the 1-norms of each row of $B$ and its corresponding column nearly
+     *     equal. The output matrix is\n
+     *     $\b{bm} T_1  &    XD    &    Y    \\
+     *              0   & D^{-1}BD & D^{-1}Z \\
+     *              0   &    0     &   T_2   \e{bm}$.\n
+     *     Information about the permutations $P$ and the diagonal matrix $D$ is returned in the
+     *     vector scale.\n
+     *     This subroutine is based on the EISPACK routine §BALANC.\n
      *     Modified by Tzu-Yi Chen, Computer Science Division, University of California at
      *     Berkeley, USA                                                                         */
     static void dgebal(char const* job, int n, real* A, int lda, int& ilo, int& ihi, real* scale,
@@ -1170,76 +1229,97 @@ public:
         ihi = l;
     }
 
-    /* dgebd2 reduces a real general m by n matrix A to upper or lower bidiagonal form B by an
-     * orthogonal transformation: Q^T*A*P = B.
-     * If m>=n, B is upper bidiagonal; if m<n, B is lower bidiagonal.
-     * Parameters: m: The number of rows in the matrix A. m>=0.
-     *             n: The number of columns in the matrix A. n>=0.
-     *             A: an array, dimension (lda,n)
-     *                On entry, the m by n general matrix to be reduced.
-     *                On exit,
-     *                  if m>=n, the diagonal and the first superdiagonal are overwritten with the
-     *                    upper bidiagonal matrix B; the elements below the diagonal, with the
-     *                    array tauq, represent the orthogonal matrix Q as a product of elementary
-     *                    reflectors, and the elements above the first superdiagonal, with the
-     *                    array taup, represent the orthogonal matrix P as a product of elementary
-     *                    reflectors;
-     *                  if m<n, the diagonal and the first subdiagonal are overwritten with the
-     *                    lower bidiagonal matrix B; the elements below the first subdiagonal, with
-     *                    the array tauq, represent the orthogonal matrix Q as a product of
-     *                    elementary reflectors, and the elements above the diagonal, with the
-     *                    array taup, represent the orthogonal matrix P as a product of elementar
-     *                    reflectors.
-     *                See Further Details.
-     *             lda: The leading dimension of the array A. lda >= max(1,m).
-     *             d: an array, dimension (min(m,n))
-     *                The diagonal elements of the bidiagonal matrix B: d[i] = A[i,i].
-     *             e: an array, dimension (min(m,n)-1)
-     *                The off-diagonal elements of the bidiagonal matrix B:
-     *                  if m >= n, e[i] = A[i,i+1] for i = 0,1,...,n-2;
-     *                  if m < n, e[i] = A[i+1,i] for i = 0,1,...,m-2.
-     *             tauq: an array, dimension (min(m,n))
-     *                   The scalar factors of the elementary reflectors which represent the
-     *                   orthogonal matrix Q. See Further Details.
-     *             taup: an array, dimension (min(m,n))
-     *                   The scalar factors of the elementary reflectors which represent the
-     *                   orthogonal matrix P. See Further Details.
-     *             work: an array, dimension (max(m,n))
-     *             info: ==0: successful exit.
-     *                    <0: if info==-i, the i-th argument had an illegal value.
-     * Authors: Univ. of Tennessee
-     *          Univ. of California Berkeley
-     *          Univ. of Colorado Denver
-     *          NAG Ltd.
-     * Date: June 2017
-     * Further Details:
-     *     The matrices Q and P are represented as products of elementary reflectors:
-     *     If m >= n,
-     *       Q = H(1) H(2) . . . H(n)  and  P = G(1) G(2) . . . G(n-1)
-     *     Each H(i) and G(i) has the form:
-     *       H(i) = I - tauq * v * v^T  and G(i) = I - taup * u * u^T
-     *     where tauq and taup are real scalars, and v and u are real vectors;
-     *       v[0:i-1] = 0, v[i] = 1, and v[i+1:m-1] is stored on exit in A[i+1:m-1,i];
-     *       u[0:i] = 0, u[i+1] = 1, and u[i+2:n-1] is stored on exit in A[i,i+2:n-1];
-     *     tauq is stored in tauq[i] and taup in taup[i].
-     *     If m < n,
-     *       Q = H(1) H(2) . . . H(m-1)  and  P = G(1) G(2) . . . G(m)
-     *     Each H(i) and G(i) has the form:
-     *       H(i) = I - tauq * v * v^T  and G(i) = I - taup * u * u^T
-     *     where tauq and taup are real scalars, and v and u are real vectors;
-     *       v[0:i] = 0, v[i+1] = 1, and v[i+2:m-1] is stored on exit in A[i+2:m-1,i];
-     *       u[0:i-1] = 0, u[i] = 1, and u[i+1:n-1] is stored on exit in A[i,i+1:n-1];
-     *     tauq is stored in tauq[i] and taup in taup[i].
-     *     The contents of A on exit are illustrated by the following examples:
-     *       m = 6 and n = 5 (m > n):          m = 5 and n = 6 (m < n):
-     *       (  d   e   u1  u1  u1 )           (  d   u1  u1  u1  u1  u1 )
-     *       (  v1  d   e   u2  u2 )           (  e   d   u2  u2  u2  u2 )
-     *       (  v1  v2  d   e   u3 )           (  v1  e   d   u3  u3  u3 )
-     *       (  v1  v2  v3  d   e  )           (  v1  v2  e   d   u4  u4 )
-     *       (  v1  v2  v3  v4  d  )           (  v1  v2  v3  e   d   u5 )
-     *       (  v1  v2  v3  v4  v5 )
-     *     where d and e denote diagonal and off-diagonal elements of B, vi denotes an element of
-     *     the vector defining H(i), and ui an element of the vector defining G(i).              */
+    /*! §dgebd2 reduces a general matrix to bidiagonal form using an unblocked algorithm.
+     *
+     * §dgebd2 reduces a real general §m by §n matrix $A$ to upper or lower bidiagonal form $B$ by
+     * an orthogonal transformation: $Q^T A P = B$.\n
+     * If $\{m}\ge\{n}$, $B$ is upper bidiagonal; if $\{m}<\{n}$, $B$ is lower bidiagonal.
+     * \param[in]     m The number of rows in the matrix $A$. $\{m} \ge 0$.
+     * \param[in]     n The number of columns in the matrix $A$. $\{n} \ge 0$.
+     * \param[in,out] A
+     *     an array, dimension (§lda,§n)\n
+     *     On entry, the §m by §n general matrix to be reduced.\n
+     *     On exit,
+     *     \li if $\{m}\ge\{n}$, the diagonal and the first superdiagonal are overwritten with the
+     *         upper bidiagonal matrix $B$; the elements below the diagonal, with the array §tauq,
+     *         represent the orthogonal matrix $Q$ as a product of elementary reflectors, and the
+     *         elements above the first superdiagonal, with the array §taup, represent the
+     *         orthogonal matrix $P$ as a product of elementary reflectors;
+     *     \li if $\{m}<\{n}$, the diagonal and the first subdiagonal are overwritten with the
+     *         lower bidiagonal matrix $B$; the elements below the first subdiagonal, with the
+     *         array §tauq, represent the orthogonal matrix $Q$ as a product of elementary
+     *         reflectors, and the elements above the diagonal, with the array §taup, represent the
+     *         orthogonal matrix $P$ as a product of elementary reflectors.
+     *
+     *     See Further Details.
+     *
+     * \param[in]  lda The leading dimension of the array §A. $\{lda} \ge \max(1,\{m})$.
+     * \param[out] d
+     *     an array, dimension ($\min(\{m},\{n})$)\n
+     *     The diagonal elements of the bidiagonal matrix $B$: §d[§i] = §A[§i,§i].
+     *
+     * \param[out] e
+     *     an array, dimension ($\min(\{m},\{n})-1$)\n
+     *     The off-diagonal elements of the bidiagonal matrix $B$:\n
+     *     if $\{m}\ge\{n}$, §e[§i] = §A[§i,§i+1] for §i = 0,1,...,§n-2;\n
+     *     if $\{m} < \{n}$, §e[§i] = §A[§i+1,§i] for §i = 0,1,...,§m-2.
+     *
+     * \param[out] tauq
+     *     an array, dimension ($\min(\{m},\{n})$)\n
+     *     The scalar factors of the elementary reflectors which represent the orthogonal matrix
+     *     $Q$. See Further Details.
+     *
+     * \param[out] taup
+     *     an array, dimension ($\min(\{m},\{n})$)\n
+     *     The scalar factors of the elementary reflectors which represent the orthogonal matrix
+     *     $P$. See Further Details.
+     *
+     * \param[out] work an array, dimension ($\max(\{m},\{n})$)
+     * \param[out] info
+     *     =0: successful exit.\n
+     *     <0: if §info = -§i, the §i-th argument had an illegal value.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date June 2017
+     * \remark
+     *     The matrices $Q$ and $P$ are represented as products of elementary reflectors:
+     *     \li If $\{m} \ge \{n}$,\n
+     *         $Q = H(0) H(1) \ldots H(\{n}-1)$ and $P = G(0) G(1) \ldots G(\{n}-2)$\n
+     *         Each $H(i)$ and $G(i)$ has the form:\n
+     *         $H(i) = I - \{tauq}[i] v v^T$  and $G(i) = I - \{taup}[i] u u^T$\n
+     *         where v and u are real vectors;\n
+     *         $v[0:i-1]=0$,       $v[i]=1$,&emsp;&nbsp; and $v[i+1:\{m}-1]$ is stored on exit
+     *         in §A$[i+1:\{m}-1,i]$;\n
+     *         $u[0:i]=0$,&emsp;&nbsp; $u[i+1]=1$,       and $u[i+2:\{n}-1]$ is stored on exit
+     *         in §A$[i,i+2:\{n}-1]$.
+     *     \li If $\{m} < \{n}$,
+     *         $Q = H(0) H(1) \ldots H(\{m}-2)$ and $P = G(0) G(1) \ldots G(\{m}-1)$.\n
+     *         Each $H(i)$ and $G(i)$ has the form:
+     *         $H(i) = I - \{tauq}[i] v v^T$ and $G(i) = I - \{taup}[i] u u^T$\n
+     *         where v and u are real vectors;\n
+     *         $v[0:i]=0$, $v[i+1]=1$, and $v[i+2:\{m}-1]$ is stored on exit in §A[§i+2:§m-1,§i];\n
+     *         $u[0:i-1]=0$, $u[i]=1$, and $u[i+1:\{n}-1]$ is stored on exit in §A[§i,§i+1:§n-1].
+     *
+     *     The contents of §A on exit are illustrated by the following examples:
+     *     \li §m = 6 and §n = 5 (§m > §n):
+     *         $\b{bm}  d  &  e  & u_1 & u_1 & u_1 \\
+     *                 v_1 &  d  &  e  & u_2 & u_2 \\
+     *                 v_1 & v_2 &  d  &  e  & u_3 \\
+     *                 v_1 & v_2 & v_3 &  d  &  e  \\
+     *                 v_1 & v_2 & v_3 & v_4 &  d  \\
+     *                 v_1 & v_2 & v_3 & v_4 & v_5 \e{bm}$
+     *     \li §m = 5 and §n = 6 (§m < §n):
+     *         $\b{bm}  d  & u_1 & u_1 & u_1 & u_1 & u_1 \\
+     *                  e  &  d  & u_2 & u_2 & u_2 & u_2 \\
+     *                 v_1 &  e  &  d  & u_3 & u_3 & u_3 \\
+     *                 v_1 & v_2 &  e  &  d  & u_4 & u_4 \\
+     *                 v_1 & v_2 & v_3 &  e  &  d  & u_5 \e{bm}$
+     *
+     *     where $d$ and $e$ denote diagonal and off-diagonal elements of $B$, $v_i$ denotes an
+     *     element of the vector defining $H(i)$, and $u_i$ an element of the vector defining
+     *     $G(i)$.                                                                               */
     static void dgebd2(int m, int n, real* A, int lda, real* d, real* e, real* tauq, real* taup,
                        real* work, int& info)
     {
@@ -1337,48 +1417,63 @@ public:
         }
     }
 
-    /* dgeqp3 computes a QR factorization with column pivoting of a matrix A: A*P = Q*R using
-     * Level 3 BLAS.
-     * Parameters: m: The number of rows of the matrix A. m >= 0.
-     *             n: The number of columns of the matrix A. n >= 0.
-     *             A: an array, dimension(lda, n)
-     *                On entry, the m-by-n matrix A.
-     *                On exit, the upper triangle of the array contains the min(m, n)-by-n upper
-     *                         trapezoidal matrix R;
-     *                the elements below the diagonal, together with the array tau, represent the
-     *                orthogonal matrix Q as a product of min(m, n) elementary reflectors.
-     *             lda: The leading dimension of the array A. lda >= max(1, m).
-     *             jpvt: an integer array, dimension(n)
-     *                   On entry, if jpvt[j]!= -1, the j-th column of A is permuted to the front
-     *                                              of A*P(a leading column);
-     *                             if jpvt[j] = -1, the j-th column of A is a free column.
-     *                   On exit,  if jpvt[j] = k,  then the j-th column of A*P was the the k-th
-     *                                              column of A.
-     *                   Note: this array contains zero-based indices!
-     *             tau: an array, dimension(min(m, n))
-     *                  The scalar factors of the elementary reflectors.
-     *             work: an array, dimension(MAX(1, lwork))
-     *                   On exit, if info = 0, work[0] returns the optimal lwork.
-     *             lwork: The dimension of the array work. lwork >= 3 * n + 1.
-     *                    For optimal performance lwork >= 2*n+(n+1)*nb, where nb is the optimal
-     *                    blocksize. If lwork==-1, then a workspace query is assumed; the routine
-     *                    only calculates the optimal size of the work array, returns this value as
-     *                    the first entry of the work array, and no error message related to lwork
-     *                    is issued by xerbla.
-     *             info: =0: successful exit.
-     *                   <0: if info = -i, the i-th argument had an illegal value.
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date: December 2016
-     * Further Details:
-     *     The matrix Q is represented as a product of elementary reflectors
-     *         Q = H(1) H(2) . ..H(k), where k = min(m, n).
-     *     Each H(i) has the form
-     *         H(i) = I - tau * v * v^T
-     *     where tau is a real scalar, and v is a real/complex vector with v[0:i-1]==0 and v[i]==1;
-     *     v[i+1:m-1] is stored on exit in A[i+1:m-1, i], and tau in tau[i].                     */
+    /*! §dgeqp3
+     *
+     * §dgeqp3 computes a QR factorization with column pivoting of a matrix $A$:
+     * $A P = Q R$
+     * using Level 3 BLAS.
+     * \param[in]     m The number of rows of the matrix $A$. $\{m} \ge 0$.
+     * \param[in]     n The number of columns of the matrix $A$. $\{n} \ge 0$.
+     * \param[in,out] A
+     *     an array, dimension (§lda, §n)\n
+     *     On entry, the §m by §n matrix $A$.\n
+     *     On exit, the upper triangle of the array contains the $\min(\{m},\{n})$ by §n upper
+     *              trapezoidal matrix $R$;\n&emsp;&emsp;
+     *              the elements below the diagonal, together with the array §tau, represent the
+     *              orthogonal matrix $Q$ as a product of $\min(\{m},\{n})$ elementary reflectors.
+     *
+     * \param[in]     lda The leading dimension of the array §A. $\{lda} \ge \max(1,\{m})$.
+     * \param[in,out] jpvt
+     *     an integer array, dimension (§n)\n
+     *     On entry,
+     *     \li if $\{jpvt}[j]\ne -1$, the $j$-th column of §A is permuted to the front of $AP$
+     *                                (a leading column);
+     *     \li if $\{jpvt}[j]= -1$,   the $j$-th column of §A is a free column.
+     *
+     *     On exit, if $\{jpvt}[j] = \{k}$, then the $j$-th column of $AP$ was the the §k -th
+     *                                      column of §A.\n
+     *     Note: this array contains zero-based indices!
+     *
+     * \param[out] tau
+     *     an array, dimension ($\min(\{m},\{n})$)\n
+     *     The scalar factors of the elementary reflectors.
+     *
+     * \param[out] work
+     *     an array, dimension ($\max(1,\{lwork})$)\n
+     *     On exit, if §info = 0, §work[0] returns the optimal §lwork.
+     *
+     * \param[in] lwork
+     *     The dimension of the array §work. $\{lwork} \ge 3\{n}+1$.\n
+     *     For optimal performance $\{lwork} \ge 2\{n}+(\{n}+1)\{nb}$, where §nb is the optimal
+     *     blocksize. If §lwork = -1, then a workspace query is assumed; the routine only
+     *     calculates the optimal size of the work array, returns this value as the first entry of
+     *     the work array, and no error message related to §lwork is issued by §xerbla.
+     *
+     * \param[out] info
+     *     =0: successful exit.\n
+     *     <0: if §info = -§i, the §i-th argument had an illegal value.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016
+     * \remark
+     *     The matrix $Q$ is represented as a product of elementary reflectors\n
+     *         $Q = H(0) H(1) \ldots H(\{k}-1)$, where $\{k} = \min(\{m},\{n})$.\n
+     *     Each $H(i)$ has the form\n
+     *         $H(i) = I - \{tau}[i] v v^T$\n
+     *     where $v$ is a real/complex vector with $v[0:i-1]=0$ and $v[i]=1$;
+     *     $v[i+1:\{m}-1]$ is stored on exit in §A$[i+1:\{m}-1,i]$.                              */
     static void dgeqp3(int m, int n, real* A, int lda, int* jpvt, real* tau, real* work, int lwork,
                        int& info)
     {
@@ -1545,36 +1640,45 @@ public:
         work[0] = iws;
     }
 
-    /* dgeqr2 computes a QR factorization of a real m by n matrix A : A = Q * R.
-     * Parameters: m: The number of rows of the matrix A. m >= 0.
-     *             n: The number of columns of the matrix A. n >= 0.
-     *             A: an array, dimension(lda, n)
-     *                On entry, the m by n matrix A.
-     *                On exit, the elements on and above the diagonal of the array contain the
-     *                         min(m, n) by n upper trapezoidal matrix R (R is upper triangular
-     *                         if m>=n);
-     *                the elements below the diagonal, with the array tau, represent the orthogonal
-     *                matrix Q as a product of elementary reflectors(see Further Details).
-     *             lda: The leading dimension of the array A. lda >= max(1, m).
-     *             tau: an array, dimension(min(m, n))
-     *                  The scalar factors of the elementary reflectors(see Further Details).
-     *             work: an array, dimension(n)
-     *             info: 0:  successful exit
-     *                  <0: if info = -i, the i - th argument had an illegal value
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Further Details:
-     *     The matrix Q is represented as a product of elementary reflectors
-     *         Q = H(1) H(2) . ..H(k), where k = min(m, n).
-     *     Each H(i) has the form
-     *         H(i) = I - tau * v * v^T
-     *     where tau is a real scalar, and v is a real vector with v[0:i-1] = 0 and v[i] = 1;
-     *     v[i+1:m-1] is stored on exit in A[i+1:m-1,i], and tau in tau[i].			 */
+    /*! §dgeqr2 computes the QR factorization of a general rectangular matrix using an unblocked
+     *  algorithm.
+     *
+     * §dgeqr2 computes a QR factorization of a real §m by §n matrix $A$: $A = Q R$.
+     * \param[in]     m The number of rows of the matrix $A$. $\{m} \ge 0$.
+     * \param[in]     n The number of columns of the matrix $A$. $\{n} \ge 0$.
+     * \param[in,out] A
+     *     an array, dimension (§lda, §n)\n
+     *     On entry, the §m by §n matrix $A$.
+     *     On exit, the elements on and above the diagonal of the array contain the
+     *     $\min(\{m},\{n})$ by §n upper trapezoidal matrix $R$ ($R$ is upper triangular if
+     *     $\{m}\ge\{n}$);\n
+     *     the elements below the diagonal, with the array §tau, represent the orthogonal matrix
+     *     $Q$ as a product of elementary reflectors (see remark).
+     *
+     * \param[in]  lda The leading dimension of the array §A. $\{lda}\ge\max(1,\{m})$.
+     * \param[out] tau
+     *     an array, dimension ($\min(\{m},\{n})$)\n
+     *     The scalar factors of the elementary reflectors (see remark).
+     *
+     * \param[out] work an array, dimension (§n)
+     * \param[out] info
+     *     =0: successful exit\n
+     *     <0: if §info = -§i, the §i -th argument had an illegal value
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016
+     * \remark
+     *     The matrix $Q$ is represented as a product of elementary reflectors\n
+     *         $Q = H(1) H(2) \ldots H(k)$, where $\{k}=\min(\{m},\{n})$.\n
+     *     Each $H(i)$ has the form\n
+     *         $H(i) = I - \{tau}[i] v v^T$\n
+     *     where v is a real vector with $v[0:i-1]=0$ and $v[i]=1$;
+     *     $v[i+1:\{m}-1]$ is stored on exit in §A$[i+1:\{m}-1,i]$.			         */
     static void dgeqr2(int m, int n, real* A, int lda, real* tau, real* work, int& info)
     {
-        int i, k, coli;
+        int i, k, coli, icoli;
         real AII;
         // Test the input arguments
         info = 0;
@@ -1599,55 +1703,66 @@ public:
         for (i=0; i<k; i++)
         {
             coli = lda*i;
+            icoli = i+coli;
             // Generate elementary reflector H[i] to annihilate A[i+1:m-1, i]
-            dlarfg(m-i, A[i+coli], &A[((i+1<m-1)?i+1:m-1)+coli], 1, tau[i]);
+            dlarfg(m-i, A[icoli], &A[std::min(i+1,m-1)+coli], 1, tau[i]);
             if (i<(n-1))
             {
                 // Apply H[i] to A[i:m-1, i+1:n-1] from the left
-                AII = A[i+coli];
-                A[i+coli] = ONE;
-                dlarf("Left", m-i, n-i-1, &A[i+coli], 1, tau[i], &A[i+coli+lda], lda, work);
-                A[i+coli] = AII;
+                AII = A[icoli];
+                A[icoli] = ONE;
+                dlarf("Left", m-i, n-i-1, &A[icoli], 1, tau[i], &A[icoli+lda], lda, work);
+                A[icoli] = AII;
             }
         }
     }
 
-    /* dgeqrf computes a QR factorization of a real m-by-n matrix A:
-     * A = Q * R.
-     * Parameters: m: The number of rows of the matrix A. m >= 0.
-     *             n: The number of columns of the matrix A. n >= 0.
-     *             A: an array, dimension(lda, n)
-     *                On entry, the m-by-n matrix A.
-     *                On exit, the elements on and above the diagonal of the array
-     *                contain the min(m, n)-by-n upper trapezoidal matrix R
-     *                (R is upper triangular if m >= n); the elements below the diagonal,
-     *                with the array tau, represent the orthogonal matrix Q as a
-     *                product of min(m, n) elementary reflectors(see Further Details).
-     *             lda: The leading dimension of the array A. lda >= max(1, m).
-     *             tau: an array, dimension(min(m, n))
-     *                  The scalar factors of the elementary reflectors(see Further Details).
-     *             work: an array, dimension(max(1, lwork))
-     *                   On exit, if info = 0, work[0] returns the optimal lwork.
-     *             lwork: The dimension of the array work. lwork >= max(1, n).
-     *                    For optimum performance lwork >= n*nb, where nb is
-     *                    the optimal blocksize.
-     *                    If lwork = -1, then a workspace query is assumed; the routine
-     *                    only calculates the optimal size of the work array, returns
-     *                    this value as the first entry of the work array, and no error
-     *                    message related to lwork is issued by xerbla.
-     *             info: =0:  successful exit
-     *                   <0:  if info = -i, the i-th argument had an illegal value
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Further Details:
-     *     The matrix Q is represented as a product of elementary reflectors
-     *         Q = H(1) H(2) . ..H(k), where k = min(m, n).
-     *     Each H(i) has the form
-     *         H(i) = I - tau * v * v^T
-     *     where tau is a real scalar, and v is a real vector with v[0:i-1] = 0 and
-     *     v[i] = 1; v[i+1:m-1] is stored on exit in A[i+1:m-1, i], and tau in tau[i].        */
+    /*! dgeqrf
+     *
+     * §dgeqrf computes a QR factorization of a real §m by §n matrix $A$:\n
+     * $A = Q R$.
+     * \param[in]     m The number of rows of the matrix $A$. $\{m} \ge 0$.
+     * \param[in]     n The number of columns of the matrix $A$. $\{n} \ge 0$.
+     * \param[in,out] A
+     *     an array, dimension (§lda, §n)\n
+     *     On entry, the §m by §n matrix $A$.\n
+     *     On exit, the elements on and above the diagonal of the array contain the
+     *         $\min(\{m},\{n})$ by §n upper trapezoidal matrix $R$ ($R$ is upper triangular
+     *         if $\{m}\ge\{n})$; the elements below the diagonal, with the array §tau, represent
+     *         the orthogonal matrix $Q$ as a product of $\min(\{m},\{n})$ elementary reflectors
+     *         (see remark).
+     *
+     * \param[in]  lda The leading dimension of the array §A. $\{lda}\ge\max(1,\{m})$.
+     * \param[out] tau
+     *     an array, dimension ($\min(\{m},\{n})$)\n
+     *     The scalar factors of the elementary reflectors (see remark).
+     *
+     * \param[out] work
+     *     an array, dimension ($\max(1,\{lwork})$)\n
+     *     On exit, if §info = 0, §work[0] returns the optimal lwork.
+     *
+     * \param[in] lwork
+     *     The dimension of the array §work. $\{lwork}\ge\max(1,\{n})$.\n
+     *     For optimum performance $\{lwork}\ge\{n}\{nb}$, where §nb is the optimal blocksize.\n
+     *     If §lwork = -1, then a workspace query is assumed; the routine only calculates the
+     *     optimal size of the work array, returns this value as the first entry of the work array,
+     *     and no error message related to §lwork is issued by §xerbla.
+     *
+     * \param[out] info
+     *     =0: successful exit\n
+     *     <0: If §info = -§i, the §i -th argument had an illegal value.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016
+     * \remark
+     *     The matrix $Q$ is represented as a product of elementary reflectors\n
+     *         $Q = H(1) H(2) \ldots H(k)$, where $\{k}=\min(\{m},\{n})$.\n
+     *     Each $H(i)$ has the form\n
+     *         $H(i) = I - \{tau}[i] v v^T$\n
+     *     where v is a real vector with $v[0:i-1]=0$ and $v[i]=1$;
+     *     $v[i+1:\{m}-1]$ is stored on exit in §A$[i+1:\{m}-1,i]$.                              */
     static void dgeqrf(int m, int n, real* A, int lda, real* tau, real* work, int lwork, int& info)
     {
         // Test the input arguments
@@ -1694,11 +1809,7 @@ public:
         if (nb>1 && nb<k)
         {
             // Determine when to cross over from blocked to unblocked code.
-            nx = ilaenv(3, "DGEQRF", " ", m, n, -1, -1);
-            if (nx<0)
-            {
-                nx = 0;
-            }
+            nx = std::max(0, ilaenv(3, "DGEQRF", " ", m, n, -1, -1));
             if (nx<k)
             {
                 // Determine if workspace is large enough for blocked code.
@@ -1706,13 +1817,10 @@ public:
                 iws = ldwork*nb;
                 if (lwork<iws)
                 {
-                    //Not enough workspace to use optimal nb: reduce nb and determine the minimum value of nb.
+                    //Not enough workspace to use optimal nb:
+                    // reduce nb and determine the minimum value of nb.
                     nb = lwork / ldwork;
-                    nbmin = ilaenv(2, "DGEQRF", " ", m, n, -1, -1);
-                    if (nbmin<2)
-                    {
-                        nbmin = 2;
-                    }
+                    nbmin = std::max(2, ilaenv(2, "DGEQRF", " ", m, n, -1, -1));
                 }
             }
         }
@@ -1722,11 +1830,7 @@ public:
             // Use blocked code initially
             for (i=0; i<(k-nx); i+=nb)
             {
-                ib = k - i;
-                if (ib>nb)
-                {
-                    ib = nb;
-                }
+                ib = std::min(k-i, nb);
                 aind = i + lda*i;
                 // Compute the QR factorization of the current block
                 //     A[i:m-1, i:i+ib-1]
@@ -1749,7 +1853,6 @@ public:
         // Use unblocked code to factor the last or only block.
         if (i<k)
         {
-
             dgeqr2(m-i, n-i, &A[i+lda*i], lda, &tau[i], work, iinfo);
         }
         work[0] = iws;
@@ -1757,23 +1860,28 @@ public:
 
     /* disnan replaced by std::isnan */
 
-    /* dlabad takes as input the values computed by dlamch for underflow and overflow, and returns
-     * the square root of each of these values if the log of large is sufficiently large. This
-     * subroutine is intended to identify machines with a large exponent range, such as the Crays,
-     * and redefine the underflow and overflow limits to be the square roots of the values computed
-     * by dlamch. This subroutine is needed because dlamch does not compensate for poor arithmetic
-     * in the upper half of the exponent range, as is found on a Cray.
-     * Parameters: small: On entry, the underflow threshold as computed by dlamch.
-     *                    On exit, if log10(large) is sufficiently large, the square root of small,
-     *                             otherwise unchanged.
-     *             large: On entry, the overflow threshold as computed by dlamch.
-     *                    On exit, if log10(large) is sufficiently large, the square root of large,
-     *                             otherwise unchanged.
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date December 2016                                                                        */
+    /*! §dlabad
+     *
+     * §dlabad takes as input the values computed by §dlamch for underflow and overflow, and
+     * returns the square root of each of these values if the log of §large is sufficiently large.
+     * This subroutine is intended to identify machines with a large exponent range, such as the
+     * Crays, and redefine the underflow and overflow limits to be the square roots of the values
+     * computed by §dlamch. This subroutine is needed because dlamch does not compensate for poor
+     * arithmetic in the upper half of the exponent range, as is found on a Cray.
+     * \param[in,out] small
+     *     On entry, the underflow threshold as computed by §dlamch.\n
+     *     On exit, if $\log_{10}(\{large})$ is sufficiently large, the square root of §small,
+     *              otherwise unchanged.
+     *
+     * \param[in,out] large
+     *     On entry, the overflow threshold as computed by §dlamch.\n
+     *     On exit, if $\log_{10}(\{large})$ is sufficiently large, the square root of large,
+     *              otherwise unchanged.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                       */
     static void dlabad(real& small, real& large)
     {
         // If it looks like we're on a Cray, take the square root of small and large to avoid
@@ -1785,30 +1893,39 @@ public:
         }
     }
 
-    /* dlacpy copies all or part of a two-dimensional matrix A to another matrix B.
-     * Parameters: uplo: Specifies the part of the matrix A to be copied to B.
-     *                   'U': Upper triangular part
-     *                   'L': Lower triangular part
-     *                   Otherwise: All of the matrix A
-     *             m: The number of rows of the matrix A. m>=0.
-     *             n: The number of columns of the matrix A. n>=0.
-     *             A: an array, dimension (lda,n)
-     *                The m by n matrix A.
-     *                If uplo=='U', only the upper triangle or trapezoid is accessed;
-     *                if uplo=='L', only the lower triangle or trapezoid is accessed.
-     *             lda: The leading dimension of the array A. lda>=max(1,m).
-     *             B: an array, dimension (ldb,n)
-     *                On exit, B = A in the locations specified by uplo.
-     *             ldb: The leading dimension of the array B. ldb>=max(1,m).
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date: December 2016                                                                       */
+    /*! §dlacpy copies all or part of one two-dimensional array to another.
+     *
+     * §dlacpy copies all or part of a two-dimensional matrix $A$ to another matrix $B$.
+     * \param[in] uplo
+     *     §uplo[0] specifies the part of the matrix $A$ to be copied to $B$.\n
+     *     'U' Upper triangular part\n
+     *     'L' Lower triangular part\n
+     *     Otherwise: All of the matrix $A$
+     *
+     * \param[in] m The number of rows of the matrix $A$. $\{m}\ge 0$.
+     * \param[in] n The number of columns of the matrix $A$. $\{n}\ge 0$.
+     * \param[in] A
+     *     an array, dimension (§lda,§n)\n
+     *     The §m by §n matrix $A$.\n
+     *     If §uplo = 'U', only the upper triangle or trapezoid is accessed;\n
+     *     if §uplo = 'L', only the lower triangle or trapezoid is accessed.
+     *
+     * \param[in] lda The leading dimension of the array §A. $\{lda}\ge\max(1,\{m})$.
+     * \param[in] B
+     *     an array, dimension (§ldb,§n)\n
+     *     On exit, §B = §A in the locations specified by uplo.
+     *
+     * \param[in] ldb The leading dimension of the array §B. $\{ldb}\ge\max(1,\{m})$.
+     *              otherwise unchanged.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                       */
     static void dlacpy(char const* uplo, int m, int n, real const* A, int lda, real* B, int ldb)
     {
         int i, j, ldaj;
-        if (toupper(uplo[0])=='U')
+        if (std::toupper(uplo[0])=='U')
         {
             for (j=0; j<n; j++)
             {
@@ -1819,7 +1936,7 @@ public:
                 }
             }
         }
-        else if (toupper(uplo[0])=='L')
+        else if (std::toupper(uplo[0])=='L')
         {
             for (j=0; j<n; j++)
             {
@@ -1843,39 +1960,54 @@ public:
         }
     }
 
-    /* dlaed6 computes the positive or negative root (closest to the origin) of
-     *                   z(1)        z(2)         z(3)
-     *  f(x) =   rho + --------- + ---------- + ---------
-     *                  d(1)-x      d(2)-x       d(3)-x
+    /*! §dlaed6 used by §sstedc. Computes one Newton step in solution of the secular equation.
+     *
+     * §dlaed6 computes the positive or negative root (closest to the origin) of\n
+     * $f(x) = \{rho}+\frac{\{z[0]}}{\{d[0]}-x}
+     *               +\frac{\{z[1]}}{\{d[1]}-x}
+     *               +\frac{\{z[2]}}{\{d[2]}-x}$\n
      * It is assumed that
-     *     if orgati==true the root is between d(2) and d(3);
-     *     otherwise it is between d(1) and d(2)
-     * This routine will be called by dlaed4 when necessary. In most cases, the root sought is the
+     *     \li if §orgati = true the root is between §d[1] and §d[2];
+     *     \li otherwise it is between §d[0] and §d[1]
+     *
+     * This routine will be called by §dlaed4 when necessary. In most cases, the root sought is the
      * smallest in magnitude, though it might not be in some extremely rare situations.
-     * Parameters: kniter: Refer to dlaed4 for its significance.
-     *                     NOTE: zero-based
-     *             orgati: If orgati is true, the needed root is between d(2) and d(3); otherwise
-     *                     it is between d(1) and d(2). See dlaed4 for further details.
-     *             rho: Refer to the equation f(x) above.
-     *             d: an array, dimension (3)
-     *                d satisfies d[0] < d[1] < d[2].
-     *             z: an array, dimension (3)
-     *                Each of the elements in z must be positive.
-     *             finit: The value of f at 0. It is more accurate than the one evaluated inside
-     *                    this routine (if someone wants to do so).
-     *             tau: The root of the equation f(x).
-     *             info: ==0: successful exit
-     *                   > 0: if info = 1, failure to converge
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date: December 2016
-     * Further Details:
-     *     10/02/03: This version has a few statements commented out for thread safety
+     * \param[in] kniter
+     *     Refer to §dlaed4 for its significance.\n
+     *     NOTE: zero-based!
+     *
+     * \param[in] orgati
+     *     If orgati is true, the needed root is between §d[1] and §d[2]; otherwise it is between
+     *     §d[0] and §d[1]. See §dlaed4 for further details.
+     *
+     * \param[in] rho Refer to the equation $f(x)$ above.
+     * \param[in] d
+     *     an array, dimension (3)\n
+     *     §d satisfies §d[0] < §d[1] < §d[2].
+     *
+     * \param[in] z
+     *     an array, dimension (3)\n
+     *     Each of the elements in §z must be positive.
+     *
+     * \param[in] finit
+     *     The value of $f$ at 0. It is more accurate than the one evaluated inside this routine
+     *     (if someone wants to do so).
+     *
+     * \param[out] tau The root of the equation $f(x)$.
+     * \param[out] info
+     *     =0: successful exit\n
+     *     >0: if §info = 1, failure to converge
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016
+     * \remark
+     * \li 10/02/03: This version has a few statements commented out for thread safety
      *               (machine parameters are computed on each entry). SJH.
-     *     05/10/06: Modified from a new version of Ren-Cang Li, use Gragg-Thornton-Warner cubic
+     * \li 05/10/06: Modified from a new version of Ren-Cang Li, use Gragg-Thornton-Warner cubic
      *               convergent scheme for better stability.
+     *
      * Contributors:
      *     Ren-Cang Li, Computer Science Division, University of California at Berkeley, USA     */
     static void dlaed6(int kniter, bool orgati, real rho, real const* d, real const* z, real finit,
@@ -2148,28 +2280,36 @@ public:
         }
     }
 
-    /* dlamrg will create a permutation list which will merge the elements of a (which is composed
+    /*! §dlamrg creates a permutation list to merge the entries of two independently sorted sets
+     *  into a single set sorted in ascending order.
+     *
+     * §dlamrg will create a permutation list which will merge the elements of a (which is composed
      * of two independently sorted sets) into a single set which is sorted in ascending order.
-     * Parameters: n1,
-     *             n2: These arguments contain the respective lengths of the two sorted lists to be
-     *                 merged.
-     *             a: an array, dimension (n1+n2)
-     *                The first n1 elements of a contain a list of numbers which are sorted in
-     *                either ascending or descending order. Likewise for the final n2 elements.
-     *             dtrd1,
-     *             dtrd2: These are the strides to be taken through the array a. Allowable strides
-     *                    are 1 and -1. They indicate whether a subset of a is sorted in ascending
-     *                    (DTRDx==1) or descending (DTRDx==-1) order.
-     *             index: an integer array, dimension (n1+n2)
-     *                    On exit this array will contain a permutation such that if
-     *                    b[i]==a[index[i]] for i=0,n1+n2-1,
-     *                    then b will be sorted in ascending order.
-     *                    NOTE: Zero-based indices!
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date: June 2016                                                                           */
+     * \param[in] n1
+     * \param[in] n2
+     *     These arguments contain the respective lengths of the two sorted lists to be merged.
+     *
+     * \param[in] a
+     *     an array, dimension (§n1+§n2) \n
+     *     The first §n1 elements of §a contain a list of numbers which are sorted in either
+     *     ascending or descending order. Likewise for the final §n2 elements.
+     *
+     * \param[in] dtrd1
+     * \param[in] dtrd2
+     *     These are the strides to be taken through the array §a. Allowable strides are 1 and -1.
+     *     They indicate whether a subset of §a is sorted in ascending (§dtrdx = 1) or descending
+     *     (§DTRDx = -1) order.
+     *
+     * \param[out] index
+     *     an integer array, dimension (§n1+§n2) \n
+     *     On exit this array will contain a permutation such that if §b[§i] = §a[§index[§i]] for
+     *     §i = 0, ... , §n1+§n2-1, then §b will be sorted in ascending order.\n
+     *     NOTE: Zero-based indices!
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date June 2016                                                                           */
     static void dlamrg(int n1, int n2, real const* a, int dtrd1, int dtrd2, int* index)
     {
         int ind1, ind2;
@@ -2228,30 +2368,44 @@ public:
         }
     }
 
-    /* dlange returns the value of the 1-norm, Frobenius norm, infinity-norm, or the largest
-     * absolute value of any element of a general real rectangular matrix A.
-     * Parameters: norm: Specifies the value to be returned in dlange as described above.
-     *             m: The number of rows of the matrix A. m>=0. When m==0, dlange is set to zero.
-     *             n: The number of columns of the matrix A. n>=0.
-     *                When n==0, dlange is set to zero.
-     *             A: an array, dimension (lda,n)
-     *                The m by n matrix A.
-     *             lda: The leading dimension of the array A. lda>=max(m,1).
-     *             work: an array, dimension (MAX(1,lwork)), where lwork>=m when norm = 'I';
-     *                   otherwise, work is not referenced.
-     * return: dlange = max(abs(A(i,j))), norm = 'M' or 'm'
-     *                  norm1(A),         norm = '1', 'O' or 'o'
-     *                  normI(A),         norm = 'I' or 'i'
-     *                  normF(A),         norm = 'F', 'f', 'E' or 'e'
-     *         where norm1 denotes the  one norm of a matrix (maximum column sum), normI denotes
-     *         the infinity norm of a matrix (maximum row sum) and normF denotes the Frobenius norm
-     *         of a matrix (square root of sum of squares). Note that max(abs(A(i,j))) is not a
-     *         consistent matrix norm.
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date: December 2016                                                                       */
+    /*! §dlange returns the value of the 1-norm, Frobenius norm, infinity-norm, or the largest
+     *  absolute value of any element of a general rectangular matrix.
+     *
+     * §dlange returns the value of the 1-norm, or the Frobenius norm, or the infinity-norm, or the
+     * largest absolute value of any element of a general real rectangular matrix $A$.
+     * \param[in] norm Specifies the value to be returned by §dlange as described below.
+     * \param[in] m
+     *     The number of rows of the matrix $A$. $\{m}\ge 0$. When $\{m}=0$, §dlange returns zero.
+     *
+     * \param[in] n
+     *     The number of columns of the matrix $A$. $\{n}\ge 0$.
+     *     When $\{n}=0$, §dlange returns zero.
+     *
+     * \param[in] A
+     *     an array, dimension (§lda,§n)\n
+     *     The §m by §n matrix $A$.
+     *
+     * \param[in] lda The leading dimension of the array §A. $\{lda}\ge\max(\{m},1)$.
+     * \param[out] work
+     *     an array, dimension ($\max(1,\{lwork})$), where $\{lwork}\ge\{m}$ when §norm = 'I';\n
+     *     otherwise, §work is not referenced.
+     *
+     * \return
+     * $\{dlange} = \left( \begin{array}{ll}
+     *     \max\left(\left|A[i,j]\right|\right), & \{norm}=\text{'M' or 'm'}           \\
+     *     \{norm1}(A),                          & \{norm}=\text{'1', 'O' or 'o'}      \\
+     *     \{normI}(A),                          & \{norm}=\text{'I' or 'i'}           \\
+     *     \{normF}(A),                          & \{norm}=\text{'F', 'f', 'E' or 'e'} \\
+     * \end{array} \right.$\n
+     * where §norm1 denotes the  one norm of a matrix (maximum column sum), §normI denotes the
+     * infinity norm of a matrix (maximum row sum) and §normF denotes the Frobenius norm of a
+     * matrix (square root of sum of squares). Note that $\max\left(\left|A[i,j]\right|\right)$ is
+     * not a consistent matrix norm.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                       */
     static real dlange(char const* norm, int m, int n, real const* A, int lda, real* work)
     {
         int i, j, ldacol;
@@ -2335,73 +2489,114 @@ public:
         return dlange;
     }
 
-    /* dlapy2 returns sqrt(x^2 + y^2), taking care not to cause unnecessary overflow.
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.																*/
-    static real dlapy2(real x, real Y)
+    /*! §dlapy2 returns $\sqrt{x^2+y^2}$.
+     *
+     * §dlapy2 returns $\sqrt{x^2+y^2}$, taking care not to cause unnecessary overflow.
+     * \param[in] x
+     * \param[in] y §x and §y specify the values $x$ and $y$.
+     * \return $\sqrt{x^2+y^2}$, or NaN if either §x or §y is NaN.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date June 2017                                                                           */
+    static real dlapy2(real x, real y)
     {
-        real w, xabs, yabs, z;
-        xabs = fabs(x);
-        yabs = fabs(Y);
-        if (xabs>yabs)
+        if (std::isnan(x))
         {
-            w = xabs;
-            z = yabs;
+            return x;
+        }
+        else if (std::isnan(y))
+        {
+            return y;
         }
         else
         {
-            w = yabs;
-            z = xabs;
-        }
-        if (z==ZERO)
-        {
-            return w;
-        }
-        else
-        {
-            return w * sqrt(ONE + (z/w)*(z/w));
+            real w, xabs, yabs, z;
+            xabs = std::fabs(x);
+            yabs = std::fabs(y);
+            if (xabs>yabs)
+            {
+                w = xabs;
+                z = yabs;
+            }
+            else
+            {
+                w = yabs;
+                z = xabs;
+            }
+            if (z==ZERO)
+            {
+                return w;
+            }
+            else
+            {
+                real temp = z / w;
+                return w * std::sqrt(ONE + temp*temp);
+            }
         }
     }
 
-    /* dlaqp2 computes a QR factorization with column pivoting of the block A[offset:m-1, 0:n-1].
-     * The block A[0:offset-1, 0:n-1] is accordingly pivoted, but not factorized.
-     * Parameters: m: The number of rows of the matrix A. m>=0.
-     *             n: The number of columns of the matrix A. n>=0.
-     *             offset: The number of rows of the matrix A that must be pivoted but not
+    /*! §dlaqp2 computes a QR factorization with column pivoting of the matrix block.
+     *
+     * §dlaqp2 computes a QR factorization with column pivoting of the block
+     * $A[\{offset}:\{m}-1,0:\{n}-1]$. The block $A[0:\{offset}-1,0:\{n}-1]$ is accordingly
+     * pivoted, but not factorized.
+     * \param[in] m      The number of rows of the matrix $A$. $\{m}\ge 0$.
+     * \param[in] n      The number of columns of the matrix $A$. $\{n}\ge 0$.
+     * \param[in] offset The number of rows of the matrix $A$ that must be pivoted but not
      *                     factorized. offset>=0.
-     *             A: an array, dimension(lda, n)
-     *                On entry, the m-by-n matrix A.
-     *                On exit, the upper triangle of block A[offset:m-1, 0:n-1] is the triangular
-     *                         factor obtained; the elements in block A[offset:m-1, 0:n-1] below
-     *                         the diagonal, together with the array tau, represent the orthogonal
-     *                         matrix Q as a product of elementary reflectors. Block
-     *                         A[0:offset-1,0:n-1] has been accordingly pivoted,but not factorized.
-     *             lda: The leading dimension of the array A. lda >= max(1, m).
-     *             jpvt: an integer array, dimension(n)
-     *                   On entry, if jpvt[i] != -1, the i-th column of A is permuted to the front
-     *                                               of A*P (a leading column);
-     *                             if jpvt[i] == -1, the i-th column of A is a free column.
-     *                   On exit,  if jpvt[i] == k, then the i-th column of A*P was the k-th column
-     *                                              of A.
-     *                   Note: this array contains zero-based indices
-     *             tau: an array, dimension(min(m, n))
-     *                  The scalar factors of the elementary reflectors.
-     *             vn1: an array, dimension(n)
-     *                  The vector with the partial column norms.
-     *             vn2: an array, dimension(n)
-     *                  The vector with the exact column norms.
-     *             work: an array, dimension(n)
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.                                                                         */
+     * \param[in,out] A
+     *     an array, dimension (§lda,§n)\n
+     *     On entry, the §m by §n matrix $A$.\n
+     *     On exit, the upper triangle of block $A[\{offset}:\{m}-1,0:\{n}-1]$ is the triangular
+     *              factor obtained; the elements in block $A[\{offset}:\{m}-1,0:\{n}-1]$ below the
+     *              diagonal, together with the array §tau, represent the orthogonal matrix $Q$ as
+     *              a product of elementary reflectors. Block $A[0:\{offset}-1,0:\{n}-1]$ has been
+     *              accordingly pivoted,but not factorized.
+     *
+     * \param[in]     lda  The leading dimension of the array §A. $\{lda}\ge\max(1,\{m})$.
+     * \param[in,out] jpvt
+     *     an integer array, dimension (§n)\n
+     *     On entry,    if $\{jpvt}[i]\ne -1$, the $i$-th column of $A$ is permuted to the front of
+     *                  $AP$ (a leading column);\n
+     *     &emsp;&emsp; if $\{jpvt}[i]=-1$, the $i$-th column of $A$ is a free column.\n
+     *     On exit, if $\{jpvt}[i]=k$, then the $i$-th column of $AP$ was the $k$-th column of
+     *              $A$.\n
+     *     Note: This array contains zero-based indices.
+     *
+     * \param[out] tau
+     *     an array, dimension ($\min(\{m},\{n})$)\n
+     *     The scalar factors of the elementary reflectors.
+     *
+     * \param[in,out] vn1
+     *     an array, dimension (§n)\n
+     *     The vector with the partial column norms.
+     *
+     * \param[in,out] vn2
+     *     an array, dimension (§n)\n
+     *     The vector with the exact column norms.
+     *
+     * \param[out] work an array, dimension (§n)
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016
+     * \remark
+     * Contributors:\n
+     *     G. Quintana-Orti, Depto. de Informatica, Universidad Jaime I, Spain X. Sun, Computer
+     *     Science Dept., Duke University, USA\n
+     *     Partial column norm updating strategy modified on April 2011 Z. Drmac and Z. Bujanovic,
+     *     Dept. of Mathematics, University of Zagreb, Croatia.\n\n
+     * References:\n
+     *     LAPACK Working Note 176
+     *     <a href="http://www.netlib.org/lapack/lawnspdf/lawn176.pdf">[PDF]</a>                 */
     static void dlaqp2(int m, int n, int offset, real* A, int lda, int* jpvt, real* tau, real* vn1,
                        real* vn2, real* work)
     {
         int mn = std::min(m-offset, n);
-        real tol3z = sqrt(dlamch("Epsilon"));
+        real tol3z = std::sqrt(dlamch("Epsilon"));
         // Compute factorization.
         int i, itemp, j, offpi, pvt, acoli;
         real aii, temp, temp2;
@@ -2414,9 +2609,9 @@ public:
             if (pvt!=i)
             {
                 Blas<real>::dswap(m, &A[lda*pvt], 1, &A[acoli], 1);
-                itemp = jpvt[pvt];
+                itemp     = jpvt[pvt];
                 jpvt[pvt] = jpvt[i];
-                jpvt[i] = itemp;
+                jpvt[i]   = itemp;
                 vn1[pvt] = vn1[i];
                 vn2[pvt] = vn2[i];
             }
@@ -2429,7 +2624,7 @@ public:
             {
                 dlarfg(1, A[m-1+acoli], &A[m-1+acoli], 1, tau[i]);
             }
-            if (i+1<n)
+            if (i<n-1)
             {
                 // Apply H(i)^T to A[offset+i:m-1, i+1:n-1] from the left.
                 aii = A[offpi+acoli];
@@ -2443,10 +2638,11 @@ public:
             {
                 if (vn1[j]!=ZERO)
                 {
-                    // NOTE: The following 6 lines follow from the analysis in Lapack Working Note 176.
-                    temp = fabs(A[offpi+lda*j]) / vn1[j];
+                    // NOTE: The following 6 lines follow from the analysis in
+                    // Lapack Working Note 176.
+                    temp = std::fabs(A[offpi+lda*j]) / vn1[j];
                     temp = ONE - temp*temp;
-                    temp = std::max(temp, ZERO);
+                    temp = ((temp>ZERO) ? temp : ZERO);
                     temp2 = vn1[j] / vn2[j];
                     temp2 = temp * temp2 * temp2;
                     if (temp2<=tol3z)
@@ -2464,60 +2660,76 @@ public:
                     }
                     else
                     {
-                        vn1[j] *= sqrt(temp);
+                        vn1[j] *= std::sqrt(temp);
                     }
                 }
             }
         }
     }
 
-    /* dlaqps computes a step of QR factorization with column pivotingof a real m-by-n matrix A by
-     * using Blas-3. It tries to factorize nb columns from A starting from the row offset + 1, and
-     * updates all of the matrix with Blas-3 xgemm. In some cases, due to catastrophic
-     * cancellations, it cannot factorize nb columns. Hence, the actual number of factorized
-     * columns is returned in kb. Block A[0:offset-1, 0:n-1] is accordingly pivoted, but not
-     * factorized.
-     * Parameters: m: The number of rows of the matrix A. m >= 0.
-     *             n: The number of columns of the matrix A. n >= 0
-     *             offset: The number of rows of A that have been factorized in previous steps.
-     *             nb: The number of columns to factorize.
-     *             kb: The number of columns actually factorized.
-     *             A: an array, dimension(lda, n)
-     *                On entry, the m-by-n matrix A.
-     *                On exit, block A[offset:m-1, 0:kb-1] is the triangular factor obtained and
-     *                block A[0:offset-1, 0:n-1] has been accordingly pivoted, but no factorized.
-     *                The rest of the matrix, block A[offset:m-1, kb:n-1] has been updated.
-     *             lda: The leading dimension of the array A.lda >= max(1, m).
-     *             jpvt: an integer array, dimension(n)
-     *                   jpvt[i] = k <==> Column k of the full matrix A has been permuted into
-     *                                    position i in AP.
-     *                   Note: this array contains zero-based indices
-     *             tau: an array, dimension(kb)
-     *                  The scalar factors of the elementary reflectors.
-     *             vn1: an array, dimension(n)
-     *                  The vector with the partial column norms.
-     *             vn2: an array, dimension(n)
-     *                  The vector with the exact column norms.
-     *             auxv: an array, dimension(nb)
-     *                   Auxiliar vector.
-     *             F: an array, dimension(ldf, nb)
-     *                Matrix F^T = L*Y^T*A.
-     *             ldf: The leading dimension of the array F. ldf >= max(1, n).
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.                                                                         */
+    /*! §dlaqps computes a step of QR factorization with column pivoting of a real §m by §n matrix
+     *  $A$ by using BLAS level 3.
+     *
+     * §dlaqps computes a step of QR factorization with column pivoting of a real §m by §n matrix
+     * $A$ by using Blas-3. It tries to factorize §nb columns from $A$ starting from the row
+     * §offset+1, and updates all of the matrix with Blas-3 §xgemm. In some cases, due to
+     * catastrophic cancellations, it cannot factorize §nb columns. Hence, the actual number of
+     * factorized columns is returned in §kb. Block $A[0:\{offset}-1,0:\{n}-1]$ is accordingly
+     * pivoted, but not factorized.
+     * \param[in]     m      The number of rows of the matrix $A$. $\{m}\ge 0$.
+     * \param[in]     n      The number of columns of the matrix $A$. $\{n}\ge 0$.
+     * \param[in]     offset The number of rows of $A$ that have been factorized in previous steps.
+     * \param[in]     nb     The number of columns to factorize.
+     * \param[out]    kb     The number of columns actually factorized.
+     * \param[in,out] A
+     *     an array, dimension (§lda,§n)\n
+     *     On entry, the §m by §n matrix $A$.\n
+     *     On exit, block $A[\{offset}:\{m}-1,0:\{kb}-1]$ is the triangular factor obtained and
+     *              block $A[0:\{offset}-1,0:\{n}-1]$ has been accordingly pivoted,
+     *              but not factorized. The rest of the matrix, block
+     *              $A[\{offset}:\{m}-1, \{kb}:\{n}-1]$ has been updated.
+     *
+     * \param[in]     lda The leading dimension of the array §A. $\{lda}\ge\max(1,\{m})$.
+     * \param[in,out] jpvt
+     *     an integer array, dimension (§n)
+     *     $\{jpvt}[i]=k \Leftrightarrow$ Column $k$ of the full matrix $A$ has been permuted into
+     *     position $i$ in $AP$.\n
+     *     Note: this array contains zero-based indices
+     *
+     * \param[out] tau
+     *     an array, dimension (§kb)\n
+     *     The scalar factors of the elementary reflectors.
+     *
+     * \param[in,out] vn1 an array, dimension (§n)\n The vector with the partial column norms.
+     * \param[in,out] vn2 an array, dimension (§n)\n The vector with the exact column norms.
+     * \param[in,out] auxv an array, dimension (§nb)\n Auxiliary vector.
+     * \param[in,out] F an array, dimension (§ldf,§nb)\n Matrix $F^T = L Y^T A$.
+     * \param[in]     ldf The leading dimension of the array §F. $\{ldf}\ge\max(1,\{n})$.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016
+     * \remark
+     * Contributors:\n
+     *     G. Quintana-Orti, Depto. de Informatica, Universidad Jaime I, Spain X. Sun, Computer
+     *     Science Dept., Duke University, USA\n
+     *     Partial column norm updating strategy modified on April 2011 Z. Drmac and Z. Bujanovic,
+     *     Dept. of Mathematics, University of Zagreb, Croatia.\n\n
+     * References:\n
+     *     LAPACK Working Note 176
+     *     <a href="http://www.netlib.org/lapack/lawnspdf/lawn176.pdf">[PDF]</a>                 */
     static void dlaqps(int m, int n, int offset, int nb, int& kb, real* A, int lda, int* jpvt,
                        real* tau, real* vn1, real* vn2, real* auxv, real* F, int ldf)
     {
-        int lastrk = std::min(m, n+offset);
+        int lastrk = std::min(m, n+offset) - 1;
         int lsticc = -1;
         int k = -1;
-        real tol3z = sqrt(dlamch("Epsilon"));
+        real tol3z = std::sqrt(dlamch("Epsilon"));
         // Beginning of while loop.
         int itemp, j, pvt, rk, acolk;
         real akk, temp, temp2;
-        while ((k+1<nb) && (lsticc==-1))
+        while (k<nb-1 && lsticc==-1)
         {
             k++;
             rk = offset + k;
@@ -2528,9 +2740,9 @@ public:
             {
                 Blas<real>::dswap(m, &A[lda*pvt], 1, &A[acolk], 1);
                 Blas<real>::dswap(k, &F[pvt], ldf, &F[k], ldf);
-                itemp = jpvt[pvt];
+                itemp     = jpvt[pvt];
                 jpvt[pvt] = jpvt[k];
-                jpvt[k] = itemp;
+                jpvt[k]   = itemp;
                 vn1[pvt] = vn1[k];
                 vn2[pvt] = vn2[k];
             }
@@ -2557,7 +2769,7 @@ public:
             if (k<n-1)
             {
                 Blas<real>::dgemv("Transpose", m-rk, n-k-1, tau[k], &A[rk+acolk+lda], lda,
-                               &A[rk+acolk], 1, ZERO, &F[k+1+ldf*k], 1);
+                                  &A[rk+acolk], 1, ZERO, &F[k+1+ldf*k], 1);
             }
             // Padding F[0:k, k] with zeros.
             for (j=0; j<=k; j++)
@@ -2577,10 +2789,10 @@ public:
             if (k<n-1)
             {
                 Blas<real>::dgemv("No transpose", n-k-1, k+1, -ONE, &F[k+1], ldf, &A[rk], lda,
-                               ONE, &A[rk+acolk+lda], lda);
+                                  ONE, &A[rk+acolk+lda], lda);
             }
             // Update partial column norms.
-            if (rk < lastrk-1)
+            if (rk<lastrk)
             {
                 for (j=k+1; j<n; j++)
                 {
@@ -2588,9 +2800,9 @@ public:
                     {
                         // NOTE: The following 6 lines follow from the analysis in Lapack Working
                         //       Note 176.
-                        temp = fabs(A[rk+lda*j]) / vn1[j];
-                        temp = (ONE+temp) * (ONE-temp);
-                        temp = std::max(ZERO, temp);
+                        temp = std::fabs(A[rk+lda*j]) / vn1[j];
+                        temp = (ONE+temp)*(ONE-temp);
+                        temp = ((ZERO>temp) ? ZERO : temp);
                         temp2 = vn1[j] / vn2[j];
                         temp2 = temp * temp2 * temp2;
                         if (temp2<=tol3z)
@@ -2600,7 +2812,7 @@ public:
                         }
                         else
                         {
-                            vn1[j] *= sqrt(temp);
+                            vn1[j] *= std::sqrt(temp);
                         }
                     }
                 }
@@ -2608,19 +2820,19 @@ public:
             A[rk+acolk] = akk;
         }
         kb = k + 1;
-        rk = offset + kb - 1;
+        rk = offset + kb;
         // Apply the block reflector to the rest of the matrix:
         // A[offset+kb:m-1, kb:n-1] -= A[offset+kb:m-1, 0:kb-1] * F[kb:n-1, 0:kb-1]^T.
-        if (kb < ((n<=m-offset)?n:m-offset))
+        if (kb < std::min(n, m-offset))
         {
-            Blas<real>::dgemm("No transpose", "Transpose", m-rk-1, n-kb, kb, -ONE, &A[rk+1], lda,
-                           &F[kb], ldf, ONE, &A[rk+1+lda*kb], lda);
+            Blas<real>::dgemm("No transpose", "Transpose", m-rk, n-kb, kb, -ONE, &A[rk], lda,
+                              &F[kb], ldf, ONE, &A[rk+lda*kb], lda);
         }
         // Recomputation of difficult columns.
         while (lsticc>=0)
         {
             itemp = std::round(vn2[lsticc]) - 1;
-            vn1[lsticc] = Blas<real>::dnrm2(m-rk-1, &A[rk+1+lda*lsticc], 1);
+            vn1[lsticc] = Blas<real>::dnrm2(m-rk, &A[rk+lda*lsticc], 1);
             // NOTE: The computation of vn1[lsticc] relies on the fact that dnrm2 does not fail on
             // vectors with norm below the value of sqrt(dlamch("S"))
             vn2[lsticc] = vn1[lsticc];
@@ -2628,37 +2840,46 @@ public:
         }
     }
 
-    /* dlarf applies a real elementary reflector H to a real m by n matrix
-     * C, from either the left or the right.H is represented in the form
-     *     H = I - tau * v * v^T
-     * where tau is a real scalar and v is a real vector.
-     * If tau = 0, then H is taken to be the unit matrix.
-     * Parameters: side: 'L': form  H * C
-     *                   'R': form  C * H
-     *             m: The number of rows of the matrix C.
-     *             n: The number of columns of the matrix C.
-     *             v: an array, dimension (1 + (m - 1)*abs(incv)) if side = 'L'
-     *                                 or (1 + (n - 1)*abs(incv)) if side = 'R'
-     *                The vector v in the representation of H. v is not used if tau = 0.
-     *             incv: The increment between elements of v. incv <> 0.
-     *             tau: The value tau in the representation of H.
-     *             C: an array, dimension(ldc, n)
-     *                          On entry, the m by n matrix C.
-     *                          On exit, C is overwritten by the matrix H * C if side = 'L',
-     *                                                               or C * H if side = 'R'.
-     *             ldc: The leading dimension of the array C. ldc >= max(1, m).
-     *             work: an array, dimension (n) if side = 'L'
-     *                                    or (m) if side = 'R'
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.                                                                         */
+    /*! §dlarf applies an elementary reflector to a general rectangular matrix.
+     *
+     * §dlarf applies a real elementary reflector $H$ to a real §m by §n matrix $C$, from either
+     * the left or the right. $H$ is represented in the form\n
+     *     $H = I - \tau v v^T$\n
+     * where $\tau$ is a real scalar and $v$ is a real vector.
+     * If $\tau=0$, then $H$ is taken to be the unit matrix.
+     * \param[in] side
+     *     'L': form $H C$\n
+     *     'R': form $C H$
+     *
+     * \param[in] m The number of rows of the matrix $C$.
+     * \param[in] n The number of columns of the matrix $C$.
+     * \param[in] v
+     *     an array, dimension ($1+(\{m}-1)*|\{incv}|$) if §side = 'L'\n
+     *                      or ($1+(\{n}-1)*|\{incv}|$) if §side = 'R'\n
+     *     The vector $v$ in the representation of $H$. §v is not used if §tau = 0.
+     *
+     * \param[in]     incv The increment between elements of §v. $\{incv}\ne 0$.
+     * \param[in]     tau  The value $\tau$ in the representation of $H$.
+     * \param[in,out] C
+     *     an array, dimension (§ldc,§n)\n
+     *     On entry, the §m by §n matrix $C$.\n
+     *     On exit, §C is overwritten by the matrix\n $H C$ if §side = 'L',
+     *                                           or\n $C H$ if §side = 'R'.
+     *
+     * \param[in] ldc  The leading dimension of the array §C. $\{ldc}\ge\max(1,\{m})$.
+     * \param[in] work
+     *     an array, dimension (§n) if §side = 'L'\n
+     *     &emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;or (§m) if §side = 'R'
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                       */
     static void dlarf(char const* side, int m, int n, real const* v, int incv, real tau, real* C,
                       int ldc, real* work)
     {
-        bool applyleft;
         int i, lastv=0, lastc=0;
-        applyleft = (toupper(side[0])=='L');
+        bool applyleft = (std::toupper(side[0])=='L');
         if (tau!=ZERO)
         {
             //Set up variables for scanning v. LASTV begins pointing to the end of v.
@@ -2686,12 +2907,12 @@ public:
             }
             if (applyleft)
             {
-                // Scan for the last non - zero column in C[0:lastv-1,:].
+                // Scan for the last non-zero column in C[0:lastv-1,:].
                 lastc = iladlc(lastv, n, C, ldc) + 1;
             }
             else
             {
-                // Scan for the last non - zero row in C[:,0:lastv-1].
+                // Scan for the last non-zero row in C[:,0:lastv-1].
                 lastc = iladlr(m, lastv, C, ldc) + 1;
             }
         }
@@ -2722,73 +2943,104 @@ public:
         }
     }
 
-    /* dlarfb applies a real block reflector H or its transpose H^T to a real m by n matrix C,
-     * from either the left or the right.
-     * Parameters: side: 'L': apply H or H^T from the Left
-     *                   'R': apply H or H**T from the Right
-     *             trans: 'N': apply H (No transpose)
-     *                    'T': apply H^T (Transpose)
-     *             direct: Indicates how H is formed from a product of elementary reflectors
-     *                     'F': H = H(1) H(2) . ..H(k) (Forward)
-     *                     'B': H = H(k) . ..H(2) H(1) (Backward)
-     *             storev: Indicates how the vectors which define the elementary reflectors
-     *                     are stored:
-     *                     'C': Columnwise
-     *                     'R': Rowwise
-     *             m: The number of rows of the matrix C.
-     *             n: The number of columns of the matrix C.
-     *             k: The order of the matrix T(= the number of elementary reflectors
-     *                whose product defines the block reflector).
-     *             V: an array, dimension (ldv, k) if storev = 'C'
-     *                                    (ldv, m) if storev = 'R' and side = 'L'
-     *                                    (ldv, n) if storev = 'R' and side = 'R'
-     *             ldv: he leading dimension of the array V.
-     *                  If storev = 'C' and side = 'L', ldv >= max(1, m);
-     *                  if storev = 'C' and side = 'R', ldv >= max(1, n);
-     *                  if storev = 'R', ldv >= k.
-     *             T: an array, dimension(ldt, k)
-     *                The triangular k by k matrix T in the representation of the block reflector.
-     *             ldt: The leading dimension of the array T. ldt >= k.
-     *             C: an array, dimension(ldc, n)
-     *                On entry, the m by n matrix C.
-     *                On exit, C is overwritten by H * C or H^T * C or C * H or C * H^T.
-     *             ldc: The leading dimension of the array C. ldc >= max(1, m).
-     *             Work: an array, dimension(ldwork, k)
-     *             ldwork: The leading dimension of the array Work.
-     *                     If side = 'L', ldwork >= max(1, n);
-     *                     if side = 'R', ldwork >= max(1, m).
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Further Details:
-     *     The shape of the matrix V and the storage of the vectors which define the H(i) is best
-     *     illustrated by the following example with n==5 and k==3. The elements equal to 1 are not
-     *     stored; the corresponding array elements are modified but restored on exit. The rest of
-     *     the array is not used.
-     *     direct = 'F' and storev = 'C':        direct = 'F' and storev = 'R':
-     *                  V = (1)                  V = (1 v1 v1 v1 v1)
-     *                      (v1  1)                     (1 v2 v2 v2)
-     *                      (v1 v2  1)                     (1 v3 v3)
-     *                      (v1 v2 v3)
-     *                      (v1 v2 v3)
-     *     direct = 'B' and storev = 'C':         direct = 'B' and storev = 'R' :
-     *                  V = (v1 v2 v3)                 V = (v1 v1  1)
-     *                      (v1 v2 v3)                     (v2 v2 v2  1)
-     *                      (1 v2 v3)                      (v3 v3 v3 v3  1)
-     *                      (1 v3)
-     *                      (1)                                                                  */
+    /*! §dlarfb applies a block reflector or its transpose to a general rectangular matrix.
+     *
+     * §dlarfb applies a real block reflector $H$ or its transpose $H^T$ to a real §m by §n matrix
+     * $C$, from either the left or the right.
+     * \param[in] side
+     *     'L': apply $H$ or $H^T$ from the Left\n
+     *     'R': apply $H$ or $H^T$ from the Right
+     *
+     * \param[in] trans
+     *     'N': apply $H$ (No transpose)\n
+     *     'T': apply $H^T$ (Transpose)
+     *
+     * \param[in] direct
+     *     Indicates how $H$ is formed from a product of elementary reflectors\n
+     *     'F': $H = H(0) H(1) \ldots H(k-1)$ (Forward)\n
+     *     'B': $H = H(k-1) \ldots H(1) H(0)$ (Backward)
+     *
+     * \param[in] storev
+     *     Indicates how the vectors which define the elementary reflectors are stored:\n
+     *     'C': Columnwise\n 'R': Rowwise
+     *
+     * \param[in] m The number of rows of the matrix $C$.
+     * \param[in] n The number of columns of the matrix $C$.
+     * \param[in] k
+     *     The order of the matrix $T$ (= the number of elementary reflectors whose product defines
+     *     the block reflector).
+     *
+     * \param[in] V
+     *     an array, dimension (§ldv,§k) if §storev = 'C'\n
+     *     &emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;
+     *                         (§ldv,§m) if §storev = 'R' and §side = 'L'\n
+     *     &emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;
+     *                         (§ldv,§n) if §storev = 'R' and §side = 'R'\n
+     *     The matrix $V$. See remarks.
+     *
+     * \param[in] ldv
+     *     The leading dimension of the array §V.\n
+     *     If §storev = 'C' and §side = 'L', $\{ldv}\ge\max(1,\{m})$;\n
+     *     if §storev = 'C' and §side = 'R', $\{ldv}\ge\max(1,\{n})$;\n
+     *     if §storev = 'R', $\{ldv} \ge \{k}$.
+     *
+     * \param[in] T
+     *     an array, dimension (§ldt,§k)\n
+     *     The triangular §k by §k matrix $T$ in the representation of the block reflector.
+     *
+     * \param[in]     ldt The leading dimension of the array §T. $\{ldt}\ge\{k}$.
+     * \param[in,out] C
+     *     an array, dimension (§ldc,§n)\n
+     *     On entry, the §m by §n matrix $C$.\n
+     *     On exit, §C is overwritten by $H C$ or $H^T C$ or $C H$ or $C H^T$.
+     *
+     * \param[in]  ldc    The leading dimension of the array §C. $\{ldc}\ge\max(1,\{m})$.
+     * \param[out] Work   an array, dimension (§ldwork,§k)
+     * \param[in]  ldwork
+     *     The leading dimension of the array §Work.\n
+     *     If §side = 'L', $\{ldwork}\ge\max(1,\{n})$;
+     *     if §side = 'R', $\{ldwork}\ge\max(1,\{m})$.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date June 2013
+     * \remark
+     *     The shape of the matrix $V$ and the storage of the vectors which define the $H(i)$ is
+     *     best illustrated by the following example with §n = 5 and §k = 3. The elements equal to
+     *     1 are not stored; the corresponding array elements are modified but restored on exit.
+     *     The rest of the array is not used.\n
+     *     §direct = 'F' and §storev = 'C':\n
+     *         $V=\b{bm}  1  &     &     \\
+     *                   v_1 &  1  &     \\
+     *                   v_1 & v_2 &  1  \\
+     *                   v_1 & v_2 & v_3 \\
+     *                   v_1 & v_2 & v_3 \e{bm}$\n\n
+     *     §direct = 'F' and §storev = 'R':\n
+     *         $V=\b{bm} 1 & v_1 & v_1 & v_1 & v_1 \\
+     *                   1 & v_2 & v_2 & v_2 &     \\
+     *                   1 & v_3 & v_3 &     &     \e{bm}$\n\n
+     *     §direct = 'B' and §storev = 'C':\n
+     *         $V=\b{bm} v_1 & v_2 & v_3 \\
+     *                   v_1 & v_2 & v_3 \\
+     *                    1  & v_2 & v_3 \\
+     *                    1  & v_3 &     \\
+     *                    1  &     &     \e{bm}$\n\n
+     *     §direct = 'B' and §storev = 'R':\n
+     *         $V=\b{bm} v_1 & v_1 &  1  &     &   \\
+     *                   v_2 & v_2 & v_2 & 1   &   \\
+     *                   v_3 & v_3 & v_3 & v_3 & 1 \e{bm}$                                       */
     static void dlarfb(char const* side, char const* trans, char const* direct, char const* storev,
                        int m, int n, int k, real* V, int ldv, real const* T, int ldt, real* C,
                        int ldc, real* Work, int ldwork)
     {
         // Quick return if possible
-        if (m<0 || n<0)
+        if (m<=0 || n<=0)
         {
             return;
         }
         char const* transt;
-        if (toupper(trans[0])=='N')
+        if (std::toupper(trans[0])=='N')
         {
             transt = "Transpose";
         }
@@ -2797,9 +3049,9 @@ public:
             transt = "No transpose";
         }
         int i, j, ccol, workcol;
-        char upstorev = toupper(storev[0]);
-        char updirect = toupper(direct[0]);
-        char upside = toupper(side[0]);
+        char upstorev = std::toupper(storev[0]);
+        char updirect = std::toupper(direct[0]);
+        char upside   = std::toupper(side[0]);
         if (upstorev=='C')
         {
             if (updirect=='F')
@@ -2817,7 +3069,7 @@ public:
                     {
                         Blas<real>::dcopy(n, &C[j], ldc, &Work[ldwork*j], 1);
                     }
-                    // W : = W * V1
+                    // W = W * V1
                     Blas<real>::dtrmm("Right", "Lower", "No transpose", "Unit", n, k, ONE, V, ldv,
                                       Work, ldwork);
                     if (m>k)
@@ -3086,9 +3338,10 @@ public:
                     //                                 (C2)
                     // W = C^T * V^T = (C1^T * V1^T + C2^T * V2^T) (stored in Work)
                     // W = C2^T
+                    ccol = m - k;
                     for (j=0; j<k; j++)
                     {
-                        Blas<real>::dcopy(n, &C[m-k+j], ldc, &Work[ldwork*j], 1);
+                        Blas<real>::dcopy(n, &C[ccol+j], ldc, &Work[ldwork*j], 1);
                     }
                     // W = W * V2^T
                     Blas<real>::dtrmm("Right", "Lower", "Transpose", "Unit", n, k, ONE,
@@ -3170,28 +3423,37 @@ public:
         }
     }
 
-    /* dlarfg generates a real elementary reflector H of order n, such that
-     *           H * (alpha) = (beta), H^T * H = I.
-     *               (x    )   (0   )
-     * where alpha and beta are scalars, and x is an (n - 1)-element real vector.
-     * H is represented in the form
-     *           H = I - tau * (1) * (1 v^T),
-     *                         (v)
-     * where tau is a real scalar and v is a real (n - 1)-element vector.
-     * If the elements of x are all zero, then tau = 0 and H is taken to be the unit matrix.
-     * Otherwise  1 <= tau <= 2.
-     * Parameters: n: The order of the elementary reflector.
-     *             alpha: On entry, the value alpha.
-     *                    On exit, it is overwritten with the value beta.
-     *             x: array, dimension (1 + (n - 2)*abs(incx))
-     *                On entry, the vector x.
-     *                On exit, it is overwritten with the vector v.
-     *             incx: The increment between elements of x. incx > 0.
-     *             tau:  The value tau.
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.                                                                         */
+    /*! §dlarfg generates an elementary reflector (Householder matrix).
+     *
+     * §dlarfg generates a real elementary reflector $H$ of order §n, such that\n
+     *     $H \b{bm} \alpha \\
+     *                 x    \e{bm} = \b{bm} \beta \\
+     *                                        0   \e{bm},\hspace{20pt}
+     *      H^T H = I$.\n
+     * where $\alpha$ and $\beta$ are scalars, and $x$ is an (§n-1)-element real vector.
+     * $H$ is represented in the form\n
+     *     $H = I - \tau \b{bm} 1 \\
+     *                          v \e{bm}\b{bm} 1 & v^T \e{bm}$,
+     * where $\tau$ is a real scalar and $v$ is a real (§n-1)-element vector.
+     * If the elements of $x$ are all zero, then $\tau=0$ and $H$ is taken to be the unit matrix.
+     * Otherwise $1 \le \tau \le 2$.
+     * \param[in]     n     The order of the elementary reflector.
+     * \param[in,out] alpha
+     *     On entry, the value $\alpha$.\n
+     *     On exit, it is overwritten with the value $\beta$.
+     *
+     * \param[in,out] x
+     *     array, dimension ($1+(\{n}-2)*|\{incx}|$)\n
+     *     On entry, the vector $x$.\n
+     *     On exit, it is overwritten with the vector $v$.
+     *
+     * \param[in]  incx The increment between elements of §x. $\{incx}>0$.
+     * \param[out] tau  The value $\tau$.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date November 2017                                                                       */
     static void dlarfg(int n, real& alpha, real* x, int incx, real& tau)
     {
         int j, knt;
@@ -3213,7 +3475,7 @@ public:
             beta = -std::copysign(dlapy2(alpha, xnorm), alpha);
             safmin = dlamch("SafeMin") / dlamch("Epsilon");
             knt = 0;
-            if (fabs(beta)<safmin)
+            if (std::fabs(beta)<safmin)
             {
                 // xnorm, beta may be inaccurate; scale x and recompute them
                 rsafmin = ONE / safmin;
@@ -3223,7 +3485,7 @@ public:
                     Blas<real>::dscal(n-1, rsafmin, x, incx);
                     beta *= rsafmin;
                     alpha *= rsafmin;
-                } while (fabs(beta)<safmin);
+                } while (std::fabs(beta)<safmin && knt<20);
                 // New beta is at most 1, at least SAFMIN
                 xnorm = Blas<real>::dnrm2(n-1, x, incx);
                 beta = -std::copysign(dlapy2(alpha, xnorm), alpha);
@@ -3239,75 +3501,96 @@ public:
         }
     }
 
-    /* dlarft forms the triangular factor T of a real block reflector H
-     * of order n, which is defined as a product of k elementary reflectors.
-     *     If direct = 'F', H = H(1) H(2) . ..H(k) and T is upper triangular;
-     *     If direct = 'B', H = H(k) . ..H(2) H(1) and T is lower triangular.
-     *     If storev = 'C', the vector which defines the elementary reflector
-     *                      H(i) is stored in the i - th column of the array V, and
-     *                      H = I - V * T * V^T
-     *     If storev = 'R', the vector which defines the elementary reflector
-     *                      H(i) is stored in the i - th row of the array V, and
-     *                      H = I - V^T * T * V
-     * Parameters: direct:  Specifies the order in which the elementary reflectors are
-     *                      multiplied to form the block reflector:
-     *                      'F': H = H(1) H(2) . ..H(k) (Forward)
-     *                      'B': H = H(k) . ..H(2) H(1) (Backward)
-     *             storev: Specifies how the vectors which define the elementary
-     *                     reflectors are stored(see also Further Details) :
-     *                     'C': columnwise
-     *                     'R': rowwise
-     *             n: The order of the block reflector H. n >= 0.
-     *             k: The order of the triangular factor T(= the number of elementary reflectors).
-     *                k >= 1.
-     *             V: an array, dimension (ldv, k) if storev = 'C'
-     *                                    (ldv, n) if storev = 'R'
-     *             ldv: The leading dimension of the array V.
-     *                  If storev = 'C', ldv >= max(1, n); if storev = 'R', ldv >= k.
-     *             tau: an array, dimension(k)
-     *                  tau(i) must contain the scalar factor of the elementary reflector H(i).
-     *             T: an array, dimension(lda, k)
-     *                The k by k triangular factor T of the block reflector.
-     *                If direct=='F', T is upper triangular;
-     *                if direct=='B', T is lower triangular. The rest of the array is not used.
-     *             lda: The leading dimension of the array T. lda >= k.
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Further Details:
-     *     The shape of the matrix V and the storage of the vectors which define the H(i) is best
-     *     illustrated by the following example with n==5 and k==3. The elements equal to 1 are not
-     *     stored.
-     * direct = 'F' and storev = 'C':         direct = 'F' and storev = 'R':
-     *                V = (1)                 V = (1 v1 v1 v1 v1)
-     *                    (v1  1)                    (1 v2 v2 v2)
-     *                    (v1 v2  1)                    (1 v3 v3)
-     *                    (v1 v2 v3)
-     *                    (v1 v2 v3)
-     * direct = 'B' and storev = 'C':         direct = 'B' and storev = 'R' :
-     *                V = (v1 v2 v3)                 V = (v1 v1  1)
-     *                    (v1 v2 v3)                     (v2 v2 v2  1)
-     *                    (1 v2 v3)                      (v3 v3 v3 v3  1)
-     *                    (1 v3)
-     *                    (1)                                                                    */
+    /*! §dlarft forms the triangular factor $T$ of a block reflector $H = I - VTV^H$
+     *
+     * §dlarft forms the triangular factor $T$ of a real block reflector $H$ of order §n,
+     * which is defined as a product of §k elementary reflectors.\n
+     *     If §direct = 'F', $H = H(0) H(1) \ldots H(k-1)$ and $T$ is upper triangular;\n
+     *     If §direct = 'B', $H = H(k-1) \ldots H(1) H(0)$ and $T$ is lower triangular.\n
+     *     If §storev = 'C', the vector which defines the elementary reflector $H(i)$ is stored in
+     *                       the $i$-th column of the array §V, and $H = I - V T V^T$.\n
+     *     If §storev = 'R', the vector which defines the elementary reflector $H(i)$ is stored in
+     *                       the $i$-th row of the array §V, and $H = I - V^T T V$.
+     * \param[in] direct
+     *     Specifies the order in which the elementary reflectors are multiplied to form the block
+     *     reflector:\n
+     *         'F': $H = H(0) H(1) \ldots H(k-1)$ (Forward)\n
+     *         'B': $H = H(k-1) \ldots H(1) H(0)$ (Backward)\n
+     *
+     * \param[in] storev
+     *     Specifies how the vectors which define the elementary reflectors are stored
+     *     (see also remarks):\n 'C': columnwise\n 'R': rowwise
+     *
+     * \param[in] n The order of the block reflector $H$. $\{n} \ge 0$.
+     * \param[in] k
+     *     The order of the triangular factor $T$(= the number of elementary reflectors).
+     *     $\{k}\ge 1$.
+     *
+     * \param[in] V
+     *     an array, dimension\n (§ldv,§k) if §storev = 'C'\n
+     *                           (§ldv,§n) if §storev = 'R'
+     *
+     * \param[in] ldv
+     *     The leading dimension of the array §V.\n
+     *     If §storev = 'C', $\{ldv}\ge\max(1,\{n})$;\n if §storev = 'R', $\{ldv}\ge\{k}$.
+     *
+     * \param[in] tau
+     *     an array, dimension (§k)\n
+     *     §tau[$i$] must contain the scalar factor of the elementary reflector $H(i)$.
+     *
+     * \param[out] T
+     *     an array, dimension (§ldt,§k)\n
+     *     The §k by §k triangular factor $T$ of the block reflector.\n
+     *     If §direct = 'F', $T$ is upper triangular;\n
+     *     if §direct = 'B', $T$ is lower triangular. The rest of the array is not used.
+     *
+     * \param[in] ldt The leading dimension of the array §T. $\{ldt}\ge\{k}$.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016
+     * \remark
+     *     The shape of the matrix $V$ and the storage of the vectors which define the $H(i)$ is
+     *     best illustrated by the following example with §n = 5 and §k = 3. The elements equal to
+     *     1 are not stored.\n
+     *     §direct = 'F' and §storev = 'C':\n
+     *         $V = \b{bm}  1  &     &     \\
+     *                     v_1 &  1  &     \\
+     *                     v_1 & v_2 &  1  \\
+     *                     v_1 & v_2 & v_3 \\
+     *                     v_1 & v_2 & v_3 \e{bm}$\n\n
+     *     §direct = 'F' and §storev = 'R':\n
+     *         $V = \b{bm} 1 & v_1 & v_1 & v_1 & v_1 \\
+     *                       &  1  & v_2 & v_2 & v_2 \\
+     *                       &     &  1  & v_3 & v_3 \e{bm}$\n\n
+     *     §direct = 'B' and §storev = 'C':\n
+     *         $V = \b{bm} v_1 & v_2 & v_3 \\
+     *                     v_1 & v_2 & v_3 \\
+     *                      1  & v_2 & v_3 \\
+     *                         &  1  & v_3 \\
+     *                         &     &  1  \e{bm}$\n\n
+     *     §direct = 'B' and §storev = 'R':\n
+     *         $V = \b{bm} v_1 & v_1 &  1  &     &   \\
+     *                     v_2 & v_2 & v_2 &  1  &   \\
+     *                     v_3 & v_3 & v_3 & v_3 & 1 \e{bm}$                                     */
     static void dlarft(char const* direct, char const* storev, int n, int k, real const* V, int ldv,
-                       real const* tau, real* T, int lda)
+                       real const* tau, real* T, int ldt)
     {
         // Quick return if possible
         if (n==0)
         {
             return;
         }
-        char updirect = toupper(direct[0]);
-        char upstorev = toupper(storev[0]);
+        char updirect = std::toupper(direct[0]);
+        char upstorev = std::toupper(storev[0]);
         int i, j, prevlastv, lastv, tcoli, vcol;
         if (updirect=='F')
         {
             prevlastv = n-1;
             for (i=0; i<k; i++)
             {
-                tcoli = lda * i;
+                tcoli = ldt * i;
                 if (i>prevlastv)
                 {
                     prevlastv = i;
@@ -3364,7 +3647,7 @@ public:
                                           &V[i+vcol+ldv], ldv, ONE, &T[tcoli], 1);
                     }
                     // T[0:i-1, i] = T[0:i-1, 0:i-1] * T[0:i-1, i]
-                    Blas<real>::dtrmv("Upper", "No transpose", "Non-unit", i, T, lda, &T[tcoli],
+                    Blas<real>::dtrmv("Upper", "No transpose", "Non-unit", i, T, ldt, &T[tcoli],
                                       1);
                     T[i+tcoli] = tau[i];
                     if (i>0)
@@ -3386,7 +3669,7 @@ public:
             prevlastv = 0;
             for (i=k-1; i>=0; i--)
             {
-                tcoli = lda * i;
+                tcoli = ldt * i;
                 if (tau[i]==ZERO)
                 {
                     // H(i) = I
@@ -3411,7 +3694,7 @@ public:
                                     break;
                                 }
                             }
-                            vcol = n - k - i; // misuse: not a col, but a row
+                            vcol = n - k - i;
                             for (j=(i+1); j<k; j++)
                             {
                                 T[j+tcoli] = -tau[i] * V[vcol+ldv*j];
@@ -3445,7 +3728,7 @@ public:
                         }
                         // T[i+1:k-1, i] = T[i+1:k-1, i+1:k-1] * T[i+1:k-1, i]
                         Blas<real>::dtrmv("Lower", "No transpose", "Non-unit", k-i-1,
-                                          &T[i+1+lda*(i+1)], lda, &T[i+1+tcoli], 1);
+                                          &T[i+1+ldt*(i+1)], ldt, &T[i+1+tcoli], 1);
                         if (i>0)
                         {
                             if (lastv<prevlastv)
@@ -3464,25 +3747,33 @@ public:
         }
     }
 
-    /* dlarnv returns a vector of n random real numbers from a uniform or normal distribution.
-     * Parameters: idist: Specifies the distribution of the random numbers:
-     *                    ==1: uniform (0,1)
-     *                    ==2: uniform (-1,1)
-     *                    ==3: normal (0,1)
-     *             iseed: an integer array, dimension (4)
-     *                    On entry, the seed of the random number generator; the array elements
-     *                              must be between 0 and 4095, and iseed[3] must be odd.
-     *                    On exit, the seed is updated.
-     *             n: The number of random numbers to be generated.
-     *             x: an array, dimension (n)
-     *                The generated random numbers.
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date December 2016
-     * Further Details:
-     *     This routine calls the auxiliary routine dlaruv to generate random real numbers from a
+    /*! §dlarnv returns a vector of random numbers from a uniform or normal distribution.
+     *
+     * §dlarnv returns a vector of §n random real numbers from a uniform or normal distribution.
+     * \param[in] idist
+     *     Specifies the distribution of the random numbers:\n
+     *         = 1: uniform (0,1)\n
+     *         = 2: uniform (-1,1)\n
+     *         = 3: normal (0,1)
+     *
+     * \param[in,out] iseed
+     *     an integer array, dimension (4)\n
+     *     On entry, the seed of the random number generator; the array elements must be between
+     *               0 and 4095, and §iseed[3] must be odd.\n
+     *     On exit, the seed is updated.
+     *
+     * \param[in]  n The number of random numbers to be generated.
+     * \param[out] x
+     *     an array, dimension (§n)\n
+     *     The generated random numbers.
+     *
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016
+     * \remark
+     *     This routine calls the auxiliary routine §dlaruv to generate random real numbers from a
      *     uniform (0,1) distribution, in batches of up to 128 using vectorisable code. The Box-
      *     Muller method is used to transform numbers from a uniform to a normal distribution.   */
     static void dlarnv(int idist, int* iseed, int n, real* x)
@@ -3535,28 +3826,35 @@ public:
         }
     }
 
-    /* dlartg generates a plane rotation so that
-     *     [  cs  sn  ]  .  [ f ]  =  [ r ]   where cs^2 + sn^2 = 1.
-     *     [ -sn  cs  ]     [ g ]     [ 0 ]
-     * This is a slower, more accurate version of the BLAS1 routine DROTG,
+    /*! §dlartg generates a plane rotation with real cosine and real sine.
+     *
+     * §dlartg generates a plane rotation so that\n
+     *     $\b{bm}  \{cs} & \{sn} \\
+     *             -\{sn} & \{cs} \e{bm}\b{bm} \{f} \\
+     *                                         \{g} \e{bm} = \b{bm} \{r} \\
+     *                                                                0 \e{bm}$
+     *     where $\{cs}^2 + \{sn}^2 = 1$.\n
+     * This is a slower, more accurate version of the BLAS1 routine §drotg,
      * with the following other differences:
-     *     f and g are unchanged on return.
-     *     If g==0, then cs==1 and sn==0.
-     *     If f==0 and g!=0, then cs==0 and sn==1 without doing any floating point operations
-     *         (saves work in DBDSQR when there are zeros on the diagonal).
-     *     If f exceeds g in magnitude, cs will be positive.
-     * Parameters: f: The first component of vector to be rotated.
-     *             g: The second component of vector to be rotated.
-     *             cs: The cosine of the rotation.
-     *             sn: The sine of the rotation.
-     *             r: The nonzero component of the rotated vector.
+     * \li §f and §g are unchanged on return.
+     * \li If §g = 0, then §cs = 1 and §sn = 0.
+     * \li If §f = 0 and $\{g}\ne 0$, then §cs = 0 and §sn = 1 without doing any floating point
+     *     operations (saves work in §dbdsqr when there are zeros on the diagonal).
+     *
+     * If §f exceeds §g in magnitude, §cs will be positive.
+     * \param[in]  f  The first component of vector to be rotated.
+     * \param[in]  g  The second component of vector to be rotated.
+     * \param[out] cs The cosine of the rotation.
+     * \param[out] sn The sine of the rotation.
+     * \param[out] r  The nonzero component of the rotated vector.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016
+     * \remark
      * This version has a few statements commented out for thread safety (machine parameters are
-     *   computed on each entry). 10 feb 03, SJH.
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date December 2016                                                                        */
+     * computed on each entry). 10 feb 03, SJH.                                                  */
     static void dlartg(real f, real g, real& cs, real& sn, real& r)
     {
         //static bool first = true;
@@ -3640,22 +3938,26 @@ public:
         }
     }
 
-    /* dlaruv returns a vector of n random real numbers from a uniform (0,1) distribution (n<=128).
-     * This is an auxiliary routine called by dlarnv and zlarnv.
-     * Parameters: iseed: an integer array, dimension (4)
-     *                    On entry, the seed of the random number generator; the array elements
-     *                              must be between 0 and 4095, and iseed[3] must be odd.
-     *                    On exit, the seed is updated.
-     *             n: The number of random numbers to be generated. n<=128.
-     *             x: an array, dimension (n)
-     *                The generated random numbers.
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date December 2016
-     * Further Details:
-     *    This routine uses a multiplicative congruential method with modulus 2^48 and multiplier
+    /*! §dlaruv returns a vector of §n random real numbers from a uniform distribution.
+     *
+     * §dlaruv returns a vector of n random real numbers from a uniform (0,1) distribution
+     * ($\{n}\le 128$).\n
+     * This is an auxiliary routine called by §dlarnv and §zlarnv.
+     * \param[in,out] iseed
+     *     an integer array, dimension (4)\n
+     *     On entry, the seed of the random number generator; the array elements must be between 0
+     *     and 4095, and §iseed[3] must be odd.\n
+     *     On exit, the seed is updated.
+     *
+     * \param[in]  n The number of random numbers to be generated. $\{n}\le 128$.
+     * \param[out] x an array, dimension (§n)\n  The generated random numbers.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016
+     * \remark
+     *    This routine uses a multiplicative congruential method with modulus $2^48$ and multiplier
      *    33952834046453 (see G.S.Fishman, 'Multiplicative congruential random number generators
      *    with modulus 2^b: an exhaustive analysis for b = 32 and a partial analysis for b = 48',
      *    Math. Comp. 189, pp 331-344, 1990).
@@ -3841,24 +4143,26 @@ public:
         iseed[3] = it4;
     }
 
-    /* dlas2 computes the singular values of the 2-by-2 matrix
-     *     [ f  g ]
-     *     [ 0  h ].
-     * On return, ssmin is the smaller singular value and ssmax is the larger singular value.
-     * Parameters: f: The [0,0] element of the 2-by-2 matrix.
-     *             g: The [0,1] element of the 2-by-2 matrix.
-     *             h: The [1,1] element of the 2-by-2 matrix.
-     *             ssmin: The smaller singular value.
-     *             ssmax: The larger singular value.
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date December 2016
-     * Further Details:
+    /*! §dlas2 computes singular values of a 2-by-2 triangular matrix.
+     *
+     * §dlas2 computes the singular values of the 2-by-2 matrix\n
+     *     $\b{bm} \{f} & \{g} \\
+     *               0  & \{h} \e{bm}$.\n
+     * On return, §ssmin is the smaller singular value and §ssmax is the larger singular value.
+     * \param[in]  f     The [0,0] element of the 2-by-2 matrix.
+     * \param[in]  g     The [0,1] element of the 2-by-2 matrix.
+     * \param[in]  h     The [1,1] element of the 2-by-2 matrix.
+     * \param[out] ssmin The smaller singular value.
+     * \param[out] ssmax The larger singular value.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016
+     * \remark
      *     Barring over/underflow, all output quantities are correct to within a few units in the
      *     last place (ulps), even in the absence of a guard digit in addition/subtraction.
-     *     In IEEE arithmetic, the code works correctly if one matrix element is infinite.
+     *     In §IEEE arithmetic, the code works correctly if one matrix element is infinite.
      *     Overflow will not occur unless the largest singular value itself overflows, or is within
      *     a few ulps of overflow. (On machines with partial overflow, like the Cray, overflow may
      *     occur if the largest singular value is within a factor of 2 of overflow.)
@@ -3937,43 +4241,55 @@ public:
         }
     }
 
-    /* dlascl multiplies the m by n real matrix A by the real scalar cto/cfrom. This is done
-     * without over/underflow as long as the final result cto*A[i,j]/cfrom does not over/underflow.
-     * type specifies that A may be full, upper triangular, lower triangular, upper Hessenberg, or
-     * banded.
-     * Parameters: type: indices the storage type of the input matrix.
-     *                   ='G': A is a full matrix.
-     *                   ='L': A is a lower triangular matrix.
-     *                   ='U': A is an upper triangular matrix.
-     *                   ='H': A is an upper Hessenberg matrix.
-     *                   ='B': A is a symmetric band matrix with lower bandwidth kl and upper
-     *                         bandwidth ku and with the only the lower half stored.
-     *                   ='Q': A is a symmetric band matrix with lower bandwidth kl and upper
-     *                         bandwidth ku and with the only the upper half stored.
-     *                   ='Z': A is a band matrix with lower bandwidth kl and upper bandwidth ku.
-     *                         See DGBTRF for storage details.
-     *             kl: The lower bandwidth of A. Referenced only if type=='B', 'Q' or 'Z'.
-     *             ku: The upper bandwidth of A. Referenced only if type=='B', 'Q' or 'Z'.
-     *             cfrom,
-     *             cto: The matrix A is multiplied by cto/cfrom. A[i,j] is computed without
-     *                  over/underflow if the final result cto*A[i,j]/cfrom can be represented
-     *                  without over/underflow. cfrom must be nonzero.
-     *             m: The number of rows of the matrix A. m>=0.
-     *             n: The number of columns of the matrix A. n>=0.
-     *             A: an array, dimension (lda,n)
-     *                The matrix to be multiplied by cto/cfrom. See type for the storage type.
-     *             lda: The leading dimension of the array A.
-     *                  If type=='G', 'L', 'U', 'H': lda >= max(1,m);
-     *                     type=='B'               : lda >= kl+1;
-     *                     type=='Q'               : lda >= ku+1;
-     *                     type=='Z'               : lda >= 2*kl+ku+1.
-     *             info: ==0: successful exit
-     *                    <0: if info = -i, the i-th argument had an illegal value.
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date: June 2016                                                                           */
+    /*! §dlascl multiplies a general rectangular matrix by a real scalar defined as §cto/§cfrom.
+     *
+     * §dlascl multiplies the §m by §n real matrix $A$ by the real scalar §cto/§cfrom. This is done
+     * without over/underflow as long as the final result $\{cto}A[i,j]/\{cfrom}$ does not
+     * over/underflow. §type specifies that $A$ may be full, upper triangular, lower triangular,
+     * upper Hessenberg, or banded.
+     * \param[in] type
+     *     indicates the storage type of the input matrix.\n
+     *         ='G': $A$ is a full matrix.\n
+     *         ='L': $A$ is a lower triangular matrix.\n
+     *         ='U': $A$ is an upper triangular matrix.\n
+     *         ='H': $A$ is an upper Hessenberg matrix.\n
+     *         ='B': $A$ is a symmetric band matrix with lower bandwidth §kl and upper bandwidth
+     *               §ku and with the only the lower half stored.\n
+     *         ='Q': $A$ is a symmetric band matrix with lower bandwidth §kl and upper bandwidth
+     *               §ku and with the only the upper half stored.\n
+     *         ='Z': $A$ is a band matrix with lower bandwidth §kl and upper bandwidth §ku.
+     *               See §dgbtrf for storage details.
+     *
+     * \param[in] kl    The lower bandwidth of $A$. Referenced only if §type = 'B', 'Q' or 'Z'.
+     * \param[in] ku    The upper bandwidth of $A$. Referenced only if §type = 'B', 'Q' or 'Z'.
+     * \param[in] cfrom
+     * \param[in] cto
+     *     The matrix $A$ is multiplied by §cto/§cfrom. $A[i,j]$ is computed without
+     *                  over/underflow if the final result $\{cto}A[i,j]/\{cfrom}$ can be
+     *                  represented without over/underflow. §cfrom must be nonzero.
+     *
+     * \param[in]     m The number of rows of the matrix $A$. $\{m}\ge 0$.
+     * \param[in]     n The number of columns of the matrix $A$. $\{n}\ge 0$.
+     * \param[in,out] A
+     *     an array, dimension (§lda,§n)\n
+     *     The matrix to be multiplied by §cto/§cfrom. See §type for the storage type.
+     *
+     * \param[in] lda
+     *     The leading dimension of the array §A.\n
+     *         If §type = 'G', 'L', 'U', 'H': $\{lda} \ge \max(1,\{m})$;\n
+     *         if §type = 'B'               : $\{lda} \ge \{kl}+1$;\n
+     *         if §type = 'Q'               : $\{lda} \ge \{ku}+1$;\n
+     *         if §type = 'Z'               : $\{lda} \ge 2*\{kl}+\{ku}+1$.
+     *
+     * \param[out] info
+     *     = 0: successful exit\n
+     *     < 0: if §info = $-i$, the $i$-th argument had an illegal value.
+     *
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date June 2016                                                                           */
     static void dlascl(char const* type, int kl, int ku, real cfrom, real cto, int m, int n,
                        real* A, int lda, int& info)
     {
@@ -4203,42 +4519,60 @@ public:
         } while (!done);
     }
 
-    /* Using a divide and conquer approach, dlasd0 computes the singular value decomposition (SVD)
-     * of a real upper bidiagonal n-by-m matrix B with diagonal d and offdiagonal e, where
-     * m = n+sqre. The algorithm computes orthogonal matrices U and Vt such that B = U * S * Vt.
-     * The singular values S are overwritten on d.
-     * A related subroutine, dlasda, computes only the singular values, and optionally, the
+    /*! §dlasd0 computes the singular values of a real upper bidiagonal §n by §m matrix $B$ with
+     *  diagonal §d and off-diagonal §e. Used by §sbdsdc.
+     *
+     * Using a divide and conquer approach, §dlasd0 computes the singular value decomposition (SVD)
+     * of a real upper bidiagonal §n by §m matrix $B$ with diagonal §d and offdiagonal §e, where
+     * §m = §n+§sqre. The algorithm computes orthogonal matrices $U$ and $V_T$ such that
+     * $B = U S V_T$. The singular values $S$ are overwritten on §d.\n
+     * A related subroutine, §dlasda, computes only the singular values, and optionally, the
      * singular vectors in compact form.
-     * Parameters: n: On entry, the row dimension of the upper bidiagonal matrix.
-     *                This is also the dimension of the main diagonal array d.
-     *             sqre: Specifies the column dimension of the bidiagonal matrix.
-     *                   ==0: The bidiagonal matrix has column dimension m = n;
-     *                   ==1: The bidiagonal matrix has column dimension m = n+1;
-     *             d: an array, dimension (n)
-     *                On entry d contains the main diagonal of the bidiagonal matrix.
-     *                On exit d, if info==0, contains its singular values.
-     *             e: an array, dimension (m-1)
-     *                Contains the subdiagonal entries of the bidiagonal matrix.
-     *                On exit, e has been destroyed.
-     *             U: an array, dimension (ldu, n)
-     *                On exit, U contains the left singular vectors.
-     *             ldu: On entry, leading dimension of U.
-     *             Vt: an array, dimension (ldvt, m)
-     *                 On exit, Vt^T contains the right singular vectors.
-     *             ldvt: On entry, leading dimension of Vt.
-     *             smlsiz: On entry, maximum size of the subproblems at the bottom of the
-     *                     computation tree.
-     *             iwork: an integer array, dimension (8*n)
-     *             work: an array, dimension (3*m**2+2*m)
-     *             info: ==0: successful exit.
-     *                   < 0: if info==-i, the i-th argument had an illegal value.
-     *                   > 0: if info==1, a singular value did not converge
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date: June 2017
-     * Contributors:
+     * \param[in] n
+     *     On entry, the row dimension of the upper bidiagonal matrix.\n
+     *     This is also the dimension of the main diagonal array §d.
+     *
+     * \param[in] sqre
+     *     Specifies the column dimension of the bidiagonal matrix.\n
+     *     = 0: The bidiagonal matrix has column dimension §m = §n;\n
+     *     = 1: The bidiagonal matrix has column dimension §m = §n+1;
+     *
+     * \param[in,out] d
+     *     an array, dimension (§n)\n
+     *     On entry §d contains the main diagonal of the bidiagonal matrix.\n
+     *     On exit §d, if §info = 0, contains its singular values.
+     *
+     * \param[in,out] e
+     *     an array, dimension (§m-1)\n
+     *     Contains the subdiagonal entries of the bidiagonal matrix.
+     *     On exit, §e has been destroyed.
+     *
+     * \param[out] U
+     *     an array, dimension (§ldu,§n)\n
+     *     On exit, §U contains the left singular vectors.
+     *
+     * \param[in]  ldu On entry, leading dimension of §U.
+     * \param[out] Vt
+     *     an array, dimension (§ldvt,§m)\n
+     *     On exit, $\{Vt}^T$ contains the right singular vectors.
+     *
+     * \param[in] ldvt On entry, leading dimension of §Vt.
+     * \param[in] smlsiz
+     *     On entry, maximum size of the subproblems at the bottom of the computation tree.
+     *
+     * \param[out] iwork an integer array, dimension ($8\{n}$)
+     * \param[out] work  an array, dimension ($3\{m}^2+2\{m}$)
+     * \param[out] info
+     *     = 0: successful exit.\n
+     *     < 0: if §info = $-i$, the $i$-th argument had an illegal value.\n
+     *     > 0: if §info = 1, a singular value did not converge
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date June 2017
+     * \remark
+     *     Contributors:\n
      *     Ming Gu and Huan Ren, Computer Science Division,
      *     University of California at Berkeley, USA                                             */
     static void dlasd0(int n, int sqre, real* d, real* e, real* U, int ldu, real* Vt, int ldvt,
@@ -4380,71 +4714,89 @@ public:
         }
     }
 
-    /* dlasd1 computes the SVD of an upper bidiagonal n-by-m matrix B, where n = nl+nr+1 and
-     * m = n+sqre. dlasd1 is called from dlasd0.
-     * A related subroutine dlasd7 handles the case in which the singular values (and the singular
-     * vectors in factored form) are desired.
-     * dlasd1 computes the SVD as follows:
-     *                 ( d1(in)   0    0      0 )
-     *     B = U(in) * (   Z1^T   a   Z2^T    b ) * Vt(in)
-     *                 (   0      0   D2(in)  0 )
-     *       = U(out) * ( d(out) 0) * Vt(out)
-     * where Z^T = (Z1^T a Z2^T b) = u^T Vt^T, and u is a vector of dimension m with alpha and beta
-     * in the nl+1 and nl+2 th entries and zeros elsewhere; and the entry b is empty if sqre==0.
-     * The left singular vectors of the original matrix are stored in U, and the transpose of the
-     * right singular vectors are stored in Vt, and the singular values are in d. The algorithm
+    /*! §dlasd1 computes the SVD of an upper bidiagonal matrix $B$ of the specified size.
+     *  Used by §sbdsdc.
+     *
+     * §dlasd1 computes the SVD of an upper bidiagonal $n$ by $m$ matrix $B$, where
+     * $n=\{nl}+\{nr}+1$ and $m=n+\{sqre}$. §dlasd1 is called from §dlasd0.\n
+     * A related subroutine §dlasd7 handles the case in which the singular values (and the singular
+     * vectors in factored form) are desired.\n
+     * §dlasd1 computes the SVD as follows:
+     *     \f{align*}{
+     *         B &= U^\{in} \b{bm} d_1^\{in} & 0 &     0     & 0 \\
+     *                               Z_1^T   & a &   Z_2^T   & b \\
+     *                                 0     & 0 & d_2^\{in} & 0 \e{bm} V_T^\{in}\\
+     *           &= U^\{out} \b{bm} d^\{out} & 0 \e{bm} V_T^\{out}
+     *     \f}
+     * where $Z^T = (Z_1^T a Z_2^T b) = u^T V_T^T$, and $u$ is a vector of dimension $m$ with §alpha
+     * and §beta in the §nl+1 and §nl+2 -th entries and zeros elsewhere; and the entry $b$ is empty
+     * if §sqre = 0.\n
+     * The left singular vectors of the original matrix are stored in §U, and the transpose of the
+     * right singular vectors are stored in §Vt, and the singular values are in §d. The algorithm
      * consists of three stages:
-     *   The first stage consists of deflating the size of the problem when there are multiple
-     *     singular values or when there are zeros in the Z vector. For each such occurrence the
+     * \li The first stage consists of deflating the size of the problem when there are multiple
+     *     singular values or when there are zeros in the $Z$ vector. For each such occurrence the
      *     dimension of the secular equation problem is reduced by one. This stage is performed by
-     *     the routine dlasd2.
-     *   The second stage consists of calculating the updated singular values. This is done by
-     *     finding the square roots of the roots of the secular equation via the routine dlasd4
-     *     (as called by DLASD3). This routine also calculates the singular vectors of the current
+     *     the routine §dlasd2.
+     * \li The second stage consists of calculating the updated singular values. This is done by
+     *     finding the square roots of the roots of the secular equation via the routine §dlasd4
+     *     (as called by §dlasd3). This routine also calculates the singular vectors of the current
      *     problem.
-     *   The final stage consists of computing the updated singular vectors directly using the
+     * \li The final stage consists of computing the updated singular vectors directly using the
      *     updated singular values. The singular vectors for the current problem are multiplied
      *     with the singular vectors from the overall problem.
-     * Parameters: nl: The row dimension of the upper block. nl>=1.
-     *             nr: The row dimension of the lower block. nr>=1.
-     *             sqre: ==0: the lower block is an nr-by-nr square matrix.
-     *                   ==1: the lower block is an nr-by-(nr+1) rectangular matrix.
-     *                   The bidiagonal matrix has row dimension n = nl+nr+1, and column dimension
-     *                   m = n+sqre.
-     *             d: an array, dimension (n = nl+nr+1).
-     *                On entry d[0:nl-1,0:nl-1] contains the singular values of the upper block;
-     *                and d[nl+1:n-1] contains the singular values of the lower block.
-     *                On exit d[0:n-1] contains the singular values of the modified matrix.
-     *             alpha: Contains the diagonal element associated with the added row.
-     *             beta: Contains the off-diagonal element associated with the added row.
-     *             U: an array, dimension(ldu,n)
-     *                On entry U[0:nl-1,0:nl-1] contains the left singular vectors of the upper
-     *                block; U[nl+1:n-1,nl+1:n-1] contains the left singular vectors of the lower
-     *                block.
-     *                On exit U contains the left singular vectors of the bidiagonal matrix.
-     *             ldu: The leading dimension of the array U. ldu>=max(1, n).
-     *             Vt: an array, dimension(ldvt,m) where m = n+sqre.
-     *                 On entry Vt[0:nl, 0:nl]^T contains the right singular vectors of the upper
-     *                 block; Vt[nl+1:m-1,nl+1:m-1]^T contains the right singular vectors of the
-     *                 lower block.
-     *                 On exit Vt^T contains the right singular vectors of the bidiagonal matrix.
-     *             ldvt: The leading dimension of the array Vt. ldvt>=max(1, m).
-     *             idxq: an integer array, dimension(n)
-     *                   This contains the permutation which will reintegrate the subproblem just
-     *                   solved back into sorted order, i.e. d[idxq[0:n-1]] will be in ascending
-     *                   order.
-     *                   NOTE: zero-based indexing!
-     *             iwork: an integer array, dimension(4*n)
-     *             work: an array, dimension(3*m^2 + 2*m)
-     *             info: ==0: successful exit.
-     *                   < 0: if info==-i, the i-th argument had an illegal value.
-     *                   > 0: if info==1, a singular value did not converge
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date: June 2016
-     * Contributors:
+     *
+     * \param[in] nl   The row dimension of the upper block. $\{nl}\ge 1$.
+     * \param[in] nr   The row dimension of the lower block. $\{nr}\ge 1$.
+     * \param[in] sqre
+     *     = 0: the lower block is an §nr by §nr square matrix.\n
+     *     = 1: the lower block is an §nr by (§nr+1) rectangular matrix.\n
+     *     The bidiagonal matrix has row dimension $n=\{nl}+\{nr}+1$, and column dimension
+     *     $m=n+\{sqre}$.
+     *
+     * \param[in,out] d
+     *     an array, dimension ($n=\{nl}+\{nr}+1$).\n
+     *     On entry $\{d}[0:\{nl}-1,0:\{nl}-1]$ contains the singular values of the upper block;
+     *     and $\{d}[\{nl}+1:n-1]$ contains the singular values of the lower block.\n
+     *     On exit $\{d}[0:n-1]$ contains the singular values of the modified matrix.
+     *
+     * \param[in,out] alpha Contains the diagonal element associated with the added row.
+     * \param[in,out] beta  Contains the off-diagonal element associated with the added row.
+     * \param[in,out] U
+     *     an array, dimension (§ldu,$n$)\n
+     *     On entry $\{U}[0:\{nl}-1,0:\{nl}-1]$ contains the left singular vectors of the upper
+     *     block; $\{U}[\{nl}+1:n-1,\{nl}+1:n-1]$ contains the left singular vectors of the lower
+     *     block.\n
+     *     On exit §U contains the left singular vectors of the bidiagonal matrix.
+     *
+     * \param[in]     ldu The leading dimension of the array §U. $\{ldu}\ge\max(1,n)$.
+     * \param[in,out] Vt
+     *     an array, dimension (§ldvt,$m$) where $m=n+\{sqre}$.\n
+     *     On entry $\{Vt}[0:\{nl},0:\{nl}]^T$ contains the right singular vectors of the upper
+     *     block; $\{Vt}[\{nl}+1:m-1,\{nl}+1:m-1]^T$ contains the right singular vectors of the lower
+     *     block.\n
+     *     On exit $\{Vt}^T$ contains the right singular vectors of the bidiagonal matrix.
+     *
+     * \param[in]     ldvt The leading dimension of the array §Vt. $\{ldvt}\ge\max(1,m)$.
+     * \param[in,out] idxq
+     *      an integer array, dimension ($n$)\n
+     *      This contains the permutation which will reintegrate the subproblem just solved back
+     *      into sorted order, i.e. $\{d}[\{idxq}[0:n-1]]$ will be in ascending order.\n
+     *      NOTE: zero-based indexing!
+     *
+     * \param[out] iwork an integer array, dimension ($4n$)
+     * \param[out] work  an array, dimension ($3m^2 + 2m$)
+     * \param[out] info
+     *     = 0: successful exit.\n
+     *     < 0: if §info = $-i$, the $i$-th argument had an illegal value.\n
+     *     > 0: if §info = 1, a singular value did not converge
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date June 2016
+     * \remark
+     *     Contributors:\n
      *     Ming Gu and Huan Ren, Computer Science Division,
      *     University of California at Berkeley, USA                                             */
     static void dlasd1(int nl, int nr, int sqre, real* d, real& alpha, real& beta, real* U,
@@ -4517,99 +4869,128 @@ public:
         dlamrg(k, n-k, d, 1, -1, idxq);
     }
 
-    /* dlasd2 merges the two sets of singular values together into a single sorted set. Then it
+    /*! §dlasd2 merges the two sets of singular values together into a single sorted set.
+     *  Used by §sbdsdc.
+     *
+     * §dlasd2 merges the two sets of singular values together into a single sorted set. Then it
      * tries to deflate the size of the problem. There are two ways in which deflation can occur:
-     * when two or more singular values are close together or if there is a tiny entry in the z
+     * when two or more singular values are close together or if there is a tiny entry in the §z
      * vector. For each such occurrence the order of the related secular equation problem is
-     * reduced by one.
-     * dlasd2 is called from dlasd1.
-     * Parameters: nl: The row dimension of the upper block. nl>=1.
-     *             nr: The row dimension of the lower block. nr>=1.
-     *             sqre: ==0: the lower block is an nr-by-nr square matrix.
-     *                   ==1: the lower block is an nr-by-(nr+1) rectangular matrix.
-     *                   The bidiagonal matrix has n = nl+nr+1 rows and m = n+sqre >= n columns.
-     *             k: Contains the dimension of the non-deflated matrix, This is the order of the
-     *                related secular equation. 1<=k<=n.
-     *             d: an array, dimension(n)
-     *                On entry d contains the singular values of the two submatrices to be
-     *                combined.
-     *                On exit d contains the trailing (n-k) updated singular values (those which
-     *                were deflated) sorted into increasing order.
-     *             z: an array, dimension(n)
-     *                On exit z contains the updating row vector in the secular equation.
-     *             alpha: Contains the diagonal element associated with the added row.
-     *             beta: Contains the off-diagonal element associated with the added row.
-     *             U: an array, dimension(ldu,n)
-     *                On entry U contains the left singular vectors of two submatrices in the two
-     *                square blocks with corners at (1,1), (nl, nl), and (nl+2, nl+2), (n,n).
-     *                On exit U contains the trailing (n-k) updated left singular vectors (those
-     *                which were deflated) in its last n-k columns.
-     *             ldu: The leading dimension of the array U. ldu>=n.
-     *             Vt: an array, dimension(ldvt,m)
-     *                 On entry Vt^T contains the right singular vectors of two submatrices in the
-     *                 two square blocks with corners at (1,1), (nl+1, nl+1), and (nl+2, nl+2),
-     *                 (m,m).
-     *                 On exit Vt^T contains the trailing (n-k) updated right singular vectors
-     *                 (those which were deflated) in its last n-k columns.
-     *                 In case sqre==1, the last row of Vt spans the right null space.
-     *             ldvt: The leading dimension of the array Vt. ldvt>=m.
-     *             dsigma: an array, dimension (n)
-     *                     Contains a copy of the diagonal elements (k-1 singular values and one
-     *                     zero) in the secular equation.
-     *             U2: an array, dimension(ldu2,n)
-     *                 Contains a copy of the first k-1 left singular vectors which will be used by
-     *                 dlasd3 in a matrix multiply (dgemm) to solve for the new left singular
-     *                 vectors. U2 is arranged into four blocks. The first block contains a column
-     *                 with 1 at nl+1 and zero everywhere else; the second block contains non-zero
-     *                 entries only at and above nl; the third contains non-zero entries only below
-     *                 nl+1; and the fourth is dense.
-     *             ldu2: The leading dimension of the array U2. ldu2>=n.
-     *             Vt2: an array, dimension(ldvt2,n)
-     *                  Vt2^T contains a copy of the first k right singular vectors which will be
-     *                  used by dlasd3 in a matrix multiply (dgemm) to solve for the new right
-     *                  singular vectors. Vt2 is arranged into three blocks. The first block
-     *                  contains a row that corresponds to the special 0 diagonal element in SIGMA;
-     *                  the second block contains non-zeros only at and before nl +1; the third
-     *                  block contains non-zeros only at and after nl +2.
-     *             ldvt2: The leading dimension of the array Vt2. ldvt2>=m.
-     *             idxp: an integer array, dimension(n)
-     *                   This will contain the permutation used to place deflated values of d at
-     *                   the end of the array. On output idxp[1:k-1] points to the nondeflated
-     *                   d-values and idxp[k:n-1] points to the deflated singular values.
-     *                   NOTE: zero-based indices!
-     *             idx: an integer array, dimension(n)
-     *                  This will contain the permutation used to sort the contents of d into
-     *                  ascending order.
-     *                  NOTE: zero-based indices!
-     *             idxc: an integer array, dimension(n)
-     *                   This will contain the permutation used to arrange the columns of the
-     *                   deflated U matrix into three groups: the first group contains non-zero
-     *                   entries only at and above nl, the second contains non-zero entries only
-     *                   below nl+2, and the third is dense.
-     *                   NOTE: zero-based indices!
-     *             idxq: an integer array, dimension(n)
-     *                   This contains the permutation which separately sorts the two sub-problems
-     *                   in d into ascending order. Note that entries in the first half of this
-     *                   permutation must first be moved one position backward; and entries in the
-     *                   second half must first have nl+1 added to their values.
-     *                   NOTE: zero-based indices!
-     *             coltyp: an integer array, dimension(n)
-     *                     As workspace, this will contain a label which will indicate which of the
-     *                     following types a column in the U2 matrix or a row in the Vt2 matrix is:
-     *                         0: non-zero in the upper half only
-     *                         1: non-zero in the lower half only
-     *                         2: dense
-     *                         3: deflated
-     *                     On exit, it is an array of dimension 4, with coltyp[I] being the
-     *                     dimension of the I-th type columns.
-     *                     NOTE: zero-based indices!
-     *             info: ==0: successful exit.
-     *                   < 0: if info==-i, the i-th argument had an illegal value.
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Contributors:
+     * reduced by one.\n
+     * §dlasd2 is called from §dlasd1.
+     * \param[in] nl   The row dimension of the upper block. $\{nl}\ge 1$.
+     * \param[in] nr   The row dimension of the lower block. $\{nr}\ge 1$.
+     * \param[in] sqre
+     *     = 0: the lower block is an §nr by §nr square matrix.\n
+     *     = 1: the lower block is an §nr by (§nr+1) rectangular matrix.\n
+     *     The bidiagonal matrix has $n = \{nl}+\{nr}+1$ rows and $m = n+\{sqre} \ge n$ columns.
+     *
+     * \param[out] k
+     *     Contains the dimension of the non-deflated matrix, This is the order of the related
+     *     secular equation. $1 \le \{k} \le n$.
+     *
+     * \param[in,out] d
+     *     an array, dimension ($n$)\n
+     *     On entry §d contains the singular values of the two submatrices to be combined.\n
+     *     On exit §d contains the trailing ($n-\{k}$) updated singular values (those which were
+     *     deflated) sorted into increasing order.
+     *
+     * \param[out] z
+     *     an array, dimension ($n$)\n
+     *     On exit §z contains the updating row vector in the secular equation.
+     *
+     * \param[in]     alpha Contains the diagonal element associated with the added row.
+     * \param[in]     beta  Contains the off-diagonal element associated with the added row.
+     * \param[in,out] U
+     *     an array, dimension (§ldu,$n$)\n
+     *     On entry §U contains the left singular vectors of two submatrices in the two square
+     *     blocks with corners at [0,0], [§nl-1,§nl-1], and [§nl+1,§nl+1], [$n$-1,$n$-1].\n
+     *     On exit §U contains the trailing ($n-\{k}$) updated left singular vectors (those which
+     *     were deflated) in its last $n-\{k}$ columns.
+     *
+     * \param[in]     ldu The leading dimension of the array §U. $\{ldu}\ge n$.
+     * \param[in,out] Vt
+     *     an array, dimension (§ldvt,$m$)\n
+     *     On entry $\{Vt}^T$ contains the right singular vectors of two submatrices in the two
+     *     square blocks with corners at [0,0], [§nl,§nl], and [§nl+1,§nl+1], [$m$-1,$m$-1].\n
+     *     On exit $\{Vt}^T$ contains the trailing ($n-\{k}$) updated right singular vectors (those
+     *     which were deflated) in its last $n-\{k}$ columns.\n
+     *     In case §sqre = 1, the last row of §Vt spans the right null space.
+     *
+     * \param[in]  ldvt The leading dimension of the array §Vt. $\{ldvt}\ge m$.
+     * \param[out] dsigma
+     *     an array, dimension ($n$)\n
+     *     Contains a copy of the diagonal elements (§k-1 singular values and one zero) in the
+     *     secular equation.
+     *
+     * \param[out] U2
+     *     an array, dimension (§ldu2,$n$)\n
+     *     Contains a copy of the first §k-1 left singular vectors which will be used by §dlasd3 in
+     *     a matrix multiply (§dgemm) to solve for the new left singular vectors. §U2 is arranged
+     *     into four blocks. The first block contains a column with 1 at §nl and zero everywhere
+     *     else; the second block contains non-zero entries only at and above §nl-1; the third
+     *     contains non-zero entries only below §nl; and the fourth is dense.
+     *
+     * \param[in]  ldu2 The leading dimension of the array §U2. $\{ldu2}\ge n$.
+     * \param[out] Vt2
+     *     an array, dimension (§ldvt2,$n$)\n
+     *     $\{Vt2}^T$ contains a copy of the first §k right singular vectors which will be used by
+     *     §dlasd3 in a matrix multiply (§dgemm) to solve for the new right singular vectors. §Vt2
+     *     is arranged into three blocks. The first block contains a row that corresponds to the
+     *     special 0 diagonal element in §dsigma; the second block contains non-zeros only at and
+     *     before §nl; the third block contains non-zeros only at and after §nl+1.
+     *
+     * \param[in]  ldvt2 The leading dimension of the array §Vt2. $\{ldvt2}\ge m$.
+     * \param[out] idxp
+     *     an integer array, dimension ($n$)\n
+     *     This will contain the permutation used to place deflated values of §d at the end of the
+     *     array. On output $\{idxp}[1:\{k}-1]$ points to the nondeflated §d values and
+     *     $\{idxp}[\{k}:n-1]$ points to the deflated singular values.\n
+     *     NOTE: zero-based indices!
+     *
+     * \param[out] idx
+     *     an integer array, dimension ($n$)\n
+     *     This will contain the permutation used to sort the contents of §d into ascending
+     *     order.\n
+     *     NOTE: zero-based indices!
+     *
+     * \param[out] idxc
+     *     an integer array, dimension ($n$)\n
+     *     This will contain the permutation used to arrange the columns of the deflated §U matrix
+     *     into three groups: the first group contains non-zero entries only at and above §nl-1,
+     *     the second contains non-zero entries only below §nl+1, and the third is dense.\n
+     *     NOTE: zero-based indices!
+     *
+     * \param[in,out] idxq
+     *     an integer array, dimension ($n$)\n
+     *     This contains the permutation which separately sorts the two sub-problems in §d into
+     *     ascending order. Note that entries in the first half of this permutation must first be
+     *     moved one position backward; and entries in the second half must first have §nl added
+     *     to their values.\n
+     *     NOTE: zero-based indices!
+     *
+     * \param[out] coltyp
+     *     an integer array, dimension ($n$)\n
+     *     As workspace, this will contain a label which will indicate which of the following types
+     *     a column in the §U2 matrix or a row in the §Vt2 matrix is:\n
+     *         0: non-zero in the upper half only\n
+     *         1: non-zero in the lower half only\n
+     *         2: dense\n
+     *         3: deflated\n
+     *     On exit, it is an array of dimension 4, with §coltyp[$i$] being the dimension of the
+     *     $i$-th type columns.\n
+     *     NOTE: zero-based indices!
+     *
+     * \param[out] info
+     *     = 0: successful exit.\n
+     *     < 0: if §info = $-i$, the $i$-th argument had an illegal value.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date June 2017
+     * \remark
+     *     Contributors:\n
      *     Ming Gu and Huan Ren, Computer Science Division,
      *     University of California at Berkeley, USA                                             */
     static void dlasd2(int nl, int nr, int sqre, int& k, real* d, real* z, real alpha, real beta,
@@ -4819,25 +5200,23 @@ public:
         // positions the four column types into four groups of uniform structure (although one or
         // more of these groups may be empty).
         int ctot[4], psm[4];
-        int ct;
         for (j=0; j<4; j++)
         {
             ctot[j] = 0;
         }
         for (j=1; j<n; j++)
         {
-            ct = coltyp[j];
-            ctot[ct]++;
+            ctot[coltyp[j]]++;
         }
         // psm[*] = Position in SubMatrix (of types 0 through 3) (zero-based!)
         psm[0] = 1;
         psm[1] = 1 + ctot[0];
         psm[2] = psm[1] + ctot[1];
         psm[3] = psm[2] + ctot[2];
-        // Fill out the idxc array so that the permutation which it induces will place all type-1
-        // columns first, all type-2 columns next, then all type-3's, and finally all type-4's,
+        // Fill out the idxc array so that the permutation which it induces will place all type-0
+        // columns first, all type-1 columns next, then all type-2's, and finally all type-3's,
         // starting from the second column. This applies similarly to the rows of Vt.
-        int jp;
+        int jp, ct;
         for (j=1; j<n; j++)
         {
             jp = idxp[j];
@@ -4905,7 +5284,7 @@ public:
             {
                 tind = ldvt*i;
                 Vt[m-1+tind] = -s*Vt[nl+tind];
-                Vt2[ldvt2*i] = c*Vt[nl+tind];
+                Vt2[ldvt2*i] =  c*Vt[nl+tind];
             }
             for (i=nlp1; i<m; i++)
             {
@@ -4937,69 +5316,91 @@ public:
         }
     }
 
-    /* dlasd3 finds all the square roots of the roots of the secular equation, as defined by the
-     * values in d and z. It makes the appropriate calls to dlasd4 and then updates the singular
-     * vectors by matrix multiplication.
+    /*! §dlasd3 finds all square roots of the roots of the secular equation, as defined by the
+     *  values in §d and §z, and then updates the singular vectors by matrix multiplication.
+     *  Used by §sbdsdc.
+     *
+     * §dlasd3 finds all the square roots of the roots of the secular equation, as defined by the
+     * values in §d and §z. It makes the appropriate calls to §dlasd4 and then updates the singular
+     * vectors by matrix multiplication.\n
      * This code makes very mild assumptions about floating point arithmetic. It will work on
      * machines with a guard digit in add/subtract, or on those binary machines without guard
      * digits which subtract like the Cray XMP, Cray YMP, Cray C 90, or Cray 2. It could
      * conceivably fail on hexadecimal or decimal machines without guard digits, but we know of
-     * none.
-     * dlasd3 is called from dlasd1.
-     * Parameters: nl: The row dimension of the upper block. nl>=1.
-     *             nr: The row dimension of the lower block. nr>=1.
-     *             sqre: ==0: the lower block is an nr-by-nr square matrix.
-     *                   ==1: the lower block is an nr-by-(nr+1) rectangular matrix.
-     *                   The bidiagonal matrix has n = nl+nr+1 rows and m = n+sqre >= n columns.
-     *             k: The size of the secular equation, 1 =< k = < n.
-     *             d: an array, dimension(k)
-     *                On exit the square roots of the roots of the secular equation, in ascending
-     *                order.
-     *             Q: an array, dimension (ldq,k)
-     *             ldq: The leading dimension of the array Q.  ldq >= k.
-     *             dsigma: an array, dimension(k)
-     *                     The first k elements of this array contain the old roots of the deflated
-     *                     updating problem. These are the poles of the secular equation.
-     *             U: an array, dimension (ldu, n)
-     *                The last n - k columns of this matrix contain the deflated left singular
-     *                vectors.
-     *             ldu: The leading dimension of the array U. ldu >= n.
-     *             U2: an array, dimension (ldu2, n)
-     *                 The first k columns of this matrix contain the non-deflated left singular
-     *                 vectors for the split problem.
-     *             ldu2: The leading dimension of the array U2. ldu2 >= n.
-     *             Vt: an array, dimension (ldvt, m)
-     *                 The last m - k columns of Vt^T contain the deflated right singular vectors.
-     *             ldvt: The leading dimension of the array Vt. ldvt >= n.
-     *             Vt2: an array, dimension (ldvt2, n)
-     *                  The first k columns of Vt2^T contain the non-deflated right singular
-     *                  vectors for the split problem.
-     *             ldvt2: The leading dimension of the array Vt2. ldvt2 >= n.
-     *             idxc: an integer array, dimension (n)
-     *                   The permutation used to arrange the columns of U (and rows of Vt) into
-     *                   three groups: the first group contains non-negative entries only at and
-     *                   above (or before) nl; the second contains non-negative entries only at and
-     *                   below (or after) nl+1; and the third is dense. The first column of U and
-     *                   the row of Vt are treated separately, however.
-     *                   The rows of the singular vectors found by dlasd4 must be likewise permuted
-     *                   before the matrix multiplies can take place.
-     *                   NOTE: zero-based indices!
-     *             ctot: an integer array, dimension (4)
-     *                   A count of the total number of the various types of columns in U (or rows
-     *                   in Vt), as described in idxc. The fourth column type is any column which
-     *                   has been deflated.
-     *             z: an array, dimension (k)
-     *                The first k elements of this array contain the components of the
-     *                deflation-adjusted updating row vector.
-     *             info: ==0:  successful exit.
-     *                   < 0:  if info = -i, the i-th argument had an illegal value.
-     *                   > 0:  if info = 1, a singular value did not converge
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date: June 2017
-     * Contributors:
+     * none.\n
+     * §dlasd3 is called from §dlasd1.
+     * \param[in] nl   The row dimension of the upper block. $\{nl}\ge 1$.
+     * \param[in] nr   The row dimension of the lower block. $\{nr}\ge 1$.
+     * \param[in] sqre
+     *     = 0: the lower block is an §nr by §nr square matrix.\n
+     *     = 1: the lower block is an §nr by (§nr+1) rectangular matrix.\n
+     *     The bidiagonal matrix has $n = \{nl}+\{nr}+1$ rows and $m = n+\{sqre} \ge n$ columns.
+     *
+     * \param[in]  k The size of the secular equation, $1 \le \{k} \le n$.
+     * \param[out] d
+     *     an array, dimension (§k)\n
+     *     On exit the square roots of the roots of the secular equation, in ascending order.
+     *
+     * \param[out]    Q      an array, dimension (§ldq,§k)
+     * \param[in]     ldq    The leading dimension of the array §Q. $\{ldq}\ge\{k}$.
+     * \param[in,out] dsigma
+     *     an array, dimension (§k)\n
+     *     The first §k elements of this array contain the old roots of the deflated updating
+     *     problem. These are the poles of the secular equation.
+     *
+     * \param[out] U
+     *     an array, dimension (§ldu,$n$)\n
+     *     The last $n-\{k}$ columns of this matrix contain the deflated left singular vectors.
+     *
+     * \param[in] ldu The leading dimension of the array §U. $\{ldu}\ge n$.
+     * \param[in] U2
+     *     an array, dimension (§ldu2,$n$)\n
+     *     The first §k columns of this matrix contain the non-deflated left singular vectors for
+     *     the split problem.
+     *
+     * \param[in]  ldu2 The leading dimension of the array §U2. $\{ldu2}\ge n$.
+     * \param[out] Vt
+     *     an array, dimension (§ldvt,$m$)\n
+     *     The last $m-\{k}$ columns of $\{Vt}^T$ contain the deflated right singular vectors.
+     *
+     * \param[in]     ldvt The leading dimension of the array §Vt. $\{ldvt}\ge n$.
+     * \param[in,out] Vt2
+     *     an array, dimension (§ldvt2,$n$)\n
+     *     The first §k columns of $\{Vt2}^T$ contain the non-deflated right singular vectors for
+     *     the split problem.
+     *
+     * \param[in] ldvt2 The leading dimension of the array §Vt2. $\{ldvt2}\ge n$.
+     * \param[in] idxc
+     *     an integer array, dimension ($n$)\n
+     *     The permutation used to arrange the columns of §U (and rows of §Vt) into three groups:
+     *     the first group contains non-negative entries only at and above (or before) §nl; the
+     *     second contains non-negative entries only at and below (or after) §nl+1; and the third
+     *     is dense. The first column of §U and the row of §Vt are treated separately, however.\n
+     *     The rows of the singular vectors found by §dlasd4 must be likewise permuted before the
+     *     matrix multiplies can take place.\n
+     *     NOTE: zero-based indices!
+     *
+     * \param[in] ctot
+     *     an integer array, dimension (4)\n
+     *     A count of the total number of the various types of columns in §U (or rows in §Vt), as
+     *     described in §idxc. The fourth column type is any column which has been deflated.
+     *
+     * \param[in,out] z
+     *     an array, dimension (§k)\n
+     *     The first §k elements of this array contain the components of the deflation-adjusted
+     *     updating row vector.
+     *
+     * \param[out] info
+     *     = 0: successful exit.\n
+     *     < 0: if §info = $-i$, the $i$-th argument had an illegal value.\n
+     *     > 0: if §info = 1, a singular value did not converge
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date June 2017
+     * \remark
+     *     Contributors:\n
      *     Ming Gu and Huan Ren, Computer Science Division,
      *     University of California at Berkeley, USA                                             */
     static void dlasd3(int nl, int nr, int sqre, int k, real* d, real* Q, int ldq, real* dsigma,
@@ -5220,53 +5621,72 @@ public:
                          ldvt2, ZERO, &Vt[ldvt*nlp1], ldvt);
     }
 
-    /* dlasd4: This subroutine computes the square root of the i-th updated eigenvalue of a
+    /*! §dlasd4 computes the square root of the §i -th updated eigenvalue of a positive symmetric
+     *  rank-one modification to a positive diagonal matrix. Used by §dbdsdc.
+     *
+     * §dlasd4: This subroutine computes the square root of the §i -th updated eigenvalue of a
      * positive symmetric rank-one modification to a positive diagonal matrix whose entries are
-     * given as the squares of the corresponding entries in the array d, and that
-     *     0 <= d[i] < d[j]  for  i < j
-     * and that rho > 0. This is arranged by the calling routine, and is no loss in generality.
-     * The rank-one modified system is thus
-     *     diag( d ) * diag( d ) +  rho * z * z_transpose.
-     * where we assume the Euclidean norm of z is 1.
+     * given as the squares of the corresponding entries in the array §d, and that\n
+     *     $0 \le \{d}[i] < \{d}[j]$ for $i < j$\n
+     * and that $\{rho} > 0$. This is arranged by the calling routine, and is no loss in
+     * generality. The rank-one modified system is thus\n
+     *     $\operatorname{diag}(\{d})*\operatorname{diag}(\{d}) + \{rho}\ \{z}\ \{z}^T$.\n
+     * where we assume the Euclidean norm of $z$ is 1.\n
      * The method consists of approximating the rational functions in the secular equation by
      * simpler interpolating rational functions.
-     * Parameters: n: The length of all arrays.
-     *             i: The index of the eigenvalue to be computed. 0<=i<n.
-     *                NOTE: zero-based index!
-     *             d: an array, dimension (n)
-     *                The original eigenvalues. It is assumed that they are in order,
-     *                0 <= d[i] < d[j] for i < j.
-     *             z: an array, dimension (n)
-     *                The components of the updating vector.
-     *             delta: an array, dimension (n)
-     *                    If n!=1, delta contains (d[j] - sigma_I) in its j-th component.
-     *                    If n==1, then delta[0] = 1. The vector delta contains the information
-     *                             necessary to construct the (singular) eigenvectors.
-     *             rho: The scalar in the symmetric updating formula.
-     *             sigma: The computed sigma_i, the i-th updated eigenvalue.
-     *             work: an array, dimension (n)
-     *                   If n!=1, work contains (d[j] + sigma_I) in its j-th component.
-     *                   If n==1, then work[0] = 1.
-     *             info: ==0: successful exit
-     *                   > 0: if info==1, the updating process failed.
-     * Internal Parameters:
-     *     Logical variable orgati (origin-at-i?) is used for distinguishing whether d[i] or d[i+1]
-     *       is treated as the origin.
-     *         orgati==true    origin at i
-     *         orgati==false   origin at i+1
-     *     Logical variable swtch3 (switch-for-3-poles?) is for noting if we are working with THREE
-     *       poles!
-     *     MAXIT is the maximum number of iterations allowed for each eigenvalue.
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date: December 2016
-     * Contributors:
+     * \param[in] n The length of all arrays.
+     * \param[in] i
+     *     The index of the eigenvalue to be computed. $0\le\{i}<\{n}$.\n
+     *     NOTE: zero-based index!
+     *
+     * \param[in] d
+     *     an array, dimension (§n)\n
+     *     The original eigenvalues. It is assumed that they are in order,
+     *     $0 \le \{d}[i] < \{d}[j]$ for $i < j$.
+     *
+     * \param[in] z
+     *     an array, dimension (§n)\n
+     *     The components of the updating vector.
+     *
+     * \param[out] delta
+     *     an array, dimension (§n)\n
+     *     If $\{n}\ne 1$, §delta contains ($\{d}[j]-\sigma_i$) in its $j$-th component.\n
+     *     If $\{n} = 1$, then §delta[0] = 1. The vector §delta contains the information necessary
+     *     to construct the (singular) eigenvectors.
+     *
+     * \param[in]  rho   The scalar in the symmetric updating formula.
+     * \param[out] sigma The computed $\sigma_i$, the $i$-th updated eigenvalue.
+     * \param[out] work
+     *     an array, dimension (§n)\n
+     *     If $\{n}\ne 1$, §work contains ($\{d}[j]+\sigma_i$) in its $j$-th component.\n
+     *     If $\{n} = 1$, then §work[0] = 1.
+     * \param[out] info
+     *     = 0: successful exit\n
+     *     > 0: if §info = 1, the updating process failed.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016
+     * \remark
+     *     Contributors:\n
      *     Ren-Cang Li, Computer Science Division, University of California at Berkeley, USA     */
     static void dlasd4(int n, int i, real const* d, real const* z, real* delta, real rho,
                        real& sigma, real* work, int& info)
     {
+        /* orgati
+         *
+         * Logical variable §orgati (origin-at-i?) is used for distinguishing whether §d[i] or
+         * §d[i+1] is treated as the origin.\n
+         *     orgati==true    origin at i\n
+         *     orgati==false   origin at i+1                                                     */
+        bool orgati;
+        /* swtch3
+         *
+         * Logical variable §swtch3 (switch-for-3-poles?) is for noting if we are working with
+         * THREE poles!*/
+        bool swtch3;
+        // MAXIT is the maximum number of iterations allowed for each eigenvalue.
         const int MAXIT = 400;
         // Since this routine is called in an inner loop, we do no argument checking.
         // Quick return for n==1 and 2.
@@ -5549,7 +5969,6 @@ public:
             }
             c = rhoinv + psi + phi;
             w = c + z[i]*z[i]/(work[i]*delta[i]) + z[ip1]*z[ip1]/(work[ip1]*delta[ip1]);
-            bool orgati;
             real sglb, sgub;
             bool geomavg = false;
             if (w>ZERO)
@@ -5634,7 +6053,7 @@ public:
             }
             w = rhoinv + phi + psi;
             // w is the value of the secular function with its ii-th element removed.
-            bool swtch3 = false;
+            swtch3 = false;
             if (orgati)
             {
                 if (w<ZERO)
@@ -6166,31 +6585,44 @@ public:
         }
     }
 
-    /* dlasd5: This subroutine computes the square root of the i-th eigenvalue of a positive
-     * symmetric rank-one modification of a 2-by-2 diagonal matrix
-     *     diag( D ) * diag( D ) +  rho * z * transpose(z).
-     * The diagonal entries in the array d are assumed to satisfy
-     *     0 <= d[i] < d[j]  for  i < j .
-     * We also assume rho > 0 and that the Euclidean norm of the vector z is one.
-     * Parameters: i: The index of the eigenvalue to be computed. i==0 or i==1.
-     *                NOTE: zero-based index!
-     *             d: an array, dimension (2)
-     *                The original eigenvalues. We assume 0 <= d[0] < d[1].
-     *             z: an array, dimension (2)
-     *                The components of the updating vector.
-     *             delta: an array, dimension (2)
-     *                    Contains (d[j] - sigma_I) in its  j-th component. The vector delta
-     *                    contains the information necessary to construct the eigenvectors.
-     *             rho: The scalar in the symmetric updating formula.
-     *             dsigma: The computed sigma_I, the i-th updated eigenvalue.
-     *             work: an array, dimension (2)
-     *                   work contains (d[j] + sigma_I) in its  j-th component.
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date December 2016
-     * Contributors:
+    /*! §dlasd5 computes the square root of the §i -th eigenvalue of a positive symmetric rank-one
+     *  modification of a 2-by-2 diagonal matrix. Used by §sbdsdc.
+     *
+     * §dlasd5: This subroutine computes the square root of the §i -th eigenvalue of a positive
+     * symmetric rank-one modification of a 2-by-2 diagonal matrix\n
+     *     $\operatorname{diag}(\{d}) \operatorname{diag}(\{d}) + \{rho}\ \{z}\ \{z}^T$.\n
+     * The diagonal entries in the array §d are assumed to satisfy\n
+     *     $0 \le \{d}[i] < \{d}[j]$ for $i < j$.\n
+     * We also assume $\{rho} > 0$ and that the Euclidean norm of the vector §z is one.
+     * \param[in] i
+     *     The index of the eigenvalue to be computed. $\{i}=0$ or $\{i}=1$.\n
+     *     NOTE: zero-based index!
+     *
+     * \param[in] d
+     *     an array, dimension (2)\n
+     *     The original eigenvalues. We assume $0 \le \{d}[0] < \{d}[1]$.
+     *
+     * \param[in] z
+     *     an array, dimension (2)\n
+     *     The components of the updating vector.
+     *
+     * \param[out] delta
+     *     an array, dimension (2)\n
+     *     Contains ($\{d}[j]-\sigma_\{i}$) in its $j$-th component. The vector §delta contains the
+     *     information necessary to construct the eigenvectors.
+     *
+     * \param[in]  rho    The scalar in the symmetric updating formula.
+     * \param[out] dsigma The computed $\sigma_\{i}$, the §i -th updated eigenvalue.
+     * \param[out] work
+     *     an array, dimension (2)\n
+     *     §work contains ($\{d}[j]+\sigma_\{i}$) in its $j$-th component.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016
+     * \remark
+     *     Contributors:\n
      *     Ren-Cang Li, Computer Science Division, University of California at Berkeley, USA     */
     static void dlasd5(int i, real const* d, real const* z, real* delta, real rho, real& dsigma,
                        real* work)
@@ -6275,114 +6707,157 @@ public:
         }
     }
 
-    /* dlasd6 computes the SVD of an updated upper bidiagonal matrix B obtained by merging two
+    /*! §dlasd6 computes the SVD of an updated upper bidiagonal matrix obtained by merging two
+     *  smaller ones by appending a row. Used by §sbdsdc.
+     *
+     * §dlasd6 computes the SVD of an updated upper bidiagonal matrix $B$ obtained by merging two
      * smaller ones by appending a row. This routine is used only for the problem which requires
-     * all singular values and optionally singular vector matrices in factored form. B is an n-by-m
-     * matrix with n = nl+nr+1 and m = n+sqre. A related subroutine, dlasd1, handles the case in
-     * which all singular values and singular vectors of the bidiagonal matrix are desired.
-     * dlasd6 computes the SVD as follows:
-     *                 ( D1(in)   0    0      0 )
-     *     B = U(in) * (   z1^T   a   z2^T    b ) * VT(in)
-     *                 (   0      0   D2(in)  0 )
-     *       = U(out) * ( d(out) 0) * VT(out)
-     * where z^T = (z1^T a z2^T b) = u^T VT^T, and u is a vector of dimension m with alpha and beta
-     * in the nl+1 and nl+2 th entries and zeros elsewhere; and the entry b is empty if sqre==0.
-     * The singular values of B can be computed using D1, D2, the first components of all the right
-     * singular vectors of the lower block, andthe last components of all the right singular
-     * vectors of the upper block. These components are stored and updated in vf and vl,
-     * respectively, in dlasd6. Hence U and VT are not explicitly referenced.
-     * The singular values are stored in d. The algorithm consists of two stages:
-     *   The first stage consists of deflating the size of the problem when there are multiple
-     *     singular values or if there is a zero in the z vector. For each such occurrence the
+     * all singular values and optionally singular vector matrices in factored form. $B$ is an
+     * $n$ by $m$ matrix with $n=\{nl}+\{nr}+1$ and $m=n+\{sqre}$. A related subroutine, §dlasd1,
+     * handles the case in which all singular values and singular vectors of the bidiagonal matrix
+     * are desired.\n
+     * §dlasd6 computes the SVD as follows:\n
+     *
+     *     \f{align}{
+     *         B &= U^\{in} \b{bm} \{d}_1^\{in} & 0 &      0       & 0 \\
+     *                               \{z}_1^T   & a &   \{z}_2^T   & b \\
+     *                                  0       & 0 & \{d}_2^\{in} & 0 \e{bm} V_T^\{in}\\
+     *
+     *           &= U^\{out} \b{bm} \{d}^\{out} & 0 \e{bm} V_T^\{out}
+     *     \f}\n
+     *
+     * where $\{z}^T = \b{bm} \{z}_1^T & a & \{z}_2^T & b \e{bm} = u^T V_T^T$, and $u$ is a vector
+     * of dimension §m with §alpha and §beta at indices §nl and §nl+1 and zeros elsewhere; and the
+     * entry $b$ is empty if §sqre = 0.\n
+     * The singular values of $B$ can be computed using $\{d}_1$, $\{d}_2$, the first components of
+     * all the right singular vectors of the lower block, and the last components of all the right
+     * singular vectors of the upper block. These components are stored and updated in §vf and §vl,
+     * respectively, in §dlasd6. Hence $U$ and $V_T$ are not explicitly referenced.\n
+     * The singular values are stored in §d. The algorithm consists of two stages:
+     * \li The first stage consists of deflating the size of the problem when there are multiple
+     *     singular values or if there is a zero in the §z vector. For each such occurrence the
      *     dimension of the secular equation problem is reduced by one. This stage is performed by
-     *     the routine dlasd7.
-     *   The second stage consists of calculating the updated
-     *     singular values. This is done by finding the roots of the secular equation via the
-     *     routine dlasd4 (as called by dlasd8). This routine also updates vf and vl and computes
-     *     the distances between the updated singular values and the old singular values.
-     * dlasd6 is called from dlasda.
-     * Parameters: icompq: Specifies whether singular vectors are to be computed in factored form:
-     *                     ==0: Compute singular values only.
-     *                     ==1: Compute singular vectors in factored form as well.
-     *             nl: The row dimension of the upper block. nl>=1.
-     *             nr: The row dimension of the lower block. nr>=1.
-     *             sqre: ==0: the lower block is an nr-by-nr square matrix.
-     *                   ==1: the lower block is an nr-by-(nr+1) rectangular matrix.
-     *                   The bidiagonal matrix has row dimension n = nl+nr+1, and column dimension
-     *                   m = n+sqre.
-     *             d: an array, dimension (nl+nr+1).
-     *                On entry d[0:nl-1,0:nl-1] contains the singular values of the upper block,
-     *                and d[nl+1:n-1] contains the singular values of the lower block.
-     *                On exit d[0:n-1] contains the singular values of the modified matrix.
-     *             vf: an array, dimension (m)
-     *                 On entry, vf[0:nl] contains the first components of all right singular
-     *                 vectors of the upper block; and vf[nl+1:m-1] contains the first components of
-     *                 all right singular vectors of the lower block.
-     *                 On exit, vf contains the first components of all right singular vectors of
-     *                 the bidiagonal matrix.
-     *             vl: an array, dimension (m)
-     *                 On entry, vl[0:nl] contains the  last components of all right singular
-     *                 vectors of the upper block; and vl[nl+1:m-1] contains the last components of
-     *                 all right singular vectors of the lower block.
-     *                 On exit, vl contains the last components of all right singular vectors of
-     *                 the bidiagonal matrix.
-     *             alpha: Contains the diagonal element associated with the added row.
-     *             beta: Contains the off-diagonal element associated with the added row.
-     *             idxq: an integer array, dimension (n)
-     *                   This contains the permutation which will reintegrate the subproblem just
-     *                   solved back into sorted order, i.e. d[idxq[0:n-1]] will be in
-     *                   ascending order.
-     *                   NOTE: zero-based indices!
-     *             perm: an integer array, dimension (n)
-     *                   The permutations (from deflation and sorting) to be applied to each block.
-     *                   Not referenced if icompq==0.
-     *                   NOTE: zero-based indices!
-     *             givptr: The number of Givens rotations which took place in this subproblem.
-     *                     Not referenced if icompq==0.
-     *             Givcol: an integer array, dimension (ldgcol, 2)
-     *                     Each pair of numbers indicates a pair of columns to take place in a
-     *                     Givens rotation. Not referenced if icompq==0.
-     *                     NOTE: zero-based indices!
-     *             ldgcol: leading dimension of Givcol, must be at least n.
-     *             Givnum: an array, dimension (ldgnum, 2)
-     *                     Each number indicates the c or s value to be used in the corresponding
-     *                     Givens rotation. Not referenced if icompq==0.
-     *             ldgnum: The leading dimension of Givnum and Poles, must be at least n.
-     *             Poles: an array, dimension (ldgnum, 2)
-     *                    On exit, Poles[:,0] is an array containing the new singular values
-     *                    obtained from solving the secular equation, and Poles[:,1] is an array
-     *                    containing the poles in the secular equation.
-     *                    Not referenced if icompq==0.
-     *             difl: an array, dimension (n)
-     *                   On exit, difl[i] is the distance between i-th updated (undeflated)
-     *                   singular value and the i-th (undeflated) old singular value.
-     *             Difr: an array, dimension (LDDIFR, 2) if icompq==1 and
-     *                             dimension (k)         if icompq==0.
-     *                   On exit, Difr[i,0] = d[i] - DSIGMA(I+1), Difr[k-1,0] is not defined and
-     *                   will not be referenced.
-     *                   If icompq==1, Difr[0:k-1,1] is an array containing the normalizing factors
-     *                   for the right singular vector matrix.
-     *                   See dlasd8 for details on difl and Difr.
-     *             z: an array, dimension (m)
-     *                The first elements of this array contain the components of the
-     *                deflation-adjusted updating row vector.
-     *             k: Contains the dimension of the non-deflated matrix,
-     *                This is the order of the related secular equation. 1 <= k <= n.
-     *             c: c contains garbage if sqre==0 and the c-value of a Givens rotation related to
-     *                the right null space if sqre==1.
-     *             s: s contains garbage if sqre==0 and the s-value of a Givens rotation related to
-     *                the right null space if sqre==1.
-     *             work: an array, dimension (4*m)
-     *             iwork: an integer array, dimension (3*n)
-     *             info: ==0: Successful exit.
-     *                   < 0: if info==-i, the i-th argument had an illegal value.
-     *                   > 0: if info==1, a singular value did not converge
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date: June 2016
-     * Contributors:
+     *     the routine §dlasd7.
+     * \li The second stage consists of calculating the updated singular values. This is done by
+     *     finding the roots of the secular equation via the routine §dlasd4 (as called by
+     *     §dlasd8). This routine also updates §vf and §vl and computes the distances between the
+     *     updated singular values and the old singular values.
+     *
+     * §dlasd6 is called from §dlasda.
+     * \param[in] icompq
+     *     Specifies whether singular vectors are to be computed in factored form:\n
+     *     = 0: Compute singular values only.\n
+     *     = 1: Compute singular vectors in factored form as well.
+     * \param[in] nl   The row dimension of the upper block. $\{nl}\ge 1$.
+     * \param[in] nr   The row dimension of the lower block. $\{nr}\ge 1$.
+     * \param[in] sqre
+     *     = 0: the lower block is an §nr by §nr square matrix.\n
+     *     = 1: the lower block is an §nr by (§nr+1) rectangular matrix.\n
+     *     The bidiagonal matrix has row dimension $n=\{nl}+\{nr}+1$, and column dimension
+     *     $m=n+\{sqre}$.
+     *
+     * \param[in,out] d
+     *     an array, dimension ($\{nl}+\{nr}+1$).\n
+     *     On entry $\{d}[0:\{nl}-1]$ contains the singular values of the upper block, and
+     *     $\{d}[\{nl}+1:n-1]$ contains the singular values of the lower block.\n
+     *     On exit $\{d}[0:n-1]$ contains the singular values of the modified matrix.
+     *
+     * \param[in,out] vf
+     *     an array, dimension ($m$)\n
+     *     On entry, $\{vf}[0:\{nl}]$ contains the first components of all right singular vectors
+     *     of the upper block; and $\{vf}[\{nl}+1:m-1]$ contains the first components of all right
+     *     singular vectors of the lower block.\n
+     *     On exit, §vf contains the first components of all right singular vectors of the
+     *     bidiagonal matrix.
+     *
+     * \param[in,out] vl
+     *     an array, dimension ($m$)\n
+     *     On entry, $\{vl}[0:\{nl}]$ contains the last components of all right singular vectors of
+     *     the upper block; and $\{vl}[\{nl}+1:m-1]$ contains the last components of all right
+     *     singular vectors of the lower block.\n
+     *     On exit, §vl contains the last components of all right singular vectors of the
+     *     bidiagonal matrix.
+     *
+     * \param[in,out] alpha Contains the diagonal element associated with the added row.
+     * \param[in,out] beta  Contains the off-diagonal element associated with the added row.
+     * \param[in,out] idxq
+     *     an integer array, dimension ($n$)\n
+     *     This contains the permutation which will reintegrate the subproblem just solved back
+     *     into sorted order, i.e. $\{d}[\{idxq}[0:n-1]]$ will be in ascending order.\n
+     *     NOTE: zero-based indices!
+     *
+     * \param[out] perm
+     *     an integer array, dimension ($n$)\n
+     *     The permutations (from deflation and sorting) to be applied to each block.\n
+     *     Not referenced if §icompq = 0.\n
+     *     NOTE: zero-based indices!
+     *
+     * \param[out] givptr
+     *     The number of Givens rotations which took place in this subproblem.\n
+     *     Not referenced if §icompq = 0.
+     *
+     * \param[out] Givcol
+     *     an integer array, dimension (§ldgcol, 2)\n
+     *     Each pair of numbers indicates a pair of columns to take place in a Givens rotation.\n
+     *     Not referenced if §icompq = 0.\n
+     *     NOTE: zero-based indices!
+     *
+     * \param[in]  ldgcol leading dimension of §Givcol, must be at least $n$.
+     * \param[out] Givnum
+     *     an array, dimension (§ldgnum, 2)\n
+     *     Each number indicates the $c$ or $s$ value to be used in the corresponding Givens
+     *     rotation.\n Not referenced if §icompq = 0.
+     *
+     * \param[in]  ldgnum The leading dimension of §Givnum and §Poles, must be at least $n$.
+     * \param[out] Poles
+     *     an array, dimension (§ldgnum, 2)\n
+     *     On exit, $\{Poles}[:,0]$ is an array containing the new singular values obtained from
+     *     solving the secular equation, and $\{Poles}[:,1]$ is an array containing the poles in
+     *     the secular equation.\n  Not referenced if §icompq = 0.
+     *
+     * \param[out] difl
+     *     an array, dimension ($n$)\n
+     *     On exit, $\{difl}[i]$ is the distance between $i$-th updated (undeflated) singular value
+     *     and the $i$-th (undeflated) old singular value.
+     *
+     * \param[out] Difr
+     *     an array,\n dimension (§ldgnum, 2) if §icompq = 1 and\n
+     *                 dimension (§k)         if §icompq = 0.\n
+     *     On exit, $\{Difr}[i,0] = \{d}[i]-\{dsigma}[i+1]$, $\{Difr}[\{k}-1,0]$ is not defined and
+     *     will not be referenced.\n
+     *     If §icompq = 1, $\{Difr}[0:\{k}-1,1]$ is an array containing the normalizing factors for
+     *     the right singular vector matrix.\n See §dlasd8 for details on §difl and §Difr.
+     *
+     * \param[out] z
+     *     an array, dimension ($m$)\n
+     *     The first elements of this array contain the components of the deflation-adjusted
+     *     updating row vector.
+     *
+     * \param[out] k
+     *     Contains the dimension of the non-deflated matrix,
+     *     This is the order of the related secular equation. $1 \le \{k} \le n$.
+     *
+     * \param[out] c
+     *     §c contains garbage if §sqre = 0 and the $c$-value of a Givens rotation related to the
+     *     right null space if §sqre = 1.
+     *
+     * \param[out] s
+     *     §s contains garbage if §sqre = 0 and the $s$-value of a Givens rotation related to the
+     *     right null space if §sqre = 1.
+     *
+     * \param[out] work an array, dimension ($4m$)
+     * \param[out] iwork: an integer array, dimension ($3n$)
+     * \param[out] info
+     *     = 0: Successful exit.\n
+     *     < 0: if §info = $-i$, the $i$-th argument had an illegal value.\n
+     *     > 0: if §info = 1, a singular value did not converge
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date June 2016
+     * \remark
+     *     Contributors:\n
      *     Ming Gu and Huan Ren, Computer Science Division,
      *     University of California at Berkeley, USA                                             */
     static void dlasd6(int icompq, int nl, int nr, int sqre, real* d, real* vf, real* vl,
@@ -6468,94 +6943,128 @@ public:
         dlamrg(k, n-k, d, 1, -1, idxq);
     }
 
-    /* dlasd7 merges the two sets of singular values together into a single sorted set. Then it
+    /*! §dlasd7 merges the two sets of singular values together into a single sorted set.
+     *  Then it tries to deflate the size of the problem. Used by §sbdsdc.
+     *
+     * §dlasd7 merges the two sets of singular values together into a single sorted set. Then it
      * tries to deflate the size of the problem. There are two ways in which deflation can occur:
-     * when two or more singular values are close together or if there is a tiny entry in the z
+     * when two or more singular values are close together or if there is a tiny entry in the §z
      * vector. For each such occurrence the order of the related secular equation problem is
-     * reduced by one.
-     * dlasd7 is called from dlasd6.
-     * Parameters: icompq: Specifies whether singular vectors are to be computed in compact form,
-     *                     as follows:
-     *                     0: Compute singular values only.
-     *                     1: Compute singular vectors of upper bidiagonal matrix in compact form.
-     *             nl: The row dimension of the upper block. nl>=1.
-     *             nr: The row dimension of the lower block. nr>=1.
-     *             sqre: ==0: the lower block is an nr-by-nr square matrix.
-     *                   ==1: the lower block is an nr-by-(nr+1) rectangular matrix.
-     *                   The bidiagonal matrix has n = nl+nr+1 rows and m = n+sqre >= n columns.
-     *             k: Contains the dimension of the non-deflated matrix, this is the order of the
-     *                related secular equation. 1 <= k <=n.
-     *             d: an array, dimension (n)
-     *                On entry d contains the singular values of the two submatrices to be
-     *                combined. On exit d contains the trailing (n-k) updated singular values
-     *                (those which were deflated) sorted into increasing order.
-     *             z: an array, dimension (m)
-     *                On exit z contains the updating row vector in the secular equation.
-     *             zw: an array, dimension (m)
-     *                 Workspace for z.
-     *             vf: an array, dimension (m)
-     *                 On entry, vf[0:nl] contains the first components of all right singular
-     *                 vectors of the upper block; and vf[nl+1:m-1] contains the first components
-     *                 of all right singular vectors of the lower block.
-     *                 On exit, vf contains the first components of all right singular vectors of
-     *                 the bidiagonal matrix.
-     *             vfw: an array, dimension (m)
-     *                  Workspace for vf.
-     *             vl: an array, dimension (m)
-     *                 On entry, vl[0:nl] contains the last components of all right singular
-     *                 vectors of the upper block; and vl[nl+1:m-1] contains the last components of
-     *                 all right singular vectors of the lower block.
-     *                 On exit, vl contains the last components of all right singular vectors of
-     *                 the bidiagonal matrix.
-     *             vlw: an array, dimension (m)
-     *                  Workspace for vl.
-     *             alpha: Contains the diagonal element associated with the added row.
-     *             beta: Contains the off-diagonal element associated with the added row.
-     *             dsigma: an array, dimension (n)
-     *                     Contains a copy of the diagonal elements (k-1 singular values and one
-     *                     zero) in the secular equation.
-     *             idx: an integer array, dimension (n)
-     *                  This will contain the permutation used to sort the contents of d into
-     *                  ascending order.
-     *                  NOTE: zero-based indices!
-     *             idxp: an integer array, dimension (n)
-     *                   This will contain the permutation used to place deflated values of d at
-     *                   the end of the array. On output idxp[1:k-1] points to the nondeflated
-     *                   d-values and idxp[k:n-1] points to the deflated singular values.
-     *                   NOTE: zero-based indices!
-     *             idxq: an array, dimension (n)
-     *                   This contains the permutation which separately sorts the two sub-problems
-     *                   in d into ascending order. Note that entries in the first half of this
-     *                   permutation must first be moved one position backward; and entries in the
-     *                   second half must first have nl+1 added to their values.
-     *                   NOTE: zero-based indices!
-     *             perm: an integer array, dimension (n)
-     *                   The permutations (from deflation and sorting) to be applied to each
-     *                   singular block. Not referenced if icompq==0.
-     *                   NOTE: zero-based indices!
-     *             givptr: The number of Givens rotations which took place in this subproblem.
-     *                     Not referenced if icompq==0.
-     *             Givcol: an integer array, dimension (ldgcol, 2)
-     *                     Each pair of numbers indicates a pair of columns to take place in a
-     *                     Givens rotation. Not referenced if icompq==0.
-     *                     NOTE: zero-based indices!
-     *             ldgcol: The leading dimension of Givcol, must be at least n.
-     *             Givnum: an array, dimension (ldgnum, 2)
-     *                     Each number indicates the c or s value to be used in the corresponding
-     *                     Givens rotation. Not referenced if icompq==0.
-     *             ldgnum: The leading dimension of Givnum, must be at least n.
-     *             c: contains garbage if sqre==0 and the c-value of a Givens rotation related to
-     *                the right null space if sqre==1.
-     *             s: contains garbage if sqre==0 and the s-value of a Givens rotation related to
-     *                the right null space if sqre==1.
-     *             info: ==0: successful exit.
-     *                   < 0: if info==-i, the i-th argument had an illegal value.
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date: December 2016
-     * Contributors:
+     * reduced by one.\n
+     * §dlasd7 is called from §dlasd6.
+     * \param[in] icompq
+     *     Specifies whether singular vectors are to be computed in compact form, as follows:\n
+     *     0: Compute singular values only.\n
+     *     1: Compute singular vectors of upper bidiagonal matrix in compact form.
+     * \param[in] nl   The row dimension of the upper block. $\{nl}\ge 1$.
+     * \param[in] nr   The row dimension of the lower block. $\{nr}\ge 1$.
+     * \param[in] sqre
+     *     = 0: the lower block is an §nr by §nr square matrix.\n
+     *     = 1: the lower block is an §nr by (§nr+1) rectangular matrix.\n
+     *     The bidiagonal matrix has $n=\{nl}+\{nr}+1$ rows and $m=n+\{sqre}\ge n$ columns.
+     *
+     * \param[out] k
+     *     Contains the dimension of the non-deflated matrix, this is the order of the related
+     *     secular equation. $1 \le \{k} \le n$.
+     *
+     * \param[in,out] d
+     *     an array, dimension ($n$)\n
+     *     On entry §d contains the singular values of the two submatrices to be combined. On exit
+     *     §d contains the trailing ($n-\{k}$) updated singular values (those which were deflated)
+     *     sorted into increasing order.
+     *
+     * \param[out] z
+     *     an array, dimension ($m$)\n
+     *     On exit §z contains the updating row vector in the secular equation.
+     *
+     * \param[out]    zw an array, dimension ($m$)\n Workspace for §z.
+     * \param[in,out] vf
+     *     an array, dimension ($m$)\n
+     *     On entry, $\{vf}[0:\{nl}]$ contains the first components of all right singular vectors
+     *     of the upper block; and $\{vf}[\{nl}+1:m-1]$ contains the first components of all right
+     *     singular vectors of the lower block.\n
+     *     On exit, §vf contains the first components of all right singular vectors of the
+     *     bidiagonal matrix.
+     *
+     * \param[out]    vfw an array, dimension ($m$)\n Workspace for §vf.
+     * \param[in,out] vl
+     *     an array, dimension ($m$)\n
+     *     On entry, $\{vl}[0:\{nl}]$ contains the last components of all right singular vectors of
+     *     the upper block; and $\{vl}[\{nl}+1:m-1]$ contains the last components of all right
+     *     singular vectors of the lower block.\n
+     *     On exit, §vl contains the last components of all right singular vectors of the
+     *     bidiagonal matrix.
+     *
+     * \param[out] vlw    an array, dimension ($m$)\n Workspace for §vl.
+     * \param[in]  alpha  Contains the diagonal element associated with the added row.
+     * \param[in]  beta   Contains the off-diagonal element associated with the added row.
+     * \param[out] dsigma
+     *     an array, dimension ($n$)\n
+     *     Contains a copy of the diagonal elements ($\{k}-1$ singular values and one zero) in the
+     *     secular equation.
+     *
+     * \param[out] idx
+     *     an integer array, dimension ($n$)\n
+     *     This will contain the permutation used to sort the contents of §d into ascending
+     *     order.\n
+     *     NOTE: zero-based indices!
+     *
+     * \param[out] idxp
+     *     an integer array, dimension ($n$)\n
+     *     This will contain the permutation used to place deflated values of §d at the end of the
+     *     array. On output $\{idxp}[1:\{k}-1]$ points to the nondeflated §d values and
+     *     $\{idxp}[\{k}:n-1]$ points to the deflated singular values.\n
+     *     NOTE: zero-based indices!
+     *
+     * \param[in] idxq
+     *     an array, dimension ($n$)\n
+     *     This contains the permutation which separately sorts the two sub-problems in §d into
+     *     ascending order. Note that entries in the first half of this permutation must first be
+     *     moved one position backward; and entries in the second half must first have nl+1 added
+     *     to their values.\n
+     *     NOTE: zero-based indices!
+     *
+     * \param[out] perm
+     *     an integer array, dimension ($n$)\n
+     *     The permutations (from deflation and sorting) to be applied to each singular block.\n
+     *     Not referenced if §icompq = 0.\n
+     *     NOTE: zero-based indices!
+     *
+     * \param[out] givptr
+     *     The number of Givens rotations which took place in this subproblem.\n
+     *     Not referenced if §icompq = 0.
+     *
+     * \param[out] Givcol
+     *     an integer array, dimension (§ldgcol,2)\n
+     *     Each pair of numbers indicates a pair of columns to take place in a Givens rotation.\n
+     *     Not referenced if §icompq = 0.\n
+     *     NOTE: zero-based indices!
+     *
+     * \param[in]  ldgcol The leading dimension of §Givcol, must be at least $n$.
+     * \param[out] Givnum
+     *     an array, dimension (§ldgnum, 2)\n
+     *     Each number indicates the $c$ or $s$ value to be used in the corresponding Givens
+     *     rotation.\n Not referenced if §icompq = 0.
+     *
+     * \param[in] ldgnum The leading dimension of §Givnum, must be at least $n$.
+     * \param[out] c
+     *     contains garbage if §sqre = 0 and the $c$-value of a Givens rotation related to the
+     *     right null space if §sqre = 1.
+     *
+     * \param[out] s
+     *     contains garbage if §sqre = 0 and the $s$-value of a Givens rotation related to the
+     *     right null space if §sqre = 1.
+     *
+     * \param[out] info
+     *     = 0: successful exit.\n
+     *     < 0: if §info = $-i$, the $i$-th argument had an illegal value.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016
+     * \remark
+     *     Contributors:\n
      *     Ming Gu and Huan Ren, Computer Science Division,
      *     University of California at Berkeley, USA                                             */
     static void dlasd7(int icompq, int nl, int nr, int sqre, int& k, real* d, real* z, real* zw,
@@ -6824,55 +7333,77 @@ public:
         Blas<real>::dcopy(n-1, &vlw[1], 1, &vl[1], 1);
     }
 
-    /* dlasd8 finds the square roots of the roots of the secular equation, as defined by the values
-     * in dsigma and z. It makes the appropriate calls to dlasd4, and stores, for each  element in
-     * d, the distance to its two nearest poles (elements in dsigma). It also updates the arrays vf
-     * and vl, the first and last components of all the right singular vectors of the original
-     * bidiagonal matrix.
-     * dlasd8 is called from dlasd6.
-     * Parameters: icompq: Specifies whether singular vectors are to be computed in factored form
-     *                     in the calling routine:
-     *                     ==0: Compute singular values only.
-     *                     ==1: Compute singular vectors in factored form as well.
-     *             k: The number of terms in the rational function to be solved by dlasd4. k>=1.
-     *             d: an array, dimension (k)
-     *                On output, d contains the updated singular values.
-     *             z: an array, dimension (k)
-     *                On entry, the first k elements of this array contain the components of the
-     *                deflation-adjusted updating row vector.
-     *                On exit, z is updated.
-     *             vf: an array, dimension (k)
-     *                 On entry, vf contains information passed through dbede8.
-     *                 On exit, vf contains the first k components of the first components of all
-     *                 right singular vectors of the bidiagonal matrix.
-     *             vl: an array, dimension (k)
-     *                 On entry, vl contains information passed through dbede8.
-     *                 On exit, vl contains the first k components of the last components of all
-     *                 right singular vectors of the bidiagonal matrix.
-     *             difl: an array, dimension (k)
-     *                   On exit, difl[i] = d[i] - dsigma[i].
-     *             Difr: an array, dimension (lddifr, 2) if icompq==1 and
-     *                             dimension (k) if icompq==0.
-     *                   On exit, Difr[i,0] = d[i] - dsigma[i+1], Difr[k-1,0] is not defined and will
-     *                   not be referenced.
-     *                   If icompq==1, Difr[0:k-1,1] is an array containing the normalizing factors
-     *                   for the right singular vector matrix.
-     *             lddifr: The leading dimension of Difr, must be at least k.
-     *             dsigma: an array, dimension (k)
-     *                     On entry, the first k elements of this array contain the old roots of
-     *                     the deflated updating problem. These are the poles of the secular
-     *                     equation.
-     *                     On exit, the elements of dsigma may be very slightly altered in value.
-     *             work: an array, dimension (3*k)
-     *             info: ==0: successful exit.
-     *                   < 0: if info==-i, the i-th argument had an illegal value.
-     *                   > 0: if info==1, a singular value did not converge
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date: June 2017
-     * Contributors:
+    /*! §dlasd8 finds the square roots of the roots of the secular equation, and stores, for each
+     *  element in §d, the distance to its two nearest poles. Used by §sbdsdc.
+     *
+     * §dlasd8 finds the square roots of the roots of the secular equation, as defined by the
+     * values in §dsigma and §z. It makes the appropriate calls to dlasd4, and stores, for each
+     * element in §d, the distance to its two nearest poles (elements in §dsigma). It also updates
+     * the arrays §vf and §vl, the first and last components of all the right singular vectors of
+     * the original bidiagonal matrix.\n
+     * §dlasd8 is called from §dlasd6.
+     * \param[in] icompq
+     *     Specifies whether singular vectors are to be computed in factored form in the calling
+     *     routine:\n
+     *         = 0: Compute singular values only.\n
+     *         = 1: Compute singular vectors in factored form as well.
+     *
+     * \param[in] k
+     *     The number of terms in the rational function to be solved by §dlasd4. $\{k}\ge 1$.
+     *
+     * \param[out] d
+     *     an array, dimension (§k)\n
+     *     On output, §d contains the updated singular values.
+     *
+     * \param[in,out] z
+     *     an array, dimension (§k)\n
+     *     On entry, the first §k elements of this array contain the components of the
+     *     deflation-adjusted updating row vector.\n
+     *     On exit, §z is updated.
+     *
+     * \param[in,out] vf
+     *     an array, dimension (§k)\n
+     *     On entry, §vf contains information passed through §dbede8.\n
+     *     On exit, §vf contains the first §k components of the first components of all right
+     *     singular vectors of the bidiagonal matrix.
+     *
+     * \param[in,out] vl
+     *     an array, dimension (§k)\n
+     *     On entry, §vl contains information passed through §dbede8.\n
+     *     On exit, §vl contains the first §k components of the last components of all right
+     *     singular vectors of the bidiagonal matrix.
+     *
+     * \param[out] difl
+     *     an array, dimension (§k)\n
+     *     On exit, $\{difl}[i] = \{d}[i] - \{dsigma}[i]$.
+     *
+     * \param[out] Difr
+     *     an array,\n dimension (§lddifr, 2) if §icompq = 1 and\n
+     *                 dimension (§k) if §icompq = 0.\n
+     *     On exit, $\{Difr}[i,0] = \{d}[i] - \{dsigma}[i+1]$, $\{Difr}[\{k}-1,0]$ is not defined
+     *     and will not be referenced.\n
+     *     If §icompq = 1, $\{Difr}[0:\{k}-1,1]$ is an array containing the normalizing factors for
+     *     the right singular vector matrix.
+     *
+     * \param[in]     lddifr The leading dimension of §Difr, must be at least §k.
+     * \param[in,out] dsigma
+     *     an array, dimension (§k)\n
+     *     On entry, the first §k elements of this array contain the old roots of the deflated
+     *     updating problem. These are the poles of the secular equation.\n
+     *     On exit, the elements of §dsigma may be very slightly altered in value.
+     *
+     * \param[out] work an array, dimension ($3\{k}$)
+     * \param[out] info
+     *     = 0: successful exit.\n
+     *     < 0: if §info = $-i$, the $i$-th argument had an illegal value.\n
+     *     > 0: if §info = 1, a singular value did not converge
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date June 2017
+     * \remark
+     *     Contributors:\n
      *     Ming Gu and Huan Ren, Computer Science Division,
      *     University of California at Berkeley, USA                                             */
     static void dlasd8(int icompq, int k, real* d, real* z, real* vf, real* vl, real* difl,
@@ -6997,78 +7528,111 @@ public:
         Blas<real>::dcopy(k, &work[iwk3], 1, vl, 1);
     }
 
-    /* dlasdq computes the singular value decomposition (SVD) of a real (upper or lower) bidiagonal
-     * matrix with diagonal d and offdiagonal e, accumulating the transformations if desired.
-     * Letting B denote the input bidiagonal matrix, the algorithm computes orthogonal matrices Q
-     * and P such that B = Q * S * P^T (P^T denotes the transpose of P). The singular values S are
-     * overwritten on d.
-     * The input matrix U  is changed to U  * Q  if desired.
-     * The input matrix Vt is changed to P^T * Vt if desired.
-     * The input matrix C  is changed to Q^T * C  if desired.
+    /*! §dlasdq computes the SVD of a real bidiagonal matrix with diagonal §d and off-diagonal §e.
+     *  Used by §sbdsdc.
+     *
+     * §dlasdq computes the singular value decomposition (SVD) of a real (upper or lower) bidiagonal
+     * matrix with diagonal §d and offdiagonal §e, accumulating the transformations if desired.
+     * Letting $B$ denote the input bidiagonal matrix, the algorithm computes orthogonal matrices
+     * $Q$ and $P$ such that $B = Q S P^T$ ($P^T$ denotes the transpose of $P$). The singular
+     * values $S$ are overwritten on §d.\n
+     * The input matrix §U  is changed to $\{U} Q$    if desired.\n
+     * The input matrix §Vt is changed to $P^T \{Vt}$ if desired.\n
+     * The input matrix §C  is changed to $Q^T \{C}$  if desired.\n
      * See "Computing  Small Singular Values of Bidiagonal Matrices With Guaranteed High Relative
      * Accuracy," by J. Demmel and W. Kahan, LAPACK Working Note #3, for a detailed description of
      * the algorithm.
-     * Parameters: uplo: On entry, uplo specifies whether the input bidiagonal matrix is upper or
-     *                             lower bidiagonal, and whether it is square or not.
-     *                   uplo=='U' or 'u': B is upper bidiagonal.
-     *                   uplo=='L' or 'l': B is lower bidiagonal.
-     *             sqre: ==0: then the input matrix is n-by-n.
-     *                   ==1: then the input matrix is n-by-(n+1) if UPLU=='U' and (n+1)-by-n if
-     *                        UPLU=='L'.
-     *                   The bidiagonal matrix has n = nl + nr + 1 rows and
-     *                   m = n + sqre >= n columns.
-     *             n: On entry, n specifies the number of rows and columns in the matrix.
-     *                          n must be at least 0.
-     *             ncvt: On entry, ncvt specifies the number of columns of the matrix Vt.
-     *                             ncvt must be at least 0.
-     *             nru: On entry, nru specifies the number of rows of the matrix U.
-     *                            nru must be at least 0.
-     *             ncc: On entry, ncc specifies the number of columns of the matrix C.
-     *                            ncc must be at least 0.
-     *             d: an array, dimension (n)
-     *                On entry, d contains the diagonal entries of the bidiagonal matrix whose SVD
-     *                          is desired.
-     *                On normal exit, d contains the singular values in ascending order.
-     *             e: an array. dimension is (n-1) if sqre==0 and n if sqre==1.
-     *                On entry, the entries of e contain the offdiagonal entries of the bidiagonal
-     *                          matrix whose SVD is desired.
-     *                On normal exit, e will contain 0. If the algorithm does not converge, d and e
-     *                          will contain the diagonal and superdiagonal entries of a bidiagonal
-     *                          matrix orthogonally equivalent to the one given as input.
-     *             Vt: an array, dimension (ldvt, ncvt)
-     *                 On entry, contains a matrix which on exit has been premultiplied by P^T,
-     *                           dimension n-by-ncvt if sqre==0 and (n+1)-by-ncvt if sqre==1
-     *                           (not referenced if ncvt=0).
-     *             ldvt: On entry, ldvt specifies the leading dimension of Vt as declared in the
-     *                             calling (sub) program. ldvt must be at least 1.
-     *                             If ncvt is nonzero ldvt must also be at least n.
-     *             U: an array, dimension (ldu, n)
-     *                On entry, contains a  matrix which on exit has been postmultiplied by Q,
-     *                          dimension nru-by-n if sqre==0 and nru-by-(n+1) if sqre==1
-     *                          (not referenced if nru=0).
-     *             ldu: On entry, ldu specifies the leading dimension of U as declared in the
-     *                            calling (sub) program. ldu must be at least max(1, nru).
-     *             C: an array, dimension (ldc, ncc)
-     *                On entry, contains an n-by-ncc matrix which on exit has been premultiplied by
-     *                          Q^T dimension n-by-ncc if sqre==0 and (n+1)-by-ncc if sqre==1
-     *                          (not referenced if ncc=0).
-     *             ldc: On entry, ldc  specifies the leading dimension of C as declared in the
-     *                            calling (sub) program. ldc must be at least 1.
-     *                            If ncc is nonzero, ldc must also be at least n.
-     *             work: an array, dimension (4*n)
-     *                   Workspace. Only referenced if one of ncvt, nru, or ncc is nonzero,
-     *                   and if n is at least 2.
-     *             info: On exit, a value of 0 indicates a successful exit.
-     *                   If info < 0, argument number -info is illegal.
-     *                   If info > 0, the algorithm did not converge, and info specifies how many
-     *                                superdiagonals did not converge.
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date June 2016
-     * Contributors:
-     * Ming Gu and Huan Ren, Computer Science Division, University of California at Berkeley, USA*/
+     * \param[in] uplo
+     *     On entry, uplo specifies whether the input bidiagonal matrix is upper or lower
+     *     bidiagonal, and whether it is square or not.\n
+     *         §uplo = 'U' or 'u': $B$ is upper bidiagonal.\n
+     *         §uplo = 'L' or 'l': $B$ is lower bidiagonal.
+     *
+     * \param[in] sqre
+     *     = 0: then the input matrix is §n by §n.\n
+     *     = 1: then the input matrix is §n by (§n+1) if §uplo = 'U' and (§n+1) by §n if
+     *     §uplo = 'L'.\n
+     *     The bidiagonal matrix has $\{n}=\{nl}+\{nr}+1$ rows and $m=\{n}+\{sqre}\ge\{n}$ columns.
+     *
+     * \param[in] n
+     *     On entry, §n specifies the number of rows and columns in the matrix.
+     *     §n must be at least 0.
+     *
+     * \param[in] ncvt
+     *     On entry, §ncvt specifies the number of columns of the matrix §Vt.
+     *     §ncvt must be at least 0.
+     *
+     * \param[in] nru
+     *     On entry, §nru specifies the number of rows of the matrix §U.
+     *     §nru must be at least 0.
+     *
+     * \param[in] ncc
+     *     On entry, §ncc specifies the number of columns of the matrix §C.
+     *     §ncc must be at least 0.
+     *
+     * \param[in,out] d
+     *     an array, dimension (§n)\n
+     *     On entry, §d contains the diagonal entries of the bidiagonal matrix whose SVD is
+     *     desired.\n
+     *     On normal exit, §d contains the singular values in ascending order.
+     *
+     * \param[in,out] e
+     *     an array. dimension (§n-1) if §sqre = 0 and §n if §sqre = 1.\n
+     *     On entry, the entries of §e contain the offdiagonal entries of the bidiagonal matrix
+     *     whose SVD is desired.\n
+     *     On normal exit, §e will contain 0. If the algorithm does not converge, §d and §e will
+     *     contain the diagonal and superdiagonal entries of a bidiagonal matrix orthogonally
+     *     equivalent to the one given as input.
+     *
+     * \param[in,out] Vt
+     *     an array, dimension (§ldvt, §ncvt)\n
+     *     On entry, contains a matrix which on exit has been premultiplied by $P^T$, dimension
+     *     §n by §ncvt if §sqre = 0 and (§n+1) by §ncvt if §sqre = 1 (not referenced if §ncvt = 0).
+     *
+     * \param[in] ldvt
+     *     On entry, §ldvt specifies the leading dimension of §Vt as declared in the calling
+     *     (sub)program. §ldvt must be at least 1. If §ncvt is nonzero §ldvt must also be at least
+     *     §n.
+     *
+     * \param[in,out] U
+     *     an array, dimension (§ldu,§n)\n
+     *     On entry, contains a matrix which on exit has been postmultiplied by $Q$, dimension
+     *     §nru by §n if §sqre = 0 and §nru by (§n+1) if §sqre = 1 (not referenced if §nru = 0).
+     *
+     * \param[in] ldu
+     *     On entry, §ldu specifies the leading dimension of §U as declared in the calling
+     *     (sub)program. §ldu must be at least $\max(1,\{nru})$.
+     *
+     * \param[in,out] C
+     *     an array, dimension (§ldc,§ncc)\n
+     *     On entry, contains an §n by §ncc matrix which on exit has been premultiplied by $Q^T$
+     *     dimension §n by §ncc if §sqre = 0 and (§n+1) by §ncc if §sqre = 1
+     *     (not referenced if §ncc = 0).
+     *
+     * \param[in] ldc
+     *     On entry, §ldc specifies the leading dimension of §C as declared in the calling
+     *     (sub)program. §ldc must be at least 1. If §ncc is nonzero, §ldc must also be at least
+     *     §n.
+     *
+     * \param[out] work
+     *     an array, dimension ($4\{n}$)\n
+     *     Workspace. Only referenced if one of §ncvt, §nru, or §ncc is nonzero, and if §n is at
+     *     least 2.
+     *
+     * \param[out] info
+     *     On exit, a value of 0 indicates a successful exit.\n
+     *     If §info < 0, argument number -§info is illegal.\n
+     *     If §info > 0, the algorithm did not converge, and info specifies how many superdiagonals
+     *                   did not converge.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date June 2016
+     * \remark
+     *     Contributors:\n
+     *     Ming Gu and Huan Ren, Computer Science Division,
+     *     University of California at Berkeley, USA                                             */
     static void dlasdq(char const* uplo, int sqre, int n, int ncvt, int nru, int ncc, real* d,
                        real* e, real* Vt, int ldvt, real* U, int ldu, real* C, int ldc, real* work,
                        int& info)
@@ -7257,25 +7821,31 @@ public:
         }
     }
 
-    /* dlasdt creates a tree of subproblems for bidiagonal divide and sconquer.
-     * Parameters: n: On entry, the number of diagonal elements of the bidiagonal matrix.
-     *             lvl: On exit, the number of levels on the computation tree.
-     *             nd: On exit, the number of nodes on the tree.
-     *             inode: an integer array, dimension (n)
-     *                    On exit, centers of subproblems.
-     *                    NOTE: zero-based indices!
-     *             ndiml: an integer array, dimension (n)
-     *                    On exit, row dimensions of left children.
-     *             ndimr: an integer array, dimension (n)
-     *                    On exit, row dimensions of right children.
-     *             msub: On entry, the maximum row dimension each subproblem at the bottom of the
-     *                   tree can be of.
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date: December 2016
-     * Contributors:
+    /*! §dlasdt creates a tree of subproblems for bidiagonal divide and conquer. Used by §sbdsdc.
+     *
+     * §dlasdt creates a tree of subproblems for bidiagonal divide and sconquer.
+     * \param[in]  n     On entry, the number of diagonal elements of the bidiagonal matrix.
+     * \param[out] lvl   On exit, the number of levels on the computation tree.
+     * \param[out] nd    On exit, the number of nodes on the tree.
+     * \param[out] inode
+     *     an integer array, dimension (§n)\n On exit, centers of subproblems.\n
+     *     NOTE: zero-based indices!
+     *
+     * \param[out] ndiml
+     *     an integer array, dimension (§n)\n On exit, row dimensions of left children.
+     *
+     * \param[out] ndimr
+     *     an integer array, dimension (§n)\n On exit, row dimensions of right children.
+     *
+     * \param[in] msub
+     *     On entry, the maximum row dimension each subproblem at the bottom of the tree can be of.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016
+     * \remark
+     *     Contributors:\n
      *     Ming Gu and Huan Ren, Computer Science Division,
      *     University of California at Berkeley, USA                                             */
     static void dlasdt(int n, int& lvl, int& nd, int* inode, int* ndiml, int* ndimr, int msub)
@@ -7311,28 +7881,37 @@ public:
         nd = llst*2 - 1;
     }
 
-    /* dlaset initializes an m-by-n matrix A to beta on the diagonal and alpha on the offdiagonals.
-     * Parameters: uplo: Specifies the part of the matrix A to be set.
-     *                   ='U': Upper triangular part is set; the strictly lower triangular part of
-     *                         A is not changed.
-     *                   ='L': Lower triangular part is set; the strictly upper triangular part of
-     *                         A is not changed. Otherwise:  All of the matrix A is set.
-     *             m: The number of rows of the matrix A. m>=0.
-     *             n: The number of columns of the matrix A. n>=0.
-     *             alpha: The constant to which the offdiagonal elements are to be set.
-     *             beta: The constant to which the diagonal elements are to be set.
-     *             A: an array, dimension (lda,n)
-     *                On exit, the leading m-by-n submatrix of A is set as follows:
-     *                if uplo = 'U', A(i,j) = alpha, 1<=i<=j-1, 1<=j<=n,
-     *                if uplo = 'L', A(i,j) = alpha, j+1<=i<=m, 1<=j<=n,
-     *                otherwise,     A(i,j) = alpha, 1<=i<=m, 1<=j<=n, i.ne.j,
-     *                and, for all uplo, A(i,i) = beta, 1<=i<=min(m,n).
-     *             lda: The leading dimension of the array A. lda>=max(1,m).
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date December 2016                                                                        */
+    /*! §dlaset initializes the off-diagonal elements and the diagonal elements of a matrix to
+     *  given values.
+     *
+     * §dlaset initializes an §m by §n matrix $A$ to §beta on the diagonal and §alpha on the
+     * offdiagonals.
+     * \param[in] uplo
+     *     Specifies the part of the matrix $A$ to be set.\n
+     *     ='U': Upper triangular part is set; the strictly lower triangular part of §A is not
+     *           changed.\n
+     *     ='L': Lower triangular part is set; the strictly upper triangular part of §A is not
+     *           changed.\n
+     *     Otherwise: All of the matrix $A$ is set.
+     *
+     * \param[in]  m     The number of rows of the matrix $A$. $\{m}\ge 0$.
+     * \param[in]  n     The number of columns of the matrix $A$. $\{n}\ge 0$.
+     * \param[in]  alpha The constant to which the offdiagonal elements are to be set.
+     * \param[in]  beta  The constant to which the diagonal elements are to be set.
+     * \param[out] A
+     *     an array, dimension (§lda,§n)\n
+     *     On exit, the leading §m by §n submatrix of §A is set as follows:\n
+     *     if §uplo = 'U',       $\{A}[i,j]=\{alpha}$, $0  \le i<j$,   $0\le j<\{n}$,\n
+     *     if §uplo = 'L',       $\{A}[i,j]=\{alpha}$, $j+1\le i<\{m}$,$0\le j<\{n}$,\n
+     *     otherwise,&emsp;&emsp;$\{A}[i,j]=\{alpha}$, $0  \le i<\{m}$,$0\le j<\{n}$, $i\ne j$,\n
+     *     and, for all §uplo,   $\{A}[i,i]=\{beta}$,  $0  \le i<\min(\{m},\{n})$.
+     *
+     * \param[in] lda The leading dimension of the array §A. $\{lda}\ge\max(1,\{m})$.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                        */
     static void dlaset(char const* uplo, int m, int n, real alpha, real beta, real* A, int lda)
     {
         int i, j, ldaj;
@@ -7379,38 +7958,46 @@ public:
         }
     }
 
-    /* dlasq1 computes the singular values of a real n-by-n bidiagonal matrix with diagonal d and
-     * off-diagonal e. The singular values are computed to high relative accuracy, in the absence
-     * of denormalization, underflow and overflow. The algorithm was first presented in
+    /*! §dlasq1 computes the singular values of a real square bidiagonal matrix. Used by §sbdsqr.
+     *
+     * §dlasq1 computes the singular values of a real §n by §n bidiagonal matrix with diagonal §d
+     * and off-diagonal §e. The singular values are computed to high relative accuracy, in the
+     * absence of denormalization, underflow and overflow. The algorithm was first presented in\n
      *     "Accurate singular values and differential qd algorithms" by K. V. Fernando and
-     *     B. N. Parlett, Numer. Math., Vol-67, No. 2, pp. 191-230, 1994,
+     *     B. N. Parlett, Numer. Math., Vol-67, No. 2, pp. 191-230, 1994,\n
      * and the present implementation is described in
      *     "An implementation of the dqds Algorithm (Positive Case)", LAPACK Working Note.
-     * Parameters: n: The number of rows and columns in the matrix. n>=0.
-     *             d: an array, dimension (n)
-     *                On entry, d contains the diagonal elements of the bidiagonal matrix whose SVD
-     *                is desired.
-     *                On normal exit, d contains the singular values in decreasing order.
-     *             e: an array, dimension (n)
-     *                On entry, elements e[0:n-2] contain the off-diagonal elements of the
-     *                bidiagonal matrix whose SVD is desired.
-     *                On exit, e is overwritten.
-     *             work: an array, dimension (4*n)
-     *             info: =0: successful exit
-     *                   <0: if info==-i, the i-th argument had an illegal value
-     *                  > 0: the algorithm failed
-     *                       =1, a split was marked by a positive value in e
-     *                       =2, current block of Z not diagonalized after 100*n iterations
-     *                           (in inner while loop). On exit d and e represent a matrix with the
-     *                           same singular values which the calling subroutine could use to
-     *                           finish the computation, or even feed back into dlasq1
-     *                       =3, termination criterion of outer while loop not met
-     *                           (program created more than n unreduced blocks)
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date December 2016                                                                        */
+     * \param[in]     n The number of rows and columns in the matrix. $\{n}\ge 0$.
+     * \param[in,out] d
+     *     an array, dimension (§n)\n
+     *     On entry, §d contains the diagonal elements of the bidiagonal matrix whose SVD is
+     *     desired.\n
+     *     On normal exit, §d contains the singular values in decreasing order.
+     *
+     * \param[in,out] e
+     *     an array, dimension (§n)\n
+     *     On entry, elements $\{e}[0:\{n}-2]$ contain the off-diagonal elements of the bidiagonal
+     *     matrix whose SVD is desired.\n
+     *     On exit, §e is overwritten.
+     *
+     * \param[out] work an array, dimension ($4\{n}$)
+     * \param[out] info
+     *     = 0: successful exit\n
+     *     < 0: if §info = $-i$, the $i$-th argument had an illegal value\n
+     *     > 0: the algorithm failed
+     *          \li =1, a split was marked by a positive value in §e
+     *          \li =2, current block of Z not diagonalized after $100\{n}$ iterations (in inner
+     *                  while loop). On exit §d and §e represent a matrix with the same singular
+     *                  values which the calling subroutine could use to finish the computation, or
+     *                  even feed back into §dlasq1
+     *          \li =3, termination criterion of outer while loop not met
+     *                  (program created more than §n unreduced blocks)
+     *
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                        */
     static void dlasq1(int n, real* d, real* e, real* work, int& info)
     {
         int i, iinfo;
@@ -7500,44 +8087,51 @@ public:
         }
     }
 
-    /* dlasq2 computes all the eigenvalues of the symmetric positive definite tridiagonal matrix
-     * associated with the qd array Z to high relative accuracy are computed to high relative
-     * accuracy, in the absence of denormalization, underflow and overflow.
-     * To see the relation of Z to the tridiagonal matrix, let L be a unit lower bidiagonal matrix
-     * with subdiagonals Z[1,3,5,,..] and let U be an upper bidiagonal matrix with 1's above and
-     * diagonal Z[0,2,4,,..]. The tridiagonal is L*U or, if you prefer, the symmetric tridiagonal
-     * to which it is similar.
-     * Note: dlasq2 defines a logical variable, IEEE, which is true on machines which follow
+    /*! §dlasq2 computes all the eigenvalues of the symmetric positive definite tridiagonal matrix
+     *  associated with the qd Array §Z to high relative accuracy. Used by §sbdsqr and §sstegr.
+     *
+     * §dlasq2 computes all the eigenvalues of the symmetric positive definite tridiagonal matrix
+     * associated with the qd array §Z to high relative accuracy, in the absence of
+     * denormalization, underflow and overflow.\n
+     * To see the relation of §Z to the tridiagonal matrix, let $L$ be a unit lower bidiagonal
+     * matrix with subdiagonals $\{Z}[1,3,5,\ldots]$ and let $U$ be an upper bidiagonal matrix with
+     * 1's above and diagonal $\{Z}[0,2,4,\ldots]$. The tridiagonal is $LU$ or, if you prefer, the
+     * symmetric tridiagonal to which it is similar.\n
+     * Note: §dlasq2 defines a logical variable, §IEEE, which is true on machines which follow
      * ieee-754 floating-point standard in their handling of infinities and NaNs, and false
-     * otherwise. This variable is passed to dlasq3.
-     * Parameters: n: The number of rows and columns in the matrix. n>=0.
-     *             Z: an array, dimension (4*n)
-     *                On entry Z holds the qd array. On exit, entries 1 to n hold the eigenvalues
-     *                in decreasing order, Z[2*n] holds the trace, and Z[2*n+1] holds the sum of
-     *                the eigenvalues. If n>2, then Z[2*n+2] holds the iteration count, Z[2*n+3]
-     *                holds NDIVS/NIN^2, and Z[2*n+4] holds the percentage of shifts that failed.
-     *             info: =0: successful exit
-     *                   <0: if the i-th argument is a scalar and had an illegal value, then
-     *                       info==-i, if the i-th argument is an array and the j-entry had an
-     *                       illegal value, then info = -(i*100+j)
-     *                   >0: the algorithm failed
-     *                       =1, a split was marked by a positive value in Z
-     *                       =2, current block of Z not diagonalized after 100*n iterations
-     *                           (in inner while loop). On exit Z holds a qd array with the same
-     *                           eigenvalues as the given Z.
-     *                       =3, termination criterion of outer while loop not met
-     *                           (program created more than n unreduced blocks)
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date December 2016
-     * Further Details:
-     *     Local Variables: i0:n0 defines a current unreduced segment of Z. The shifts are
-     *     accumulated in SIGMA. Iteration count is in iter. Ping-pong is controlled by PP
-     *     (alternates between 0 and 1).                                                         */
+     * otherwise. This variable is passed to §dlasq3.
+     * \param[in]     n The number of rows and columns in the matrix. $\{n}ge 0$.
+     * \param[in,out] Z
+     *     an array, dimension ($4\{n}$)\n
+     *     On entry §Z holds the qd array.\n
+     *     On exit, entries 0 to §n-1 hold the eigenvalues in decreasing order, $\{Z}[2\{n}]$ holds
+     *     the trace, and $\{Z}[2\{n}+1]$ holds the sum of the eigenvalues. If $\{n}>2$, then
+     *     $\{Z}[2\{n}+2]$ holds the iteration count, $\{Z}[2\{n}+3]$ holds $\{ndivs}/\{nin}^2$,
+     *     and $\{Z}[2\{n}+4]$ holds the percentage of shifts that failed.
+     *
+     * \param[out] info
+     *     = 0: successful exit\n
+     *     < 0: if the $i$-th argument is a scalar and had an illegal value, then §info = $-i$, if
+     *          the $i$-th argument is an array and the $j$-entry had an illegal value, then
+     *          §info = $-(100i+j)$\n
+     *     > 0: the algorithm failed
+     *          \li = 1, a split was marked by a positive value in §Z
+     *          \li = 2, current block of §Z not diagonalized after $100\{n}$ iterations (in inner
+     *                   while loop).\n&emsp;&emsp; On exit §Z holds a qd array with the same
+     *                   eigenvalues as the given §Z.
+     *          \li = 3, termination criterion of outer while loop not met
+     *                   (program created more than §n unreduced blocks)
+     *
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                       */
     static void dlasq2(int n, real* Z, int& info)
     {
+        /* Local Variables: §i0:§n0 defines a current unreduced segment of §Z. The shifts are
+         * accumulated in §sigma. Iteration count is in §iter. Ping-pong is controlled by §pp
+         * (alternates between 0 and 1).                                                         */
         const real CBIAS = real(1.50);
         bool ieee, loopbreak;
         int i0, i1, i4, iinfo, ipn4, iter, iwhila, iwhilb, k, kmin, n0, n1, nbig, ndiv, nfail, pp,
@@ -7982,37 +8576,40 @@ public:
         return;
     }
 
-    /* dlasq3 checks for deflation, computes a shift (tau) and calls dqds. In case of failure it
+    /*! §dlasq3 checks for deflation, computes a shift and calls §dqds. Used by §sbdsqr.
+     *
+     * §dlasq3 checks for deflation, computes a shift (§tau) and calls §dqds. In case of failure it
      * changes shifts, and tries again until output is positive.
-     * Parameters: i0: First index. (note: zero-based index!)
-     *             n0: Last index. (note: zero-based index!)
-     *             Z: an array, dimension (4*n0+4)
-     *                Z holds the qd array.
-     *             pp: pp=0 for ping, pp=1 for pong.
-     *                 pp=2 indicates that flipping was applied to the Z array and that the initial
-     *                 tests for deflation should not be performed.
-     *             dmin: Minimum value of d.
-     *             sigma: Sum of shifts used in current segment.
-     *             desig: Lower order part of sigma
-     *             qmax: Maximum value of q.
-     *             nfail: Increment nfail by 1 each time the shift was too big.
-     *             iter: Increment iter by 1 for each iteration.
-     *             ndiv: Increment ndiv by 1 for each division.
-     *             ieee: Flag for IEEE or non IEEE arithmetic (passed to dlasq5).
-     *             ttype: Shift type.
-     *             dmin1,
-     *             dmin2,
-     *             dn,
-     *             dn1,
-     *             dn2,
-     *             g,
-     *             tau: These are passed as arguments in order to save their values between calls
-     *                  to dlasq3.
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date June 2016                                                                            */
+     * \param[in]     i0 First index. (NOTE: zero-based index!)
+     * \param[in,out] n0 Last index. (NOTE: zero-based index!)
+     * \param[in,out] Z  an array, dimension ($4\{n0}+4$)\n §Z holds the qd array.
+     * \param[in,out] pp
+     *     §pp = 0 for ping, §pp = 1 for pong.\n
+     *     §pp = 2 indicates that flipping was applied to the §Z array and that the initial tests
+     *             for deflation should not be performed.
+     *
+     * \param[out]    dmin  Minimum value of §d.
+     * \param[out]    sigma Sum of shifts used in current segment.
+     * \param[in,out] desig Lower order part of §sigma
+     * \param[in]     qmax  Maximum value of §q.
+     * \param[in,out] nfail Increment §nfail by 1 each time the shift was too big.
+     * \param[in,out] iter  Increment §iter by 1 for each iteration.
+     * \param[in,out] ndiv  Increment §ndiv by 1 for each division.
+     * \param[in]     ieee  Flag for IEEE or non IEEE arithmetic (passed to §dlasq5).
+     * \param[in,out] ttype Shift type.
+     * \param[in,out] dmin1,
+     *                dmin2,
+     *                dn,
+     *                dn1,
+     *                dn2,
+     *                g,
+     *                tau
+     *     These are passed as arguments in order to save their values between calls to §dlasq3.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date June 2016                                                                           */
     static void dlasq3(int i0, int& n0, real* Z, int& pp, real& dmin, real& sigma, real& desig,
                        real qmax, int& nfail, int& iter, int& ndiv, bool ieee, int& ttype,
                        real& dmin1, real& dmin2, real& dn, real& dn1, real& dn2, real& g,
@@ -8191,35 +8788,35 @@ public:
         sigma = tt;
     }
 
-    /* dlasq4 computes an approximation dn2 to the smallest eigenvalue using values of d from the
-     * previous transform.
-     * Parameters: i0: First index. (note: zero-based index!)
-     *             n0: Last index. (note: zero-based index!)
-     *             Z: an array, dimension (4*(n0+1))
-     *                Z holds the qd array.
-     *             pp: pp=0 for ping, pp=1 for pong.
-     *             n0in: The value of n0 at start of EIGTEST. (note: zero-based index!)
-     *             dmin: Minimum value of d.
-     *             dmin1: Minimum value of d, excluding D[n0].
-     *             dmin2: Minimum value of d, excluding D[n0] and D[n0-1].
-     *             dn: d(N)
-     *             dn1: d(N-1)
-     *             dn2: d(N-2)
-     *             dn2: This is the shift.
-     *             dn2: Shift type.
-     *             g: g is passed as an argument in order to save its value between calls to
-     *                dlasq4.
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date June 2016
-     * Further Details:
-     *     CNST1 = 9/16                                                                          */
+    /*! §dlasq4 computes an approximation to the smallest eigenvalue using values of §d from the
+     *  previous transform. Used by §sbdsqr.
+     *
+     * §dlasq4 computes an approximation §tau to the smallest eigenvalue using values of §d from
+     * the previous transform.
+     * \param[in]     i0    First index. (note: zero-based index!)
+     * \param[in]     n0    Last index. (note: zero-based index!)
+     * \param[in]     Z     an array, dimension ($4(\{n0}+1)$)\n §Z holds the qd array.
+     * \param[in]     pp    §pp = 0 for ping, §pp = 1 for pong.
+     * \param[in]     n0in  The value of §n0 at start of §eigtest. (note: zero-based index!)
+     * \param[in]     dmin  Minimum value of §d.
+     * \param[in]     dmin1 Minimum value of §d, excluding $\{d}[\{n0}]$.
+     * \param[in]     dmin2 Minimum value of §d, excluding $\{d}[\{n0}]$ and $\{d}[\{n0}-1]$.
+     * \param[in]     dn    $\{d}[N]$
+     * \param[in]     dn1   $\{d}[N-1]$
+     * \param[in]     dn2   $\{d}[N-2]$
+     * \param[out]    tau   This is the shift.
+     * \param[out]    ttype Shift type.
+     * \param[in,out] g
+     *     §g is passed as an argument in order to save its value between calls to §dlasq4.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date June 2016                                                                           */
     static void dlasq4(int i0, int n0, real const* Z, int pp, int n0in, real dmin, real dmin1,
                        real dmin2, real dn, real dn1, real dn2, real& tau, int& ttype, real& g)
     {
-        const real CNST1 = real(0.563);
+        const real CNST1 = real(0.563); // CNST1 = 9/16
         const real CNST2 = real(1.01);
         const real CNST3 = real(1.05);
         const real THIRD = real(0.333);
@@ -8539,28 +9136,32 @@ public:
         tau = s;
     }
 
-    /* dlasq5 computes one dqds transform in ping-pong form, one version for ieee machines another
+    /*! §dlasq5 computes one dqds transform in ping-pong form. Used by §sbdsqr and §sstegr.
+     *
+     * §dlasq5 computes one dqds transform in ping-pong form, one version for ieee machines another
      * for non ieee machines.
-     * Parameters: i0: First index. (note: zero-based index!)
-     *             n0: Last index. (note: zero-based index!)
-     *             Z: an array, dimension (4*N)
-     *                holds the qd array. EMIN is stored in Z(4*(n0+1)) to avoid an extra argument.
-     *             pp: pp=0 for ping, pp=1 for pong.
-     *             pp: This is the shift.
-     *             sigma: This is the accumulated shift up to this step.
-     *             dmin: Minimum value of d.
-     *             dmin1: Minimum value of d, excluding d[n0].
-     *             dmin2: Minimum value of d, excluding d[n0] and d[n0-1].
-     *             dn: d[n0], the last value of d.
-     *             dnm1: d[n0-1].
-     *             dnm2: d[n0-2].
-     *             ieee: Flag for ieee or non ieee arithmetic.
-     *             eps: This is the value of epsilon used.
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date June 2017                                                                            */
+     * \param[in] i0 First index. (note: zero-based index!)
+     * \param[in] n0 Last index. (note: zero-based index!)
+     * \param[in] Z
+     *     an array, dimension ($4N$)\n
+     *     holds the qd array. §emin is stored in $\{Z}[4(n0+1)]$ to avoid an extra argument.
+     *
+     * \param[in]  pp    §pp = 0 for ping, §pp = 1 for pong.
+     * \param[in]  tau   This is the shift.
+     * \param[in]  sigma This is the accumulated shift up to this step.
+     * \param[out] dmin  Minimum value of §d.
+     * \param[out] dmin1 Minimum value of §d, excluding $\{d}[\{n0}]$.
+     * \param[out] dmin2 Minimum value of §d, excluding $\{d}[\{n0}]$ and $\{d}[\{n0}-1]$.
+     * \param[out] dn    $\{d}[\{n0}]$, the last value of §d.
+     * \param[out] dnm1  $\{d}[\{n0}-1]$.
+     * \param[out] dnm2  $\{d}[\{n0}-2]$.
+     * \param[in]  ieee  Flag for ieee or non ieee arithmetic.
+     * \param[in]  eps   This is the value of epsilon used.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date June 2017                                                                            */
     static void dlasq5(int i0, int n0, real* Z, int pp, real tau, real sigma, real& dmin,
                        real& dmin1, real& dmin2, real& dn, real& dnm1, real& dnm2, bool ieee,
                        real eps)
@@ -8841,24 +9442,27 @@ public:
         Z[4*n0-pp+3] = emin;
     }
 
-    /* dlasq6 computes one dqd (shift equal to zero) transform in ping-pong form, with protection
+    /*! §dlasq6 computes one dqd transform in ping-pong form. Used by §sbdsqr and §sstegr.
+     *
+     * §dlasq6 computes one dqd (shift equal to zero) transform in ping-pong form, with protection
      * against underflow and overflow.
-     * Parameters: i0: First index. (note: zero-based index!)
-     *             n0: Last index. (note: zero-based index!)
-     *             Z: an array, dimension (4*N)
-     *                Z holds the qd array. EMIN is stored in Z[4*n0+3] to avoid an extra argument.
-     *             pp: pp=0 for ping, pp=1 for pong.
-     *             dmin: Minimum value of d.
-     *             dmin1: Minimum value of d, excluding D[n0].
-     *             dmin2: Minimum value of d, excluding D[n0] and D[n0-1].
-     *             dn: d[n0], the last value of d.
-     *             dnm1: d[n0-1].
-     *             dnm2: d[n0-2].
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date December 2016                                                                        */
+     * \param[in] i0 First index. (note: zero-based index!)
+     * \param[in] n0 Last index. (note: zero-based index!)
+     * \param[in] Z
+     *     an array, dimension ($4N$)\n
+     *     §Z holds the qd array. §emin is stored in $\{Z}[4\{n0}+3]$ to avoid an extra argument.
+     * \param[in]  pp    §pp = 0 for ping, §pp = 1 for pong.
+     * \param[out] dmin  Minimum value of §d.
+     * \param[out] dmin1 Minimum value of §d, excluding $\{d}[\{n0}]$.
+     * \param[out] dmin2 Minimum value of §d, excluding $\{d}[\{n0}]$ and $\{d}[\{n0}-1]$.
+     * \param[out] dn    $\{d}[\{n0}]$, the last value of §d.
+     * \param[out] dnm1  $\{d}[\{n0}-1]$.
+     * \param[out] dnm2  $\{d}[\{n0}-2]$.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                        */
     static void dlasq6(int i0, int n0, real* Z, int pp, real& dmin, real& dmin1, real& dmin2,
                        real& dn, real& dnm1, real& dnm2)
     {
@@ -8979,89 +9583,106 @@ public:
         Z[4*n0-pp+3] = emin;
     }
 
-    /* dlasr applies a sequence of plane rotations to a real matrix A, from either the left or the
-     * right.
-     * When side=='L', the transformation takes the form
-     *     A := P*A
-     * and when side=='R', the transformation takes the form
-     *     A := A*P^T
-     * where P is an orthogonal matrix consisting of a sequence of z plane rotations, with z = m
-     * when side=='L' and z = n when side=='R', and P^T is the transpose of P.
-     * When direct=='F' (Forward sequence), then
-     *     P = P(z-1) * ... * P(2) * P(1)
-     * and when direct=='B' (Backward sequence), then
-     *     P = P(1) * P(2) * ... * P(z-1)
-     * where P(k) is a plane rotation matrix defined by the 2-by-2 rotation
-     *     R(k) = (  c(k)  s(k) )
-     *          = ( -s(k)  c(k) ).
-     * When pivot=='V' (Variable pivot), the rotation is performed for the plane (k,k+1),
-     * i.e., P(k) has the form
-     *     P(k) = (  1                                            )
-     *            (       ...                                     )
-     *            (              1                                )
-     *            (                   c(k)  s(k)                  )
-     *            (                  -s(k)  c(k)                  )
-     *            (                                1              )
-     *            (                                     ...       )
-     *            (                                            1  )
-     * where R(k) appears as a rank-2 modification to the identity matrix in rows and columns
-     * k and k+1.
-     * When pivot=='T' (Top pivot), the rotation is performed for the plane (1,k+1),
-     * so P(k) has the form
-     *     P(k) = (  c(k)                    s(k)                 )
-     *            (         1                                     )
-     *            (              ...                              )
-     *            (                     1                         )
-     *            ( -s(k)                    c(k)                 )
-     *            (                                 1             )
-     *            (                                      ...      )
-     *            (                                             1 )
-     * where R(k) appears in rows and columns 1 and k+1.
-     * Similarly, when pivot=='B' (Bottom pivot), the rotation is performed for the plane (k,z),
-     * giving P(k) the form
-     *     P(k) = ( 1                                             )
-     *            (      ...                                      )
-     *            (             1                                 )
-     *            (                  c(k)                    s(k) )
-     *            (                         1                     )
-     *            (                              ...              )
-     *            (                                     1         )
-     *            (                 -s(k)                    c(k) )
-     * where R(k) appears in rows and columns k and z. The rotations are performed without ever
-     * forming P(k) explicitly.
-     * Parameters: side: Specifies whether the plane rotation matrix P is applied to A on the left
-     *                   or the right.
-     *                   =='L': Left, compute A := P*A
-     *                   =='R': Right, compute A:= A*P^T
-     *             pivot: Specifies the plane for which P(k) is a plane rotation matrix.
-     *                    =='V': Variable pivot, the plane (k,k+1)
-     *                    =='T': Top pivot, the plane (1,k+1)
-     *                    =='B': Bottom pivot, the plane (k,z)
-     *             direct: Specifies whether P is a forward or backward sequence of plane
-     *                     rotations.
-     *                     =='F': Forward, P = P(z-1)*...*P(2)*P(1)
-     *                     =='B': Backward, P = P(1)*P(2)*...*P(z-1)
-     *             m: The number of rows of the matrix A. If m<=1, an immediate return is effected.
-     *             n: The number of columns of the matrix A. If n<=1, an immediate return is
-     *                effected.
-     *             c: an array, dimension (m-1) if side=='L'
-     *                                    (n-1) if side=='R'
-     *                The cosines c(k) of the plane rotations.
-     *             s: an array, dimension (m-1) if side=='L'
-     *                                    (n-1) if side=='R'
-     *                The sines s(k) of the plane rotations. The 2-by-2 plane rotation part of the
-     *                matrix P(k), R(k), has the form
-     *                    R(k) = (  c(k)  s(k) )
-     *                           ( -s(k)  c(k) ).
-     *             A: an array, dimension (lda,n)
-     *                The m-by-n matrix A. On exit, A is overwritten by P*A if side=='R'
-     *                                                            or by A*P^T if side=='L'.
-     *             lda: The leading dimension of the array A. lda >= max(1,m).
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date December 2016                                                                        */
+    /*! §dlasr applies a sequence of plane rotations to a general rectangular matrix.
+     *
+     * §dlasr applies a sequence of plane rotations to a real matrix $A$, from either the left or
+     * the right.\n
+     * When §side = 'L', the transformation takes the form\n
+     *     $A = P A$\n
+     * and when §side = 'R', the transformation takes the form\n
+     *     $A = A P^T$\n
+     * where $P$ is an orthogonal matrix consisting of a sequence of $z$ plane rotations, with
+     * $z=\{m}$ when §side = 'L' and $z=\{n}$ when §side = 'R', and $P^T$ is the transpose of
+     * $P$.\n
+     * When §direct = 'F' (Forward sequence), then\n
+     *     $P = P(z-2) \ldots P(1) P(0)$\n
+     * and when §direct = 'B' (Backward sequence), then\n
+     *     $P = P(0) P(1) \ldots P(z-2)$\n
+     * where $P(k)$ is a plane rotation matrix defined by the 2 by 2 rotation\n
+     *     $R(k) = \b{bm}  c(k) & s(k) \\
+     *                    -s(k) & c(k) \e{bm}$.\n
+     * When §pivot = 'V' (Variable pivot), the rotation is performed for the plane $(k,k+1)$,
+     * i.e., $P(k)$ has the form\n
+     *     $P(k)=\b{bm}  1  &        &     &       &      &     &        &     \\
+     *                      & \ldots &     &       &      &     &        &     \\
+     *                      &        &  1  &       &      &     &        &     \\
+     *                      &        &     &  c(k) & s(k) &     &        &     \\
+     *                      &        &     & -s(k) & c(k) &     &        &     \\
+     *                      &        &     &       &      &  1  &        &     \\
+     *                      &        &     &       &      &     & \ldots &     \\
+     *                      &        &     &       &      &     &        &  1  \e{bm}$\n
+     * where $R(k)$ appears as a rank-2 modification to the identity matrix in rows and columns
+     * $k$ and $k+1$.\n
+     * When §pivot = 'T' (Top pivot), the rotation is performed for the plane $(1,k+1)$,
+     * so $P(k)$ has the form\n
+     *     $P(k)=\b{bm}  c(k) &     &        &     & s(k) &     &        &     \\
+     *                        &  1  &        &     &      &     &        &     \\
+     *                        &     & \ldots &     &      &     &        &     \\
+     *                        &     &        &  1  &      &     &        &     \\
+     *                  -s(k) &     &        &     & c(k) &     &        &     \\
+     *                        &     &        &     &      &  1  &        &     \\
+     *                        &     &        &     &      &     & \ldots &     \\
+     *                        &     &        &     &      &     &        &  1  \e{bm}$\n
+     * where $R(k)$ appears in rows and columns $1$ and $k+1$.\n
+     * Similarly, when §pivot = 'B' (Bottom pivot), the rotation is performed for the plane
+     * $(k,z)$, giving $P(k)$ the form
+     *     $P(k)=\b{bm}  1  &        &     &       &     &        &     &      \\
+     *                      & \ldots &     &       &     &        &     &      \\
+     *                      &        &  1  &       &     &        &     &      \\
+     *                      &        &     &  c(k) &     &        &     & s(k) \\
+     *                      &        &     &       &  1  &        &     &      \\
+     *                      &        &     &       &     & \ldots &     &      \\
+     *                      &        &     &       &     &        &  1  &      \\
+     *                      &        &     & -s(k) &     &        &     & c(k) \e{bm}$\n
+     * where $R(k)$ appears in rows and columns $k$ and $z$. The rotations are performed without
+     * ever forming $P(k)$ explicitly.
+     * \param[in] side
+     *     Specifies whether the plane rotation matrix $P$ is applied to $A$ on the left or the
+     *     right.\n    = 'L': Left, compute $A = P A$\n
+     *                 = 'R': Right, compute $A = A P^T$
+     *
+     * \param[in] pivot
+     *     Specifies the plane for which $P(k)$ is a plane rotation matrix.\n
+     *         = 'V': Variable pivot, the plane $(k,k+1)$\n
+     *         = 'T': Top pivot, the plane $(1,k+1)$\n
+     *         = 'B': Bottom pivot, the plane $(k,z)$
+     *
+     * \param[in] direct
+     *     Specifies whether $P$ is a forward or backward sequence of plane rotations.\n
+     *         = 'F': Forward, $P = P(z-2) \ldots P(1) P(0)$\n
+     *         = 'B': Backward, $P = P(0) P(1) \ldots P(z-2)$
+     *
+     * \param[in] m
+     *     The number of rows of the matrix $A$. If $\{m}\le 1$, an immediate return is effected.
+     *
+     * \param[in] n
+     *     The number of columns of the matrix $A$.
+     *     If $\{n}\le 1$, an immediate return is effected.
+     *
+     * \param[in] c
+     *     an array, dimension\n ($\{m}-1$) if §side = 'L'\n
+     *                           ($\{n}-1$) if §side = 'R'\n
+     *     The cosines $c(k)$ of the plane rotations.
+     *
+     * \param[in] s
+     *     an array, dimension\n ($\{m}-1$) if §side = 'L'\n
+     *                           ($\{n}-1$) if §side = 'R'\n
+     *     The sines $s(k)$ of the plane rotations.\n
+     *     The 2 by 2 plane rotation part of the matrix $P(k)$, $R(k)$, has the form\n
+     *         $R(k)=\b{bm}  c(k) & s(k) \\
+     *                      -s(k) & c(k) \e{bm}$.
+     *
+     * \param[in,out] A
+     *     an array, dimension (§lda,§n)\n
+     *     The §m by §n matrix $A$.\n
+     *     On exit, §A is overwritten by $P A$ if §side = 'R' or by $A P^T$ if §side = 'L'.
+     *
+     * \param[in] lda The leading dimension of the array §A. $\{lda}\ge\max(1,\{m})$.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                       */
     static void dlasr(char const* side, char const* pivot, char const* direct, int m, int n,
                       real const* c, real const* s, real* A, int lda)
     {
@@ -9381,24 +10002,31 @@ public:
         }
     }
 
-    /* dlasrt sorts the numbers in d in increasing order (if id = 'I') or in decreasing order
-     * (if id = 'D').
-     * Use Quick Sort, reverting to Insertion sort on arrays of size<=20. Dimension of 'stack'
-     * limits n to about 2^32.
-     * Parameters: id: =='I': sort d in increasing order;
-     *                 =='D': sort d in decreasing order.
-     *             n: The length of the array d.
-     *             d: an array, dimension (n)
-     *                On entry, the array to be sorted.
-     *                On exit, d has been sorted into increasing order (d[0] <= ... <= d[n-1]) or
-     *                         into decreasing order (d[0] >= ... >= d[n-1]), depending on id.
-     *             info: ==0: successful exit
-     *                    <0: if info = -i, the i-th argument had an illegal value
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date June 2016                                                                            */
+    /*! §dlasrt sorts numbers in increasing or decreasing order.
+     *
+     * §dlasrt sorts the numbers in §d in increasing order (if §id = 'I') or in decreasing order
+     * (if §id = 'D').\n
+     * Use Quick Sort, reverting to Insertion sort on arrays of size$\le 20$. Dimension of 'stack'
+     * limits §n to about $2^32$.
+     * \param[in] id
+     *     = 'I': sort §d in increasing order;\n
+     *     = 'D': sort §d in decreasing order.
+     *
+     * \param[in]     n The length of the array §d.
+     * \param[in,out] d
+     *     an array, dimension (§n)\n
+     *     On entry, the array to be sorted.\n
+     *     On exit, §d has been sorted into increasing order ($\{d}[0]\le\ldots\le\{d}[\{n}-1]$) or
+     *              into decreasing order ($\{d}[0]\ge\ldots\ge\{d}[\{n}-1]$), depending on §id.
+     *
+     * \param[out] info
+     *     = 0: successful exit\n
+     *     < 0: if §info = $-i$, the $i$-th argument had an illegal value
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date June 2016                                                                            */
     static void dlasrt(char const* id, int n, real* d, int& info)
     {
         const int SELECT = 20;
@@ -9444,7 +10072,7 @@ public:
             stkpnt--;
             if (endd-start<=SELECT && endd-start>0)
             {
-                // Do Insertion sort on D[start:endd]
+                // Do Insertion sort on d[start:endd]
                 if (dir==0)
                 {
                     // Sort into decreasing order
@@ -9488,7 +10116,7 @@ public:
             }
             else if (endd-start>SELECT)
             {
-                // Partition D[start:endd] and stack parts, largest one first
+                // Partition d[start:endd] and stack parts, largest one first
                 // Choose partition entry as median of 3
                 d1 = d[start];
                 d2 = d[endd];
@@ -9612,31 +10240,35 @@ public:
         } while (stkpnt>=0);
     }
 
-    /* dlassq updates a sum of squares represented in scaled form.
-     * returns the values scl and smsq such that
-     * (scl^2)*smsq = x(0)^2 + ... + x(n-1)^2 + (scale^2)*sumsq,
-     * where x(i) = x[i*incx]. The value of sumsq is assumed to be non-negative and scl
-     * returns the value
-     * scl = max(scale, abs(x(i))).
-     * scl and smsq are overwritten on scale and sumsq respectively.
-     * The routine makes only one pass through the vector x.
-     * Parameters: n: The number of elements to be used from the vector x.
-     *             x: an array, dimension (n)
-     *                The vector for which a scaled sum of squares is computed.
-     *                x(i) = x[i*incx], 0 <= i < n.
-     *             incx: The increment between successive values of the vector x.
-     *                   incx > 0.
-     *             scale: On entry, the value scale in the equation above.
-     *                    On exit, scale is overwritten with scl, the scaling factor for
-     *                    the sum of squares.
-     *             sumsq: On entry, the value sumsq in the equation above.
-     *                    On exit, sumsq is overwritten with smsq, the basic sum of squares from
-     *                    which scl has been factored out.
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date: December 2016                                                                       */
+    /*! §dlassq updates a sum of squares represented in scaled form.
+     *
+     * §dlassq returns the values $scl$ and $smsq$ such that\n
+     *     $scl^2 smsq = \{x}(0)^2 + \ldots + \{x}(\{n}-1)^2 + \{scale}^2\{sumsq}$,\n
+     * where $\{x}(i) = \{x}[i*\{incx}]$. The value of §sumsq is assumed to be non-negative and
+     * $scl$ returns the value\n
+     *     $scl = \max(\{scale}, |x(i)|)$.\n
+     * $scl$ and $smsq$ are overwritten on §scale and §sumsq respectively.\n
+     * The routine makes only one pass through the vector §x.
+     * \param[in] n The number of elements to be used from the vector §x.
+     * \param[in] x
+     *     an array, dimension (§n)\n
+     *     The vector for which a scaled sum of squares is computed.\n
+     *         $\{x}(i) = \{x}[i*\{incx}]$, $0 \le i < \{n}$.
+     *
+     * \param[in]     incx The increment between successive values of the vector §x. $\{incx} > 0$.
+     * \param[in,out] scale
+     *     On entry, the value §scale in the equation above.\n
+     *     On exit, §scale is overwritten with $scl$, the scaling factor for the sum of squares.
+     *
+     * \param[in,out] sumsq
+     *     On entry, the value §sumsq in the equation above.\n
+     *     On exit, §sumsq is overwritten with $smsq$,
+     *              the basic sum of squares from which $scl$ has been factored out.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                       */
     static void dlassq(int n, real const* x, int incx, real& scale, real& sumsq)
     {
         if (n>0)
@@ -9662,39 +10294,47 @@ public:
         }
     }
 
-    /* dlasv2 computes the singular value decomposition of a 2-by-2 triangular matrix
-     *     [ f  g ]
-     *     [ 0  h ].
-     * On return, abs(ssmax) is the larger singular value, abs(ssmin) is the smaller singular
-     * value, and (csl,snl) and (csr,snr) are the left and right singular vectors for abs(ssmax),
-     * giving the decomposition
-     *     [ csl snl] [ f  g ] [csr -snr] = [ssmax  0  ]
-     *     [-snl csl] [ 0  h ] [snr  csr]   [ 0   ssmin].
-     * Parameters: f: The [0,0] element of the 2-by-2 matrix.
-     *             g: The [0,1] element of the 2-by-2 matrix.
-     *             h: The [1,1] element of the 2-by-2 matrix.
-     *             ssmin: abs(ssmin) is the smaller singular value.
-     *             ssmax: abs(ssmax) is the larger singular value.
-     *             snl,
-     *             csl: The vector (csl, snl) is a unit left singular vector for the singular value
-     *                  abs(ssmax).
-     *             snr,
-     *             csr: The vector (csr, snr) is a unit right singular vector for the singular
-     *                  value abs(ssmax).
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date: December 2016
-     * Further Details:
-     *   Any input parameter may be aliased with any output parameter.
-     *   Barring over/underflow and assuming a guard digit in subtraction, all output quantities
-     *     are correct to within a few units in the last place (ulps).
-     *   In IEEE arithmetic, the code works correctly if one matrix element is infinite.
-     *   Overflow will not occur unless the largest singular value itself overflows or is within
-     *     a few ulps of overflow. (On machines with partial overflow, like the Cray, overflow may
-     *     occur if the largest singular value is within a factor of 2 of overflow.)
-     *   Underflow is harmless if underflow is gradual. Otherwise, results may correspond to a
+    /*! §dlasv2 computes the singular value decomposition of a 2-by-2 triangular matrix.
+     *
+     * §dlasv2 computes the singular value decomposition of a 2-by-2 triangular matrix\n
+     *     $\b{bm} \{f} & \{g} \\
+     *               0  & \{h} \e{bm}$.\n
+     * On return, $|\{ssmax}|$ is the larger singular value, $|\{ssmin}|$ is the smaller singular
+     * value, and $\b{bm} \{csl} & \{snl} \e{bm}$ and $\b{bm} \{csr} & \{snr} \e{bm}$ are the left
+     * and right singular vectors for $|\{ssmax}|$, giving the decomposition\n
+     *     $\b{bm} \{csl} & \{snl} \\
+     *            -\{snl} & \{csl} \e{bm} \b{bm} \{f} & \{g} \\
+     *                                             0  & \{h} \e{bm}
+     *      \b{bm} \{csr} & -\{snr} \\
+     *             \{snr} &  \{csr} \e{bm} = \b{bm} \{ssmax} &     0    \\
+     *                                                 0     & \{ssmin} \e{bm}$.
+     * \param[in]  f     The [0,0] element of the 2 by 2 matrix.
+     * \param[in]  g     The [0,1] element of the 2 by 2 matrix.
+     * \param[in]  h     The [1,1] element of the 2 by 2 matrix.
+     * \param[out] ssmin $|\{ssmin}|$ is the smaller singular value.
+     * \param[out] ssmax $|\{ssmax}|$ is the larger singular value.
+     * \param[out] snl,
+     *             csl
+     *     The vector $\b{bm} \{csl} & \{snl} \e{bm}$ is a unit left singular vector for the
+     *     singular value $|\{ssmax}|$.
+     * \param[out] snr,
+     *             csr
+     *     The vector $\b{bm} \{csr} & \{snr} \e{bm}$ is a unit right singular vector for the
+     *     singular value $|\{ssmax}|$.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016
+     * \remark
+     *     Any input parameter may be aliased with any output parameter.\n
+     *     Barring over/underflow and assuming a guard digit in subtraction, all output quantities
+     *         are correct to within a few units in the last place (ulps).\n
+     *     In IEEE arithmetic, the code works correctly if one matrix element is infinite.\n
+     *     Overflow will not occur unless the largest singular value itself overflows or is within
+     *         a few ulps of overflow. (On machines with partial overflow, like the Cray, overflow
+     *         may occur if the largest singular value is within a factor of 2 of overflow.)\n
+     *     Underflow is harmless if underflow is gradual. Otherwise, results may correspond to a
      *     matrix modified by perturbations of size near the underflow threshold.                */
     static void dlasv2(real f, real g, real h, real& ssmin, real& ssmax, real& snr, real& csr,
                        real& snl, real& csl)
@@ -9852,30 +10492,41 @@ public:
         ssmin = std::copysign(ssmin, tsign*real((ZERO<=f)-(f<ZERO))*real((ZERO<=h)-(h<ZERO)));
     }
 
-    /* dorg2r generates an m by n real matrix Q with orthonormal columns,
-     * which is defined as the first n columns of a product of k elementary reflectors of order m
-     *     Q = H(1) H(2) . ..H(k)
-     * as returned by dgeqrf.
-     * Parameters: m: The number of rows of the matrix Q. m >= 0.
-     *             n: The number of columns of the matrix Q. m >= n >= 0.
-     *             k: The number of elementary reflectors whose product defines the matrix Q.
-     *                n >= k >= 0.
-     *             A: an array, dimension(lda, n)
-     *                On entry, the i-th column must contain the vector which defines the
-     *                elementary reflector H(i), for i = 1, 2, ..., k, as returned by dgeqrf
-     *                in the first k columns of its array argument A.
-     *                On exit, the m-by-n matrix Q.
-     *             lda: The first dimension of the array A. lda >= max(1, m).
-     *             tau: an array, dimension(k)
-     *                  tau(i) must contain the scalar factor of the elementary reflector H(i),
-     *                  as returned by dgeqrf.
-     *             work: an array, dimension(n)
-     *             info: ==0: successful exit
-     *                   < 0: if info = -i, the i-th argument has an illegal value
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.                                                                         */
+    /*! §dorg2r generates all or part of the orthogonal matrix $Q$ from a QR factorization
+     *  determined by §sgeqrf (unblocked algorithm).
+     *
+     * §dorg2r generates an §m by §n real matrix $Q$ with orthonormal columns, which is defined as
+     * the first §n columns of a product of §k elementary reflectors of order §m \n
+     *     $Q = H(0) H(1) \ldots H(k-1)$\n
+     * as returned by §dgeqrf.
+     * \param[in] m The number of rows of the matrix $Q$. $\{m}\ge 0$.
+     * \param[in] n The number of columns of the matrix $Q$. $\{m}\ge\{n}\ge 0$.
+     * \param[in] k
+     *     The number of elementary reflectors whose product defines the matrix $Q$.
+     *     $\{n}\ge\{k}\ge 0$.
+     *
+     * \param[in,out] A
+     *     an array, dimension (§lda,§n)\n
+     *     On entry, the $i$-th column must contain the vector which defines the elementary
+     *     reflector $H(i)$, for $i = 0, 1, \ldots, \{k}-1$, as returned by §dgeqrf in the first
+     *     §k columns of its array argument §A. \n
+     *     On exit, the §m by §n matrix $Q$.
+     *
+     * \param[in] lda The first dimension of the array §A. $\{lda}\ge\max(1,\{m})$.
+     * \param[in] tau
+     *     an array, dimension (§k)\n
+     *     $\{tau}[i]$ must contain the scalar factor of the elementary reflector $H(i)$,
+     *      as returned by §dgeqrf.
+     *
+     * \param[out] work an array, dimension (§n)
+     * \param[out] info
+     *     = 0: successful exit\n
+     *     < 0: if §info = $-i$, the $i$-th argument has an illegal value
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                       */
     static void dorg2r(int m, int n, int k, real* A, int lda, real const* tau, real* work,
                        int& info)
     {
@@ -9903,7 +10554,7 @@ public:
             return;
         }
         // Quick return if possible
-        if (n<0)
+        if (n<=0)
         {
             return;
         }
@@ -9932,7 +10583,7 @@ public:
                 Blas<real>::dscal(m-i-1, -tau[i], &A[i+1+acoli], 1);
             }
             A[i+acoli] = ONE - tau[i];
-            // Set A(1:i - 1, i) to zero
+            // Set A[0:i-1,i] to zero
             for (j=0; j<i; j++)
             {
                 A[j+acoli] = ZERO;
@@ -9940,43 +10591,57 @@ public:
         }
     }
 
-    /* dorgqr generates an m-by-n real matrix Q with orthonormal columns, which is defined as the
-     * first n columns of a product of k elementary reflectors of order m
-     *     Q = H(1) H(2) . ..H(k)
-     * as returned by dgeqrf.
-     * Parameters: m: The number of rows of the matrix Q. m >= 0.
-     *             n: The number of columns of the matrix Q. m >= n >= 0.
-     *             k: The number of elementary reflectors whose product defines the matrix Q.
-     *                n>=k>=0.
-     *             A: an array, dimension(lda, n)
-     *                On entry, the i-th column must contain the vector which defines the
-     *                elementary reflector H(i), for i = 1, 2, ..., k, as returned by dgeqrf in the
-     *                first k columns of its array argument A.
-     *                On exit, the m-by-n matrix Q.
-     *             lda: The first dimension of the array A. lda >= max(1, m).
-     *             tau:  array, dimension(k). tau[i] must contain the scalar factor of the
-     *                   elementary reflector H(i), as returned by dgeqrf.
-     *             work: an array, dimension(max(1, lwork))
-     *                   On exit, if info = 0, work[0] returns the optimal lwork.
-     *             lwork: The dimension of the array work. lwork >= max(1, n).
-     *                    For optimum performance lwork >= n*nb, where nb is the optimal blocksize.
-     *                    If lwork = -1, then a workspace query is assumed; the routine only
-     *                    calculates the optimal size of the work array, returns this value as the
-     *                    first entry of the work array, and no error message related to lwork is
-     *                    issued by xerbla.
-     *             info: =0:  successful exit
-     *                   <0:  if info = -i, the i-th argument has an illegal value
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.                                                                         */
+    /*! §dorgqr
+     *
+     * §dorgqr generates an §m by §n real matrix $Q$ with orthonormal columns, which is defined as
+     * the first §n columns of a product of §k elementary reflectors of order §m \n
+     *     $Q = H(0) H(1) \ldots H(\{k}-1)$\n
+     * as returned by §dgeqrf.
+     * \param[in] m The number of rows of the matrix $Q$. $\{m}\ge 0$.
+     * \param[in] n The number of columns of the matrix $Q$. $\{m}\ge\{n}\ge 0$.
+     * \param[in] k
+     *     The number of elementary reflectors whose product defines the matrix $Q$.
+     *     $\{n}\ge\{k}\ge 0$.
+     *
+     * \param[in,out] A
+     *     an array, dimension (§lda,§n)\n
+     *     On entry, the $i$-th column must contain the vector which defines the elementary
+     *     reflector $H(i)$, for $i=0, 1, \ldots, \{k}-1$, as returned by §dgeqrf in the first §k
+     *     columns of its array argument §A.\n
+     *     On exit, the §m by §n matrix $Q$.
+     *
+     * \param[in] lda The first dimension of the array §A. $\{lda}\ge\max(1,\{m})$.
+     * \param[in] tau
+     *     array, dimension (§k).\n
+     *     $\{tau}[i]$ must contain the scalar factor of the elementary reflector $H(i)$, as
+     *     returned by §dgeqrf.
+     *
+     * \param[out] work
+     *     an array, dimension ($\max(1,\{lwork})$)\n
+     *     On exit, if §info = 0, §work[0] returns the optimal §lwork.
+     *
+     * \param[in] lwork
+     *     The dimension of the array §work. $\{lwork}\ge\max(1,\{n})$.\n
+     *     For optimum performance $\{lwork}\ge\{n}\{nb}$, where §nb is the optimal blocksize.\n
+     *     If §lwork = -1, then a workspace query is assumed; the routine only calculates the
+     *     optimal size of the §work array, returns this value as the first entry of the §work
+     *     array, and no error message related to §lwork is issued by §xerbla.
+     *
+     * \param[out] info
+     *     = 0: successful exit\n
+     *     < 0: if §info = $-i$, the $i$-th argument has an illegal value
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                       */
     static void dorgqr(int m, int n, int k, real* A, int lda, real const* tau, real* work,
                        int lwork, int& info)
     {
         // Test the input arguments
         info = 0;
         int nb = ilaenv(1, "DORGQR", " ", m, n, k, -1);
-        int lwkopt = ((1>n)?1:n) * nb;
+        int lwkopt = std::max(1, n) * nb;
         work[0] = lwkopt;
         bool lquery = (lwork==-1);
         if (m<0)
@@ -10021,11 +10686,7 @@ public:
         if (nb>1 && nb<k)
         {
             // Determine when to cross over from blocked to unblocked code.
-            nx = ilaenv(3, "DORGQR", " ", m, n, k, -1);
-            if (nx<0)
-            {
-                nx = 0;
-            }
+            nx = std::max(0, ilaenv(3, "DORGQR", " ", m, n, k, -1));
             if (nx<k)
             {
                 // Determine if workspace is large enough for blocked code.
@@ -10036,11 +10697,7 @@ public:
                     // Not enough workspace to use optimal nb:
                     // reduce nb and determine the minimum value of nb.
                     nb = lwork / ldwork;
-                    nbmin = ilaenv(2, "DORGQR", " ", m, n, k, -1);
-                    if (nbmin<2)
-                    {
-                        nbmin = 2;
-                    }
+                    nbmin = std::max(2, ilaenv(2, "DORGQR", " ", m, n, k, -1));
                 }
             }
         }
@@ -10049,11 +10706,7 @@ public:
         {
             // Use blocked code after the last block. The first kk columns are handled by the block method.
             ki = ((k-nx-1)/nb) * nb;
-            kk = ki + nb;
-            if (kk>k)
-            {
-                kk = k;
-            }
+            kk = std::min(k, ki+nb);
             // Set A[0:kk-1, kk:n-1] to zero.
             for (j=kk; j<n; j++)
             {
@@ -10080,11 +10733,7 @@ public:
             // Use blocked code
             for (i=ki; i>=0; i-=nb)
             {
-                ib = k - i;
-                if (ib>nb)
-                {
-                    ib = nb;
-                }
+                ib = std::min(nb, k-i);
                 acol = i + lda*i;
                 if (i+ib < n)
                 {
@@ -10111,52 +10760,71 @@ public:
         work[0] = iws;
     }
 
-    /* dorm2r overwrites the general real m-by-n matrix C with
-     *     Q * C   if side = 'L' and trans = 'N', or
-     *     Q^T* C  if side = 'L' and trans = 'T', or
-     *     C * Q   if side = 'R' and trans = 'N', or
-     *     C * Q^T if side = 'R' and trans = 'T',
-     * where Q is a real orthogonal matrix defined as the product of k elementary reflectors
-     *     Q = H(1) H(2) . ..H(k)
-     * as returned by dgeqrf. Q is of order m if side = 'L' and of order n if side = 'R'.
-     * Parameters: side: 'L': apply Q or Q^T from the Left
-     *                   'R': apply Q or Q^T from the Right
-     *             trans: 'N': apply Q (No transpose)
-     *                    'T': apply Q^T (Transpose)
-     *             m: The number of rows of the matrix C. m >= 0.
-     *             n: The number of columns of the matrix C. n >= 0.
-     *             k: The number of elementary reflectors whose product defines the matrix Q.
-     *                If side = 'L', m >= k >= 0;
-     *                if side = 'R', n >= k >= 0.
-     *             A: an array, dimension(lda, k)
-     *                The i-th column must contain the vector which defines the elementary
-     *                reflector H(i), for i = 1, 2, ..., k, as returned by dgeqrf in the first k
-     *                columns of its array argument A. A is modified by the routine but restored
-     *                on exit.
-     *             lda: The leading dimension of the array A.
-     *                  If side = 'L', lda >= max(1, m);
-     *                  if side = 'R', lda >= max(1, n).
-     *             tau: an array, dimension(k)
-     *                  tau[i] must contain the scalar factor of the elementary reflector H(i),
-     *                  as returned by dgeqrf.
-     *             C: an array, dimension(ldc, n)
-     *                On entry, the m-by-n matrix C.
-     *                On exit, C is overwritten by Q*C or Q^T*C or C*Q^T or C*Q.
-     *             ldc: The leading dimension of the array C. ldc >= max(1, m).
-     *             work: an array, dimension (n) if side = 'L',
-     *                                       (m) if side = 'R'
-     *             info: =0: successful exit
-     *                   <0: if info = -i, the i-th argument had an illegal value
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.                                                                                      */
+    /*! §dorm2r multiplies a general matrix by the orthogonal matrix from a QR factorization
+     *  determined by §sgeqrf (unblocked algorithm).
+     *
+     * §dorm2r overwrites the general real §m by §n matrix $C$ with
+     *     \f{align*}{
+     *         Q   C   &\text{ if \tt{side} = 'L' and \tt{trans} = 'N', or} \\
+     *         Q^T C   &\text{ if \tt{side} = 'L' and \tt{trans} = 'T', or} \\
+     *         C   Q   &\text{ if \tt{side} = 'R' and \tt{trans} = 'N', or} \\
+     *         C   Q^T &\text{ if \tt{side} = 'R' and \tt{trans} = 'T',}
+     *     \f}
+     * where $Q$ is a real orthogonal matrix defined as the product of §k elementary reflectors\n
+     *     $Q = H(0) H(1) \ldots H(\{k}-1)$\n
+     * as returned by §dgeqrf. $Q$ is of order §m if §side = 'L' and of order §n if §side = 'R'.
+     * \param[in] side
+     *     'L': apply $Q$ or $Q^T$ from the Left\n
+     *     'R': apply $Q$ or $Q^T$ from the Right
+     *
+     * \param[in] trans
+     *     'N': apply $Q$ (No transpose)\n
+     *     'T': apply $Q^T$ (Transpose)
+     *
+     * \param[in] m The number of rows of the matrix $C$. $\{m}\ge 0$.
+     * \param[in] n The number of columns of the matrix $C$. $\{n}\ge 0$.
+     * \param[in] k
+     *     The number of elementary reflectors whose product defines the matrix $Q$.\n
+     *         If §side = 'L', $\{m}\ge\{k}\ge 0$;\n
+     *         if §side = 'R', $\{n}\ge\{k}\ge 0$.
+     *
+     * \param[in] A
+     *     an array, dimension (§lda,§k)\n
+     *     The $i$-th column must contain the vector which defines the elementary reflector $H(i)$,
+     *     for $i = 0, 1, \ldots, \{k}-1$, as returned by §dgeqrf in the first §k columns of its
+     *     array argument §A.\n §A is modified by the routine but restored on exit.
+     *
+     * \param[in] lda
+     *     The leading dimension of the array §A.\n
+     *         If §side = 'L', $\{lda}\ge\max(1,\{m})$;\n
+     *         if §side = 'R', $\{lda}\ge\max(1,\{n})$.
+     *
+     * \param[in] tau
+     *     an array, dimension (§k)\n
+     *     $\{tau}[i]$ must contain the scalar factor of the elementary reflector $H(i)$, as
+     *     returned by §dgeqrf.
+     *
+     * \param[in,out] C
+     *     an array, dimension (§ldc,§n)\n
+     *     On entry, the §m by §n matrix $C$.\n
+     *     On exit, §C is overwritten by $Q C$ or $Q^T C$ or $C Q^T$ or $C Q$.
+     *
+     * \param[in]  ldc  The leading dimension of the array §C. $\{ldc}\ge\max(1,\{m})$.
+     * \param[out] work an array, dimension\n (§n) if §side = 'L',\n (§m) if §side = 'R'
+     * \param[out] info
+     *     = 0: successful exit\n
+     *     < 0: if §info = $-i$, the $i$-th argument had an illegal value
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                       */
     static void dorm2r(char const* side, char const* trans, int m, int n, int k, real* A, int lda,
                        real const* tau, real* C, int ldc, real* work, int& info)
     {
         // Test the input arguments
-        bool left = (toupper(side[0])=='L');
-        bool notran = (toupper(trans[0])=='N');
+        bool left   = (std::toupper(side[0]) =='L');
+        bool notran = (std::toupper(trans[0])=='N');
         // nq is the order of Q
         int nq;
         if (left)
@@ -10168,11 +10836,11 @@ public:
             nq = n;
         }
         info = 0;
-        if (!left && (toupper(side[0])!='R'))
+        if (!left && (std::toupper(side[0])!='R'))
         {
             info = -1;
         }
-        else if (!notran && (toupper(trans[0])!='T'))
+        else if (!notran && (std::toupper(trans[0])!='T'))
         {
             info = -2;
         }
@@ -10236,13 +10904,13 @@ public:
         {
             if (left)
             {
-                // H(i) is applied to C[i:m-1, 0:n-1]
+                // H(i) is applied to C[i:m-1,0:n-1]
                 mi = m - i;
                 ic = i;
             }
             else
             {
-                // H(i) is applied to C[0:m-1, i:n-1]
+                // H(i) is applied to C[0:m-1,i:n-1]
                 ni = n - i;
                 jc = i;
             }
@@ -10255,63 +10923,84 @@ public:
         }
     }
 
-    /* dormqr overwrites the general real m-by-n matrix C with
-     *                     side = 'L'   side = 'R'
-     *     trans = 'N':    Q * C        C * Q
-     *     trans = 'T':    Q^T * C      C * Q^T
-     * where Q is a real orthogonal matrix defined as the product of k elementary reflectors
-     *     Q = H(1) H(2) . ..H(k)
-     * as returned by dgeqrf. Q is of order m if side = 'L' and of order n if side = 'R'.
-     * Parameters: side: 'L': apply Q or Q^T from the Left;
-     *                   'R': apply Q or Q**T from the Right.
-     *             trans: 'N':  No transpose, apply Q;
-     *                    'T':  Transpose, apply Q^T.
-     *             m: The number of rows of the matrix C. m >= 0.
-     *             n: The number of columns of the matrix C. n >= 0.
-     *             k: The number of elementary reflectors whose product defines the matrix Q.
-     *                If side = 'L', m >= k >= 0;
-     *                if side = 'R', n >= k >= 0.
-     *             A: an array, dimension(lda, k)
-     *               The i-th column must contain the vector which defines the elementary reflector
-     *               H(i), for i=1, 2, ..., k, as returned by dgeqrf in the first k columns of its
-     *               array argument A. A may be modified by the routine but is restored on exit.
-     *             lda: The leading dimension of the array A.
-     *                  If side = 'L', lda >= max(1, m);
-     *                  if side = 'R', lda >= max(1, n).
-     *             tau:  array, dimension(k)
-     *                   tau(i) must contain the scalar factor of the elementary reflector H(i),
-     *                   as returned by dgeqrf.
-     *             C: an array, dimension(ldc, n)
-     *                On entry, the m-by-n matrix C.
-     *                On exit, C is overwritten by Q*C or Q^T*C or C*Q^T or C*Q.
-     *             ldc: The leading dimension of the array C. ldc >= max(1, m).
-     *             work: an array, dimension(MAX(1, lwork))
-     *                   On exit, if info = 0, work[0] returns the optimal lwork.
-     *             lwork: The dimension of the array work.
-     *                    If side = 'L', lwork >= max(1, n);
-     *                    if side = 'R', lwork >= max(1, m).
-     *                    For optimum performance lwork >= n*nb if side = 'L',
-     *                    and lwork >= m*nb if side = 'R', where nb is the optimal blocksize.
-     *                    If lwork = -1, then a workspace query is assumed;
-     *                    the routine only calculates the optimal size of the work array,
-     *                    returns this value as the first entry of the work array,
-     *                    and no error message related to lwork is issued by xerbla.
-     *             info: =0:  successful exit
-     *                   <0:  if info = -i, the i-th argument had an illegal value
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.                                                                         */
+    /*! §dormqr
+     *
+     * §dormqr overwrites the general real §m by §n matrix $C$ with
+     *     \f[\begin{tabular}{lll}
+     *                         &  \{side} = 'L' & \{side} = 'R' \\
+     *         \{trans} = 'N': &    \(Q C\)     &    \(C Q\)   \\
+     *         \{trans} = 'T': &   \(Q^T C\)    &   \(C Q^T\)
+     *     \end{tabular}\f]
+     * where $Q$ is a real orthogonal matrix defined as the product of §k elementary reflectors\n
+     *     $Q = H(0) H(1) \ldots H(\{k}-1)$\n
+     * as returned by §dgeqrf. $Q$ is of order §m if §side = 'L' and of order §n if §side = 'R'.
+     * \param[in] side
+     *     'L': apply $Q$ or $Q^T$ from the Left;\n
+     *     'R': apply $Q$ or $Q^T$ from the Right.
+     *
+     * \param[in] trans
+     *     'N': No transpose, apply $Q$;\n 'T': Transpose, apply $Q^T$.
+     *
+     * \param[in] m The number of rows of the matrix $C$. $\{m}\ge 0$.
+     * \param[in] n The number of columns of the matrix $C$. $\{n}\ge 0$.
+     * \param[in] k
+     *     The number of elementary reflectors whose product defines the matrix $Q$.\n
+     *         If §side = 'L', $\{m}\ge\{k}\ge 0$;\n
+     *         if §side = 'R', $\{n}\ge\{k}\ge 0$.
+     *
+     * \param[in] A
+     *     an array, dimension (§lda,§k)\n
+     *     The $i$-th column must contain the vector which defines the elementary reflector $H(i)$,
+     *     for $i=0, 1, \ldots, \{k}-1$, as returned by §dgeqrf in the first §k columns of its
+     *     array argument §A. §A may be modified by the routine but is restored on exit.
+     *
+     * \param[in] lda
+     *     The leading dimension of the array §A.\n
+     *         If §side = 'L', $\{lda}\ge\max(1,\{m})$;\n
+     *         if §side = 'R', $\{lda}\ge\max(1,\{n})$.
+     *
+     * \param[in] tau
+     *     array, dimension (§k)\n
+     *     $\{tau}[i]$ must contain the scalar factor of the elementary reflector $H(i)$,
+     *     as returned by §dgeqrf.
+     *
+     * \param[in,out] C
+     *     an array, dimension (§ldc,§n)\n
+     *     On entry, the §m by §n matrix $C$.\n
+     *     On exit, §C is overwritten by $Q C$ or $Q^T C$ or $C Q^T$ or $C Q$.
+     *
+     * \param[in]  ldc  The leading dimension of the array §C. $\{ldc}\ge\max(1,\{m})$.
+     * \param[out] work
+     *     an array, dimension ($\max(1,\{lwork})$)\n
+     *     On exit, if §info = 0, $\{work}[0]$ returns the optimal §lwork.
+     *
+     * \param[in] lwork
+     *     The dimension of the array §work.\n
+     *     If §side = 'L', $\{lwork}\ge\max(1,\{n})$;\n
+     *     if §side = 'R', $\{lwork}\ge\max(1,\{m})$.\n
+     *     For good performance, §lwork should generally be larger.\n
+     *     If §lwork = -1, then a workspace query is assumed; the routine only calculates the
+     *     optimal size of the §work array, returns this value as the first entry of the §work
+     *     array, and no error message related to §lwork is issued by §xerbla.
+     *
+     * \param[in] info
+     *     = 0: successful exit\n
+     *     < 0: if §info = $-i$, the $i$-th argument had an illegal value
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                       */
     static void dormqr(char const* side, char const* trans, int m, int n, int k, real* A, int lda,
                        real const* tau, real* C, int ldc, real* work, int lwork, int& info)
     {
         const int NBMAX = 64;
-        const int LDT = NBMAX + 1;
-        real* T = new real[LDT*NBMAX];
+        const int LDT   = NBMAX + 1;
+        const int TSIZE = LDT*NBMAX;
         // Test the input arguments
         info = 0;
-        char upside = toupper(side[0]);
-        char uptrans = toupper(trans[0]);
+        char upside = std::toupper(side[0]);
+        char uptrans = std::toupper(trans[0]);
         bool left = (upside=='L');
         bool notran = (uptrans=='N');
         bool lquery = (lwork==-1);
@@ -10327,11 +11016,11 @@ public:
             nq = n;
             nw = m;
         }
-        if (!left && (upside!='R'))
+        if (!left && upside!='R')
         {
             info = -1;
         }
-        else if (!notran && (uptrans!='T'))
+        else if (!notran && uptrans!='T')
         {
             info = -2;
         }
@@ -10365,13 +11054,9 @@ public:
         int lwkopt, nb;
         if (info==0)
         {
-            // Determine the block size. nb may be at most NBMAX, where NBMAX is used to define the local array T.
-            nb = ilaenv(1, "DORMQR", opts, m, n, k, -1);
-            if (nb>NBMAX)
-            {
-                nb = NBMAX;
-            }
-            lwkopt = ((1>nw)?1:nw) * nb;
+            // Compute the workspace requirements
+            nb = std::min(NBMAX, ilaenv(1, "DORMQR", opts, m, n, k, -1));
+            lwkopt = std::max(1, nw)*nb + TSIZE;
             work[0] = lwkopt;
         }
         if (info!=0)
@@ -10391,23 +11076,13 @@ public:
         }
         int nbmin = 2;
         int ldwork = nw;
-        int iws;
         if (nb>1 && nb<k)
         {
-            iws = nw*nb;
-            if (lwork<iws)
+            if (lwork<nw*nb+TSIZE)
             {
-                nb = lwork / ldwork;
-                nbmin = ilaenv(2, "DORMQR", opts, m, n, k, -1);
-                if (nbmin<2)
-                {
-                    nbmin = 2;
-                }
+                nb = (lwork-TSIZE) / ldwork;
+                nbmin = std::max(2, ilaenv(2, "DORMQR", opts, m, n, k, -1));
             }
-        }
-        else
-        {
-            iws = nw;
         }
         if (nb<nbmin || nb>=k)
         {
@@ -10418,6 +11093,7 @@ public:
         else
         {
             // Use blocked code
+            int iwt = nw*nb;
             int i1, i2, i3;
             if ((left && !notran) || (!left && notran))
             {
@@ -10445,15 +11121,11 @@ public:
             int i, ib, aind;
             for (i=i1; (i3<0) ? (i>=i2) : (i<=i2); i+=i3)
             {
-                ib = k - i;
-                if (ib>nb)
-                {
-                    ib = nb;
-                }
+                ib = std::min(nb, k-i);
                 // Form the triangular factor of the block reflector
-                aind = i + lda*i;
                 //     H = H(i) H(i + 1) . ..H(i + ib - 1)
-                dlarft("Forward", "Columnwise", nq-i, ib, &A[aind], lda, &tau[i], T, LDT);
+                aind = i + lda*i;
+                dlarft("Forward", "Columnwise", nq-i, ib, &A[aind], lda, &tau[i], &work[iwt], LDT);
                 if (left)
                 {
                     // H or H^T is applied to C[i:m-1, 0:n-1]
@@ -10467,35 +11139,43 @@ public:
                     jc = i;
                 }
                 // Apply H or H^T
-                dlarfb(side, trans, "Forward", "Columnwise", mi, ni, ib, &A[aind], lda, T, LDT,
-                       &C[ic+ldc*jc], ldc, work, ldwork);
+                dlarfb(side, trans, "Forward", "Columnwise", mi, ni, ib, &A[aind], lda, &work[iwt],
+                       LDT, &C[ic+ldc*jc], ldc, work, ldwork);
             }
         }
         work[0] = lwkopt;
-        delete[] T;
     }
 
-    /* ieeeck is called from the ilaenv to verify that Infinity and possibly NaN arithmetic is safe
-     * (i.e.will not trap).
-     * Parameters: ispec: Specifies whether to test just for inifinity arithmetic or whether to
-     *                    test for infinity and NaN arithmetic.
-     *                    0: Verify infinity arithmetic only.
-     *                    1: Verify infinity and NaN arithmetic.
-     *             Zero: Must contain the value 0.0
-     *                   This is passed to prevent the compiler from optimizing away some code.
-     *             One: Must contain the value 1.0
-     *                  This is passed to prevent the compiler from optimizing away some code.
-     * Returns: 0: Arithmetic failed to produce the correct answers
-     *          1: Arithmetic produced the correct answers
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * TODO: Check whether these checks are still valid in c++                                   */
+    /*! §ieeeck
+     *
+     * §ieeeck is called from the §ilaenv to verify that Infinity and possibly NaN arithmetic is
+     * safe (i.e.will not trap).
+     * \param[in] ispec
+     *     Specifies whether to test just for inifinity arithmetic or whether to test for infinity
+     *     and NaN arithmetic.\n
+     *         0: Verify infinity arithmetic only.\n
+     *         1: Verify infinity and NaN arithmetic.
+     *
+     * \param[in] Zero
+     *     Must contain the value 0.0\n
+     *     This is passed to prevent the compiler from optimizing away some code.
+     *
+     * \param[in] One
+     *     Must contain the value 1.0\n
+     *     This is passed to prevent the compiler from optimizing away some code.
+     *
+     * \return
+     *     0: Arithmetic failed to produce the correct answers\n
+     *     1: Arithmetic produced the correct answers
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                       */
     static int ieeeck(int ispec, real Zero, real One)
     {
         real posinf = One / Zero;
-        if (posinf<One)
+        if (posinf<=One)
         {
             return 0;
         }
@@ -10572,27 +11252,30 @@ public:
         return 1;
     }
 
-    /* iladlc scans A for its last non - zero column.
-     * Parameters: m: The number of rows of the matrix A.
-     *             n: The number of columns of the matrix A.
-     *             A: an array, dimension(lda, n)
-     *                The m by n matrix A.
-     *             lda: The leading dimension of the array A. lda >= max(1, m).
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.                                                           */
+    /*! §iladlc scans a matrix for its last non-zero column.
+     *
+     * §iladlc scans $A$ for its last non-zero column.
+     * \param[in] m   The number of rows of the matrix $A$.
+     * \param[in] n   The number of columns of the matrix $A$.
+     * \param[in] A   an array, dimension (§lda,§n)\n The §m by §n matrix $A$.
+     * \param[in] lda The leading dimension of the array §A. $\{lda}\ge\max(1,\{m})$.
+     * \return The index of the last non-zero column.\n NOTE: zero-based index!
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                       */
     static int iladlc(int m, int n, real const* A, int lda)
     {
         int ila, lastcol=lda*(n-1);
-        // Quick test for the common case where one corner is non - zero.
+        // Quick test for the common case where one corner is non-zero.
         if (n==0)
         {
-            return 0;
+            return -1;
         }
         else if (A[lastcol]!=ZERO || A[m-1+lastcol]!=ZERO)
         {
-            return n - 1;
+            return n-1;
         }
         else
         {
@@ -10613,23 +11296,26 @@ public:
         }
     }
 
-    /* iladlr scans A for its last non - zero row.
-     * Parameters: m: The number of rows of the matrix A.
-     *             n: The number of columns of the matrix A.
-     *             A: an array, dimension(lda, n)
-     *                The m by n matrix A.
-     *             lda: The leading dimension of the array A. lda >= max(1, m).
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.                                                           */
+    /*! §iladlr scans a matrix for its last non-zero row.
+     *
+     * §iladlr scans $A$ for its last non-zero row.
+     * \param[in] m   The number of rows of the matrix $A$.
+     * \param[in] n   The number of columns of the matrix $A$.
+     * \param[in] A   an array, dimension (§lda,§n)\n The §m by §n matrix $A$.
+     * \param[in] lda The leading dimension of the array §A. $\{lda}\ge\max(1,\{m})$.
+     * \return The index of the last non-zero row.\n NOTE: zero-based index!
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                       */
     static int iladlr(int m, int n, real const* A, int lda)
     {
         int lastrow = m - 1;
         // Quick test for the common case where one corner is non - zero.
         if (m==0)
         {
-            return 0;
+            return -1;
         }
         else if (A[lastrow]!=ZERO || A[lastrow+lda*(n-1)]!=ZERO)
         {
@@ -10644,7 +11330,7 @@ public:
             {
                 colj = lda * j;
                 i = lastrow;
-                while ((i>0) && (A[i+colj]==ZERO))
+                while (i>=0 && A[i+colj]==ZERO)
                 {
                     i--;
                 }
@@ -10657,70 +11343,72 @@ public:
         }
     }
 
-    /* ilaenv is called from the LAPACK routines to choose problem-dependent parameters for the
-     * local environment.
-     * See ispec for a description of the parameters.
-     * ilaenv returns an integer: if >=0: ilaenv returns the value of the parameter specified by
-     *                                     ispec
-     *                            if  <0: if -k, the k-th argument had an illegal value.
+    /*! §ilaenv
+     *
+     * §ilaenv is called from the LAPACK routines to choose problem-dependent parameters for the
+     * local environment. See §ispec for a description of the parameters.\n
+     * §ilaenv returns an integer:\n
+     *     if >=0: §ilaenv returns the value of the parameter specified by §ispec \n
+     *     if < 0: if $-k$, the $k$-th argument had an illegal value.\n
      * This version provides a set of parameters which should give good, but not optimal,
-     *     performance on many of the currently available computers.Users are encouraged to modify
-     *     this subroutine to set the tuning parameters for their particular machine using the
-     *     option and problem size information in the arguments.
-     * This routine will not function correctly if it is converted to all lower case.
-     *     Converting it to all upper case is allowed.
-     * Parameters: ispec: Specifies the parameter to be returned.
-     *                    1: the optimal blocksize; if this value is 1, an unblocked algorithm will
-     *                       give the best performance.
-     *                    2: the minimum block size for which the block routine should be used;
-     *                       if the usable block size is less than this value, an unblocked routine
-     *                       should be used.
-     *                    3: the crossover point(in a block routine, for N less than this value, an
-     *                       unblocked routine should be used)
-     *                    4: the number of shifts, used in the nonsymmetric eigenvalue routines
-     *                       (DEPRECATED)
-     *                    5: the minimum column dimension for blocking to be used; rectangular
-     *                       blocks must have dimension at least k by m, where k is given by
-     *                       ILAENV(2, ...) and m by ILAENV(5, ...)
-     *                    6: the crossover point for the SVD (when reducing an m by n matrix to
-     *                       bidiagonal form, if max(m, n) / min(m, n) exceeds this value, a QR
-     *                       factorization is used first to reduce the matrix to triangular form.)
-     *                    7: the number of processors
-     *                    8: the crossover point for the multishift QR method for nonsymmetric
-     *                       eigenvalue problems(DEPRECATED)
-     *                    9: maximum size of the subproblems at the bottom of the computation tree
-     *                       in the divide-and-conquer algorithm (used by xGELSD and xGESDD)
-     *                    10: ieee NaN arithmetic can be trusted not to trap
-     *                    11: infinity arithmetic can be trusted not to trap
-     *                    12<=ispec<=16: xHSEQR or one of its subroutines, see IPARMQ for
-     *                                   detailed explanation
-     *             name: The name of the calling subroutine, in either upper case or lower case.
-     *             opts: The character options to the subroutine name, concatenated into a single
-     *                   character string. For example, UPLO=='U', trans=='T', and DIAG=='N' for a
-     *                   triangular routine would be specified as opts=='UTN'.
-     *             n1: integer
-     *             n2: integer
-     *             n3: integer
-     *             n4: integer; Problem dimensions for the subroutine name;
-     *                          these may not all be required.
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Further Details:
-     *     The following conventions have been used when calling ilaenv from the LAPACK routines:
-     *      1)  opts is a concatenation of all of the character options to subroutine name, in the
-     *          same order that they appear in the argument list for name, even if they are not
-     *          used in determining the value of the parameter specified by ispec.
-     *      2)  The problem dimensions n1, n2, n3, n4 are specified in the order that they appear
-     *          in the argument list for name. n1 is used first, n2 second, and so on, and unused
-     *          problem dimensions are passed a value of -1.
-     *      3)  The parameter value returned by ILAENV is checked for validity in the calling
-     *          subroutine. For example, ilaenv is used to retrieve the optimal blocksize for
-     *          STRTRI as follows:
-     *          nb = ilaenv(1, 'STRTRI', UPLO // DIAG, N, -1, -1, -1)
-     *          if(nb<=1) nb = MAX(1, N);
-     * TODO: optimize                                                                            */
+     * performance on many of the currently available computers. Users are encouraged to modify
+     * this subroutine to set the tuning parameters for their particular machine using the option
+     * and problem size information in the arguments.\n
+     * This routine will not function correctly if it is converted to all lower case. Converting it
+     * to all upper case is allowed.
+     * \param[in] ispec
+     *     Specifies the parameter to be returned.\n
+     *     \li 1: the optimal blocksize; if this value is 1, an unblocked algorithm will give the
+     *            best performance.
+     *     \li 2: the minimum block size for which the block routine should be used; if the usable
+     *            block size is less than this value, an unblocked routine should be used.
+     *     \li 3: the crossover point (in a block routine, for §n less than this value, an
+     *            unblocked routine should be used)
+     *     \li 4: the number of shifts, used in the nonsymmetric eigenvalue routines (DEPRECATED)
+     *     \li 5: the minimum column dimension for blocking to be used; rectangular blocks must
+     *            have dimension at least §k by §m, where §k is given by §ilaenv(2, ...) and §m by
+     *            §ilaenv(5, ...)
+     *     \li 6: the crossover point for the SVD (when reducing an §m by §n matrix to bidiagonal
+     *            form, if $\max(\{m},\{n})/\min(\{m},\{n})$ exceeds this value, a QR factorization
+     *            is used first to reduce the matrix to triangular form.)
+     *     \li 7: the number of processors
+     *     \li 8: the crossover point for the multishift QR method for nonsymmetric eigenvalue
+     *            problems (DEPRECATED)
+     *     \li 9: maximum size of the subproblems at the bottom of the computation tree in the
+     *            divide-and-conquer algorithm (used by §xgelsd and §xgesdd)
+     *     \li 10: ieee NaN arithmetic can be trusted not to trap
+     *     \li 11: infinity arithmetic can be trusted not to trap
+     *     \li $12\le\{ispec}\le 16$: §xhseqr or related subroutines, see §iparmq for detailed
+     *                                explanation
+     *
+     * \param[in] name The name of the calling subroutine, in either upper case or lower case.
+     * \param[in] opts
+     *     The character options to the subroutine name, concatenated into a single character
+     *     string. For example, §uplo = 'U', §trans = 'T', and §diag = 'N' for a triangular routine
+     *     would be specified as §opts = 'UTN'.
+     *
+     * \param[in] n1, n2, n3, n4
+     *     Problem dimensions for the subroutine name; these may not all be required.
+     *
+     * \return The requested parameter.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date November 2017
+     * \remark
+     *     The following conventions have been used when calling §ilaenv from the LAPACK routines:
+     *     \li 1) §opts is a concatenation of all of the character options to subroutine §name, in
+     *            the same order that they appear in the argument list for §name, even if they are
+     *            not used in determining the value of the parameter specified by §ispec.
+     *     \li 2) The problem dimensions §n1, §n2, §n3, §n4 are specified in the order that they
+     *            appear in the argument list for §name. §n1 is used first, §n2 second, and so on,
+     *            and unused problem dimensions are passed a value of -1.
+     *     \li 3) The parameter value returned by §ilaenv is checked for validity in the calling
+     *            subroutine. For example, §ilaenv is used to retrieve the optimal blocksize for
+     *            §strtri as follows:\n
+     *                §nb = §ilaenv(1, 'STRTRI', §uplo[0]+§diag[0], §n, -1, -1, -1);\n
+     *                if ($\{nb}\le 1$) $\{nb} = \max(1,\{n})$;                                     */
     static int ilaenv(int ispec, char const* name, char const* opts, int n1, int n2, int n3,
                       int n4)
     {
@@ -10731,501 +11419,672 @@ public:
             case 1:
             case 2:
             case 3:
-                // Convert name to upper case.
-                char subnam[6];
-                std::strncpy(subnam, name, 6);
-                int nb, nbmin;
-                for (nb=0; nb<6; nb++)
                 {
-                    subnam[nb] = toupper(subnam[nb]);
-                }
-                c1 = subnam[0];
-                sname = (c1=='S' || c1=='D');
-                cname = (c1=='C' || c1=='Z');
-                if (!(cname || sname))
-                {
-                    return 1;
-                }
-                char c2[2], c3[3], c4[2];
-                std::strncpy(c2, subnam+1, 2);
-                std::strncpy(c3, subnam+3, 3);
-                std::strncpy(c4, c3+1, 2);
-                switch (ispec)
-                {
-                    case 1:
-                        // ispec = 1: block size
-                        // In these examples, separate code is provided for setting nb for real and
-                        // complex. We assume that nb will take the same value in single or double
-                        // precision.
-                        nb = 1;
-                        if (std::strncmp(c2, "GE", 2)==0)
-                        {
-                            if (std::strncmp(c3, "TRF", 3)==0)
+                    // Convert name to upper case.
+                    char subnam[12];
+                    std::strncpy(subnam, name, 12);
+                    int nb, nbmin;
+                    for (nb=0; nb<11; nb++)
+                    {
+                        subnam[nb] = std::toupper(subnam[nb]);
+                    }
+                    subnam[11] = '\0';
+                    c1 = subnam[0];
+                    sname = (c1=='S' || c1=='D');
+                    cname = (c1=='C' || c1=='Z');
+                    if (!(cname || sname))
+                    {
+                        return 1;
+                    }
+                    char c2[2], c3[3], c4[2];
+                    std::strncpy(c2, subnam+1, 2);
+                    std::strncpy(c3, subnam+3, 3);
+                    std::strncpy(c4, c3+1, 2);
+                    bool twostage = (std::strlen(subnam)>=11 && subnam[10]=='2');
+                    switch (ispec)
+                    {
+                        case 1:
+                            // ispec = 1: block size
+                            // In these examples, separate code is provided for setting nb for real
+                            // and complex. We assume that nb will take the same value in single or
+                            // double precision.
+                            nb = 1;
+                            if (std::strncmp(c2, "GE", 2)==0)
                             {
-                                if (sname)
+                                if (std::strncmp(c3, "TRF", 3)==0)
                                 {
-                                    nb = 64;
+                                    if (sname)
+                                    {
+                                        nb = 64;
+                                    }
+                                    else
+                                    {
+                                        nb = 64;
+                                    }
                                 }
-                                else
+                                else if (std::strncmp(c3, "QRF", 3)==0
+                                      || std::strncmp(c3, "RQF", 3)==0
+                                      || std::strncmp(c3, "LQF", 3)==0
+                                      || std::strncmp(c3, "QLF", 3)==0)
+                                {
+                                    if (sname)
+                                    {
+                                        nb = 32;
+                                    }
+                                    else
+                                    {
+                                        nb = 32;
+                                    }
+                                }
+                                else if (std::strncmp(c3, "QR ", 3))
+                                {
+                                    if (n3==1)
+                                    {
+                                        if (sname)
+                                        {
+                                            //m*n
+                                            if (n1*n2<=131072 || n1<=8192)
+                                            {
+                                                nb = n1;
+                                            }
+                                            else
+                                            {
+                                                nb = 32768 / n2;
+                                            }
+                                        }
+                                        else
+                                        {
+                                            if (n1*n2<=131072 || n1<=8192)
+                                            {
+                                                nb=n1;
+                                            }
+                                            else
+                                            {
+                                                nb = 32768 / n2;
+                                            }
+                                        }
+                                    }
+                                    else
+                                    {
+                                        if (sname)
+                                        {
+                                            nb = 1;
+                                        }
+                                        else
+                                        {
+                                            nb = 1;
+                                        }
+                                    }
+                                }
+                                else if (std::strncmp(c3, "LQ ", 3))
+                                {
+                                    if (n3==2)
+                                    {
+                                        if (sname)
+                                        {
+                                            //m*n
+                                            if (n1*n2<=131072 || n1<=8192)
+                                            {
+                                                nb = n1;
+                                            }
+                                            else
+                                            {
+                                                nb = 32768 / n2;
+                                            }
+                                        }
+                                        else
+                                        {
+                                            if (n1*n2<=131072 || n1<=8192)
+                                            {
+                                                nb = n1;
+                                            }
+                                            else
+                                            {
+                                                nb = 32768 / n2;
+                                            }
+                                        }
+                                    }
+                                    else
+                                    {
+                                        if (sname)
+                                        {
+                                            nb = 1;
+                                        }
+                                        else
+                                        {
+                                            nb = 1;
+                                        }
+                                    }
+                                }
+                                else if (std::strncmp(c3, "HRD", 3)==0)
+                                {
+                                    if (sname)
+                                    {
+                                        nb = 32;
+                                    }
+                                    else
+                                    {
+                                        nb = 32;
+                                    }
+                                }
+                                else if (std::strncmp(c3, "BRD", 3)==0)
+                                {
+                                    if (sname)
+                                    {
+                                        nb = 32;
+                                    }
+                                    else
+                                    {
+                                        nb = 32;
+                                    }
+                                }
+                                else if (std::strncmp(c3, "TRI", 3)==0)
+                                {
+                                    if (sname)
+                                    {
+                                        nb = 64;
+                                    }
+                                    else
+                                    {
+                                        nb = 64;
+                                    }
+                                }
+                            }
+                            else if (std::strncmp(c2, "PO", 2)==0)
+                            {
+                                if (std::strncmp(c3, "TRF", 3)==0)
+                                {
+                                    if (sname)
+                                    {
+                                        nb = 64;
+                                    }
+                                    else
+                                    {
+                                        nb = 64;
+                                    }
+                                }
+                            }
+                            else if (std::strncmp(c2, "SY", 2)==0)
+                            {
+                                if (std::strncmp(c3, "TRF", 3)==0)
+                                {
+                                    if (sname)
+                                    {
+                                        if (twostage)
+                                        {
+                                            nb = 192;
+                                        }
+                                        else
+                                        {
+                                            nb = 64;
+                                        }
+                                    }
+                                    else
+                                    {
+                                        if (twostage)
+                                        {
+                                            nb = 192;
+                                        }
+                                        else
+                                        {
+                                            nb = 64;
+                                        }
+                                    }
+                                }
+                                else if (sname && std::strncmp(c3, "TRD", 3)==0)
+                                {
+                                    nb = 32;
+                                }
+                                else if (sname && std::strncmp(c3, "GST", 3)==0)
                                 {
                                     nb = 64;
                                 }
                             }
-                            else if (std::strncmp(c3, "QRF", 3)==0 || std::strncmp(c3, "RQF", 3)==0
+                            else if (cname && std::strncmp(c2, "HE", 2)==0)
+                            {
+                                if (std::strncmp(c3, "TRF", 3)==0)
+                                {
+                                    if (twostage)
+                                    {
+                                        nb = 192;
+                                    }
+                                    else
+                                    {
+                                        nb = 64;
+                                    }
+                                }
+                                else if (std::strncmp(c3, "TRD", 3)==0)
+                                {
+                                    nb = 32;
+                                }
+                                else if (std::strncmp(c3, "GST", 3)==0)
+                                {
+                                    nb = 64;
+                                }
+                            }
+                            else if (sname && std::strncmp(c2, "OR", 2)==0)
+                            {
+                                if (c3[0]=='G')
+                                {
+                                    if (std::strncmp(c4, "QR", 2)==0
+                                     || std::strncmp(c4, "RQ", 2)==0
+                                     || std::strncmp(c4, "LQ", 2)==0
+                                     || std::strncmp(c4, "QL", 2)==0
+                                     || std::strncmp(c4, "HR", 2)==0
+                                     || std::strncmp(c4, "TR", 2)==0
+                                     || std::strncmp(c4, "BR", 2)==0)
+                                    {
+                                        nb = 32;
+                                    }
+                                }
+                                else if (c3[0]=='M')
+                                {
+                                    if (std::strncmp(c4, "QR", 2)==0
+                                     || std::strncmp(c4, "RQ", 2)==0
+                                     || std::strncmp(c4, "LQ", 2)==0
+                                     || std::strncmp(c4, "QL", 2)==0
+                                     || std::strncmp(c4, "HR", 2)==0
+                                     || std::strncmp(c4, "TR", 2)==0
+                                     || std::strncmp(c4, "BR", 2)==0)
+                                    {
+                                        nb = 32;
+                                    }
+                                }
+                            }
+                            else if (cname && std::strncmp(c2, "UN", 2)==0)
+                            {
+                                if (c3[0]=='G')
+                                {
+                                    if (std::strncmp(c4, "QR", 2)==0
+                                     || std::strncmp(c4, "RQ", 2)==0
+                                     || std::strncmp(c4, "LQ", 2)==0
+                                     || std::strncmp(c4, "QL", 2)==0
+                                     || std::strncmp(c4, "HR", 2)==0
+                                     || std::strncmp(c4, "TR", 2)==0
+                                     || std::strncmp(c4, "BR", 2)==0)
+                                    {
+                                        nb = 32;
+                                    }
+                                }
+                                else if (c3[0]=='M')
+                                {
+                                    if (std::strncmp(c4, "QR", 2)==0
+                                     || std::strncmp(c4, "RQ", 2)==0
+                                     || std::strncmp(c4, "LQ", 2)==0
+                                     || std::strncmp(c4, "QL", 2)==0
+                                     || std::strncmp(c4, "HR", 2)==0
+                                     || std::strncmp(c4, "TR", 2)==0
+                                     || std::strncmp(c4, "BR", 2)==0)
+                                    {
+                                        nb = 32;
+                                    }
+                                }
+                            }
+                            else if (std::strncmp(c2, "GB", 2)==0)
+                            {
+                                if (std::strncmp(c3, "TRF", 3)==0)
+                                {
+                                    if (sname)
+                                    {
+                                        if (n4<=64)
+                                        {
+                                            nb = 1;
+                                        }
+                                        else
+                                        {
+                                            nb = 32;
+                                        }
+                                    }
+                                    else
+                                    {
+                                        if (n4<=64)
+                                        {
+                                            nb = 1;
+                                        }
+                                        else
+                                        {
+                                            nb = 32;
+                                        }
+                                    }
+                                }
+                            }
+                            else if (std::strncmp(c2, "PB", 2)==0)
+                            {
+                                if (std::strncmp(c3, "TRF", 3)==0)
+                                {
+                                    if (sname)
+                                    {
+                                        if (n2<=64)
+                                        {
+                                            nb = 1;
+                                        }
+                                        else
+                                        {
+                                            nb = 32;
+                                        }
+                                    }
+                                    else
+                                    {
+                                        if (n2<=64)
+                                        {
+                                            nb = 1;
+                                        }
+                                        else
+                                        {
+                                            nb = 32;
+                                        }
+                                    }
+                                }
+                            }
+                            else if (std::strncmp(c2, "TR", 2)==0)
+                            {
+                                if (std::strncmp(c3, "TRI", 3)==0)
+                                {
+                                    if (sname)
+                                    {
+                                        nb = 64;
+                                    }
+                                    else
+                                    {
+                                        nb = 64;
+                                    }
+                                }
+                                else if (std::strncmp(c3, "EVC", 3)==0)
+                                {
+                                    if (sname)
+                                    {
+                                        nb = 64;
+                                    }
+                                    else
+                                    {
+                                        nb = 64;
+                                    }
+                                }
+                            }
+                            else if (std::strncmp(c2, "LA", 2)==0)
+                            {
+                                if (std::strncmp(c3, "UUM", 3)==0)
+                                {
+                                    if (sname)
+                                    {
+                                        nb = 64;
+                                    }
+                                    else
+                                    {
+                                        nb = 64;
+                                    }
+                                }
+                            }
+                            else if (sname && std::strncmp(c2, "ST", 2)==0)
+                            {
+                                if (std::strncmp(c3, "EBZ", 3)==0)
+                                {
+                                    nb = 1;
+                                }
+                            }
+                            else if (std::strncmp(c2, "GG", 2)==0)
+                            {
+                                nb = 32;
+                                if (std::strncmp(c3, "HD3", 3)==0)
+                                {
+                                    if (sname)
+                                    {
+                                        nb = 32;
+                                    }
+                                    else
+                                    {
+                                        nb = 32;
+                                    }
+                                }
+                            }
+                            return nb;
+                            break;
+                        case 2:
+                            // ispec = 2: minimum block size
+                            nbmin = 2;
+                            if (std::strncmp(c2, "GE", 2)==0)
+                            {
+                                if (std::strncmp(c3, "QRF", 3)==0 || std::strncmp(c3, "RQF", 3)==0
                                  || std::strncmp(c3, "LQF", 3)==0 || std::strncmp(c3, "QLF", 3)==0)
-                            {
-                                if (sname)
                                 {
-                                    nb = 32;
-                                }
-                                else
-                                {
-                                    nb = 32;
-                                }
-                            }
-                            else if (std::strncmp(c3, "HRD", 3)==0)
-                            {
-                                if (sname)
-                                {
-                                    nb = 32;
-                                }
-                                else
-                                {
-                                    nb = 32;
-                                }
-                            }
-                            else if (std::strncmp(c3, "BRD", 3)==0)
-                            {
-                                if (sname)
-                                {
-                                    nb = 32;
-                                }
-                                else
-                                {
-                                    nb = 32;
-                                }
-                            }
-                            else if (std::strncmp(c3, "TRI", 3)==0)
-                            {
-                                if (sname)
-                                {
-                                    nb = 64;
-                                }
-                                else
-                                {
-                                    nb = 64;
-                                }
-                            }
-                        }
-                        else if (std::strncmp(c2, "PO", 2)==0)
-                        {
-                            if (std::strncmp(c3, "TRF", 3)==0)
-                            {
-                                if (sname)
-                                {
-                                    nb = 64;
-                                }
-                                else
-                                {
-                                    nb = 64;
-                                }
-                            }
-                        }
-                        else if (std::strncmp(c2, "SY", 2)==0)
-                        {
-                            if (std::strncmp(c3, "TRF", 3)==0)
-                            {
-                                if (sname)
-                                {
-                                    nb = 64;
-                                }
-                                else
-                                {
-                                    nb = 64;
-                                }
-                            }
-                            else if (sname && std::strncmp(c3, "TRD", 3)==0)
-                            {
-                                nb = 32;
-                            }
-                            else if (sname && std::strncmp(c3, "GST", 3)==0)
-                            {
-                                nb = 64;
-                            }
-                        }
-                        else if (cname && std::strncmp(c2, "HE", 2)==0)
-                        {
-                            if (std::strncmp(c3, "TRF", 3)==0)
-                            {
-                                nb = 64;
-                            }
-                            else if (std::strncmp(c3, "TRD", 3)==0)
-                            {
-                                nb = 32;
-                            }
-                            else if (std::strncmp(c3, "GST", 3)==0)
-                            {
-                                nb = 64;
-                            }
-                        }
-                        else if (sname && std::strncmp(c2, "OR", 2)==0)
-                        {
-                            if (c3[0]=='G')
-                            {
-                                if (std::strncmp(c4, "QR", 2)==0 || std::strncmp(c4, "RQ", 2)==0
-                                    || std::strncmp(c4, "LQ", 2)==0 || std::strncmp(c4, "QL", 2)==0
-                                    || std::strncmp(c4, "HR", 2)==0 || std::strncmp(c4, "TR", 2)==0
-                                    || std::strncmp(c4, "BR", 2)==0)
-                                {
-                                    nb = 32;
-                                }
-                            }
-                            else if (c3[0]=='M')
-                            {
-                                if (std::strncmp(c4, "QR", 2)==0 || std::strncmp(c4, "RQ", 2)==0
-                                    || std::strncmp(c4, "LQ", 2)==0 || std::strncmp(c4, "QL", 2)==0
-                                    || std::strncmp(c4, "HR", 2)==0 || std::strncmp(c4, "TR", 2)==0
-                                    || std::strncmp(c4, "BR", 2)==0)
-                                {
-                                    nb = 32;
-                                }
-                            }
-                        }
-                        else if (cname && std::strncmp(c2, "UN", 2)==0)
-                        {
-                            if (c3[0]=='G')
-                            {
-                                if (std::strncmp(c4, "QR", 2)==0 || std::strncmp(c4, "RQ", 2)==0
-                                    || std::strncmp(c4, "LQ", 2)==0 || std::strncmp(c4, "QL", 2)==0
-                                    || std::strncmp(c4, "HR", 2)==0 || std::strncmp(c4, "TR", 2)==0
-                                    || std::strncmp(c4, "BR", 2)==0)
-                                {
-                                    nb = 32;
-                                }
-                            }
-                            else if (c3[0]=='M')
-                            {
-                                if (std::strncmp(c4, "QR", 2)==0 || std::strncmp(c4, "RQ", 2)==0
-                                    || std::strncmp(c4, "LQ", 2)==0 || std::strncmp(c4, "QL", 2)==0
-                                    || std::strncmp(c4, "HR", 2)==0 || std::strncmp(c4, "TR", 2)==0
-                                    || std::strncmp(c4, "BR", 2)==0)
-                                {
-                                    nb = 32;
-                                }
-                            }
-                        }
-                        else if (std::strncmp(c2, "GB", 2)==0)
-                        {
-                            if (std::strncmp(c3, "TRF", 3)==0)
-                            {
-                                if (sname)
-                                {
-                                    if (n4<=64)
+                                    if (sname)
                                     {
-                                        nb = 1;
+                                        nbmin = 2;
                                     }
                                     else
                                     {
-                                        nb = 32;
+                                        nbmin = 2;
                                     }
                                 }
-                                else
+                                else if (std::strncmp(c3, "HRD", 3)==0)
                                 {
-                                    if (n4<=64)
+                                    if (sname)
                                     {
-                                        nb = 1;
+                                        nbmin = 2;
                                     }
                                     else
                                     {
-                                        nb = 32;
+                                        nbmin = 2;
                                     }
                                 }
-                            }
-                        }
-                        else if (std::strncmp(c2, "PB", 2)==0)
-                        {
-                            if (std::strncmp(c3, "TRF", 3)==0)
-                            {
-                                if (sname)
+                                else if (std::strncmp(c3, "BRD", 3)==0)
                                 {
-                                    if (n2<=64)
+                                    if (sname)
                                     {
-                                        nb = 1;
+                                        nbmin = 2;
                                     }
                                     else
                                     {
-                                        nb = 32;
+                                        nbmin = 2;
                                     }
                                 }
-                                else
+                                else if (std::strncmp(c3, "TRI", 3)==0)
                                 {
-                                    if (n2<=64)
+                                    if (sname)
                                     {
-                                        nb = 1;
+                                        nbmin = 2;
                                     }
                                     else
                                     {
-                                        nb = 32;
+                                        nbmin = 2;
                                     }
                                 }
                             }
-                        }
-                        else if (std::strncmp(c2, "TR", 2)==0)
-                        {
-                            if (std::strncmp(c3, "TRI", 3)==0)
+                            else if (std::strncmp(c2, "SY", 2)==0)
                             {
-                                if (sname)
+                                if (std::strncmp(c3, "TRF", 3)==0)
                                 {
-                                    nb = 64;
+                                    if (sname)
+                                    {
+                                        nbmin = 8;
+                                    }
+                                    else
+                                    {
+                                        nbmin = 8;
+                                    }
                                 }
-                                else
-                                {
-                                    nb = 64;
-                                }
-                            }
-                        }
-                        else if (std::strncmp(c2, "LA", 2)==0)
-                        {
-                            if (std::strncmp(c3, "UUM", 3)==0)
-                            {
-                                if (sname)
-                                {
-                                    nb = 64;
-                                }
-                                else
-                                {
-                                    nb = 64;
-                                }
-                            }
-                        }
-                        else if (sname && std::strncmp(c2, "ST", 2)==0)
-                        {
-                            if (std::strncmp(c3, "EBZ", 3)==0)
-                            {
-                                nb = 1;
-                            }
-                        }
-                        return nb;
-                        break;
-                    case 2:
-                        // ispec = 2: minimum block size
-                        nbmin = 2;
-                        if (std::strncmp(c2, "GE", 2)==0)
-                        {
-                            if (std::strncmp(c3, "QRF", 3)==0 || std::strncmp(c3, "RQF", 3)==0
-                                || std::strncmp(c3, "LQF", 3)==0 || std::strncmp(c3, "QLF", 3)==0)
-                            {
-                                if (sname)
-                                {
-                                    nbmin = 2;
-                                }
-                                else
+                                else if (sname && std::strncmp(c3, "TRD", 3)==0)
                                 {
                                     nbmin = 2;
                                 }
                             }
-                            else if (std::strncmp(c3, "HRD", 3)==0)
+                            else if (cname && std::strncmp(c2, "HE", 2)==0)
                             {
-                                if (sname)
-                                {
-                                    nbmin = 2;
-                                }
-                                else
+                                if (std::strncmp(c3, "TRD", 3)==0)
                                 {
                                     nbmin = 2;
                                 }
                             }
-                            else if (std::strncmp(c3, "BRD", 3)==0)
+                            else if (sname && std::strncmp(c2, "OR", 2)==0)
                             {
-                                if (sname)
+                                if (c3[0]=='G')
                                 {
-                                    nbmin = 2;
+                                    if (std::strncmp(c4, "QR", 2)==0
+                                     || std::strncmp(c4, "RQ", 2)==0
+                                     || std::strncmp(c4, "LQ", 2)==0
+                                     || std::strncmp(c4, "QL", 2)==0
+                                     || std::strncmp(c4, "HR", 2)==0
+                                     || std::strncmp(c4, "TR", 2)==0
+                                     || std::strncmp(c4, "BR", 2)==0)
+                                    {
+                                        nbmin = 2;
+                                    }
                                 }
-                                else
+                                else if (c3[0]=='M')
                                 {
-                                    nbmin = 2;
+                                    if (std::strncmp(c4, "QR", 2)==0
+                                     || std::strncmp(c4, "RQ", 2)==0
+                                     || std::strncmp(c4, "LQ", 2)==0
+                                     || std::strncmp(c4, "QL", 2)==0
+                                     || std::strncmp(c4, "HR", 2)==0
+                                     || std::strncmp(c4, "TR", 2)==0
+                                     || std::strncmp(c4, "BR", 2)==0)
+                                    {
+                                        nbmin = 2;
+                                    }
                                 }
                             }
-                            else if (std::strncmp(c3, "TRI", 3)==0)
+                            else if (cname && std::strncmp(c2, "UN", 2)==0)
                             {
-                                if (sname)
+                                if (c3[0]=='G')
                                 {
-                                    nbmin = 2;
+                                    if (std::strncmp(c4, "QR", 2)==0
+                                     || std::strncmp(c4, "RQ", 2)==0
+                                     || std::strncmp(c4, "LQ", 2)==0
+                                     || std::strncmp(c4, "QL", 2)==0
+                                     || std::strncmp(c4, "HR", 2)==0
+                                     || std::strncmp(c4, "TR", 2)==0
+                                     || std::strncmp(c4, "BR", 2)==0)
+                                    {
+                                        nbmin = 2;
+                                    }
                                 }
-                                else
+                                else if (c3[0]=='M')
                                 {
-                                    nbmin = 2;
+                                    if (std::strncmp(c4, "QR", 2)==0
+                                     || std::strncmp(c4, "RQ", 2)==0
+                                     || std::strncmp(c4, "LQ", 2)==0
+                                     || std::strncmp(c4, "QL", 2)==0
+                                     || std::strncmp(c4, "HR", 2)==0
+                                     || std::strncmp(c4, "TR", 2)==0
+                                     || std::strncmp(c4, "BR", 2)==0)
+                                    {
+                                        nbmin = 2;
+                                    }
                                 }
                             }
-                        }
-                        else if (std::strncmp(c2, "SY", 2)==0)
-                        {
-                            if (std::strncmp(c3, "TRF", 3)==0)
-                            {
-                                if (sname)
-                                {
-                                    nbmin = 8;
-                                }
-                                else
-                                {
-                                    nbmin = 8;
-                                }
-                            }
-                            else if (sname && std::strncmp(c3, "TRD", 3)==0)
+                            else if (std::strncmp(c2, "GG", 2)==0)
                             {
                                 nbmin = 2;
-                            }
-                        }
-                        else if (cname && std::strncmp(c2, "HE", 2)==0)
-                        {
-                            if (std::strncmp(c3, "TRD", 3)==0)
-                            {
-                                nbmin = 2;
-                            }
-                        }
-                        else if (sname && std::strncmp(c2, "OR", 2)==0)
-                        {
-                            if (c3[0]=='G')
-                            {
-                                if (std::strncmp(c4, "QR", 2)==0 || std::strncmp(c4, "RQ", 2)==0
-                                    || std::strncmp(c4, "LQ", 2)==0 || std::strncmp(c4, "QL", 2)==0
-                                    || std::strncmp(c4, "HR", 2)==0 || std::strncmp(c4, "TR", 2)==0
-                                    || std::strncmp(c4, "BR", 2)==0)
+                                if (std::strncmp(c3, "HD3", 3)==0)
                                 {
                                     nbmin = 2;
                                 }
                             }
-                            else if (c3[0]=='M')
+                            return nbmin;
+                            break;
+                        case 3:
+                            // ispec = 3: crossover point
+                            int nx = 0;
+                            if (std::strncmp(c2, "GE", 2)==0)
                             {
-                                if (std::strncmp(c4, "QR", 2)==0 || std::strncmp(c4, "RQ", 2)==0
-                                    || std::strncmp(c4, "LQ", 2)==0 || std::strncmp(c4, "QL", 2)==0
-                                    || std::strncmp(c4, "HR", 2)==0 || std::strncmp(c4, "TR", 2)==0
-                                    || std::strncmp(c4, "BR", 2)==0)
+                                if (std::strncmp(c3, "QRF", 3)==0 || std::strncmp(c3, "RQF", 3)==0
+                                 || std::strncmp(c3, "LQF", 3)==0 || std::strncmp(c3, "QLF", 3)==0)
                                 {
-                                    nbmin = 2;
+                                    if (sname)
+                                    {
+                                        nx = 128;
+                                    }
+                                    else
+                                    {
+                                        nx = 128;
+                                    }
+                                }
+                                else if (std::strncmp(c3, "HRD", 3)==0)
+                                {
+                                    if (sname)
+                                    {
+                                        nx = 128;
+                                    }
+                                    else
+                                    {
+                                        nx = 128;
+                                    }
+                                }
+                                else if (std::strncmp(c3, "BRD", 3)==0)
+                                {
+                                    if (sname)
+                                    {
+                                        nx = 128;
+                                    }
+                                    else
+                                    {
+                                        nx = 128;
+                                    }
                                 }
                             }
-                        }
-                        else if (cname && std::strncmp(c2, "UN", 2)==0)
-                        {
-                            if (c3[0]=='G')
+                            else if (std::strncmp(c2, "SY", 2)==0)
                             {
-                                if (std::strncmp(c4, "QR", 2)==0 || std::strncmp(c4, "RQ", 2)==0
-                                    || std::strncmp(c4, "LQ", 2)==0 || std::strncmp(c4, "QL", 2)==0
-                                    || std::strncmp(c4, "HR", 2)==0 || std::strncmp(c4, "TR", 2)==0
-                                    || std::strncmp(c4, "BR", 2)==0)
+                                if (sname && std::strncmp(c3, "TRD", 3)==0)
                                 {
-                                    nbmin = 2;
+                                    nx = 32;
                                 }
                             }
-                            else if (c3[0]=='M')
+                            else if (cname && std::strncmp(c2, "HE", 2)==0)
                             {
-                                if (std::strncmp(c4, "QR", 2)==0 || std::strncmp(c4, "RQ", 2)==0
-                                    || std::strncmp(c4, "LQ", 2)==0 || std::strncmp(c4, "QL", 2)==0
-                                    || std::strncmp(c4, "HR", 2)==0 || std::strncmp(c4, "TR", 2)==0
-                                    || std::strncmp(c4, "BR", 2)==0)
+                                if (std::strncmp(c3, "TRD", 3)==0)
                                 {
-                                    nbmin = 2;
+                                    nx = 32;
                                 }
                             }
-                        }
-                        return nbmin;
-                        break;
-                    case 3:
-                        // ispec = 3: crossover point
-                        int nx = 0;
-                        if (std::strncmp(c2, "GE", 2)==0)
-                        {
-                            if (std::strncmp(c3, "QRF", 3)==0 || std::strncmp(c3, "RQF", 3)==0
-                                || std::strncmp(c3, "LQF", 3)==0 || std::strncmp(c3, "QLF", 3)==0)
+                            else if (sname && std::strncmp(c2, "OR", 2)==0)
                             {
-                                if (sname)
+                                if (c3[0]=='G')
                                 {
-                                    nx = 128;
-                                }
-                                else
-                                {
-                                    nx = 128;
+                                    if (std::strncmp(c4, "QR", 2)==0
+                                     || std::strncmp(c4, "RQ", 2)==0
+                                     || std::strncmp(c4, "LQ", 2)==0
+                                     || std::strncmp(c4, "QL", 2)==0
+                                     || std::strncmp(c4, "HR", 2)==0
+                                     || std::strncmp(c4, "TR", 2)==0
+                                     || std::strncmp(c4, "BR", 2)==0)
+                                    {
+                                        nx = 128;
+                                    }
                                 }
                             }
-                            else if (std::strncmp(c3, "HRD", 3)==0)
+                            else if (cname && std::strncmp(c2, "UN", 2)==0)
                             {
-                                if (sname)
+                                if (c3[0]=='G')
                                 {
-                                    nx = 128;
-                                }
-                                else
-                                {
-                                    nx = 128;
-                                }
-                            }
-                            else if (std::strncmp(c3, "BRD", 3)==0)
-                            {
-                                if (sname)
-                                {
-                                    nx = 128;
-                                }
-                                else
-                                {
-                                    nx = 128;
+                                    if (std::strncmp(c4, "QR", 2)==0
+                                     || std::strncmp(c4, "RQ", 2)==0
+                                     || std::strncmp(c4, "LQ", 2)==0
+                                     || std::strncmp(c4, "QL", 2)==0
+                                     || std::strncmp(c4, "HR", 2)==0
+                                     || std::strncmp(c4, "TR", 2)==0
+                                     || std::strncmp(c4, "BR", 2)==0)
+                                    {
+                                        nx = 128;
+                                    }
                                 }
                             }
-                        }
-                        else if (std::strncmp(c2, "SY", 2)==0)
-                        {
-                            if (sname && std::strncmp(c3, "TRD", 3)==0)
-                            {
-                                nx = 32;
-                            }
-                        }
-                        else if (cname && std::strncmp(c2, "HE", 2)==0)
-                        {
-                            if (std::strncmp(c3, "TRD", 3)==0)
-                            {
-                                nx = 32;
-                            }
-                        }
-                        else if (sname && std::strncmp(c2, "OR", 2)==0)
-                        {
-                            if (c3[0]=='G')
-                            {
-                                if (std::strncmp(c4, "QR", 2)==0 || std::strncmp(c4, "RQ", 2)==0
-                                    || std::strncmp(c4, "LQ", 2)==0 || std::strncmp(c4, "QL", 2)==0
-                                    || std::strncmp(c4, "HR", 2)==0 || std::strncmp(c4, "TR", 2)==0
-                                    || std::strncmp(c4, "BR", 2)==0)
-                                {
-                                    nx = 128;
-                                }
-                            }
-                        }
-                        else if (cname && std::strncmp(c2, "UN", 2)==0)
-                        {
-                            if (c3[0]=='G')
-                            {
-                                if (std::strncmp(c4, "QR", 2)==0 || std::strncmp(c4, "RQ", 2)==0
-                                    || std::strncmp(c4, "LQ", 2)==0 || std::strncmp(c4, "QL", 2)==0
-                                    || std::strncmp(c4, "HR", 2)==0 || std::strncmp(c4, "TR", 2)==0
-                                    || std::strncmp(c4, "BR", 2)==0)
-                                {
-                                    nx = 128;
-                                }
-                            }
-                        }
-                        return nx;
-                        break;
+                            return nx;
+                            break;
+                    }
                 }
                 break;
             case 4:
-                // ispec = 4: number of shifts(used by xhseqr)
+                // ispec = 4: number of shifts (used by xhseqr)
                 return 6;
                 break;
             case 5:
-                // ispec = 5: minimum column dimension(not used)
+                // ispec = 5: minimum column dimension (not used)
                 return 2;
                 break;
             case 6:
-                // ispec = 6: crossover point for SVD(used by xgelss and xgesvd)
-                return int(real((n1<n2)?n1:n2) * real(1.6));
+                // ispec = 6: crossover point for SVD (used by xgelss and xgesvd)
+                return int(real(std::min(n1, n2)) * real(1.6));
                 break;
             case 7:
                 // ispec = 7: number of processors (not used)
@@ -11236,8 +12095,8 @@ public:
                 return 50;
                 break;
             case 9:
-                // ispec = 9: maximum size of the subproblems at the bottom of the computation
-                // tree in the divide-and-conquer algorithm (used by xgelsd and xgesdd)
+                // ispec = 9: maximum size of the subproblems at the bottom of the computation tree
+                //            in the divide-and-conquer algorithm (used by xgelsd and xgesdd)
                 return 25;
                 break;
             case 10:
@@ -11255,7 +12114,7 @@ public:
             case 14:
             case 15:
             case 16:
-                // 12 <= ispec <= 16: xhseqr or one of its subroutines.
+                // 12 <= ispec <= 16: xhseqr or related subroutines.
                 return iparmq(ispec, name, opts, n1, n2, n3, n4);
                 break;
             default:
@@ -11265,110 +12124,116 @@ public:
         return -1;
     }
 
-    /* This subroutine returns the LAPACK version.
-     * Parameter: vers_major: return the lapack major version
-     *            vers_minor: return the lapack minor version from the major version.
-     *            vers_patch: return the lapack patch version from the minor version
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date: June 2017                                                                           */
-    static void ilaver(int& vers_major, int& vers_minor, int& vers_patch)
-    {
-        vers_major = 3;
-        vers_minor = 8;
-        vers_patch = 0;
-    }
-
-    /* This program sets problem and machine dependent parameters useful for xHSEQR and its
-     * subroutines.
-     * It is called whenever ilaenv is called with 12 <= ispec <= 16
-     * Parameters: ispec: specifies which tunable parameter IPARMQ should return.
-     *                    12: (inmin) Matrices of order nmin or less are sent directly to xLAHQR,
-     *                        the implicit double shift QR algorithm. NMIN must be at least 11.
-     *                    13: (inwin) Size of the deflation window. This is best set greater than
-     *                        or equal to the number of simultaneous shifts ns. Larger matrices
-     *                        benefit from larger deflation windows.
-     *                    14: (inibl) Determines when to stop nibbling and invest in an(expensive)
-     *                        multi-shift QR sweep. If the aggressive early deflation subroutine
-     *                        finds LD converged eigenvalues from an order nw deflation window and
-     *                        LD>(nw*NIBBLE) / 100, then the next QR sweep is skipped and early
-     *                        deflation is applied immediately to the remaining active diagonal
-     *                        block. Setting iparmq(ispec=14)=0 causes ttqre to skip a multi-shift
-     *                        QR sweep whenever early deflation finds a converged eigenvalue.
-     *                        Setting iparmq(ispec=14) greater than or equal to 100 prevents ttqre
-     *                        from skipping a multi-shift QR sweep.
-     *                    15: (nshfts) The number of simultaneous shifts in a multi-shift QR
-     *                        iteration.
-     *                    16: (iacc22) iparmq is set to 0, 1 or 2 with the following meanings.
-     *                        0: During the multi-shift QR sweep, xlaqr5 does not accumulate
-     *                           reflections and does not use matrix-matrix multiply to update
-     *                           the far-from-diagonal matrix entries.
-     *                        1: During the multi-shift QR sweep, xlaqr5 and/or xlaqr accumulates
-     *                           reflections and uses matrix-matrix multiply to update the
-     *                           far-from-diagonal matrix entries.
-     *                        2: During the multi-shift QR sweep. xlaqr5 accumulates reflections
-     *                           and takes advantage of 2-by-2 block structure during matrix-matrix
-     *                           multiplies.
-     *                        (If xTRMM is slower than xgemm, then iparmq(ispec=16)=1 may be more
-     *                         efficient than iparmq(ispec=16)=2 despite the greater level of
-     *                         arithmetic work implied by the latter choice.)
-     *             name: Name of the calling subroutine
-     *             opts: This is a concatenation of the string arguments to ttqre.
-     *             n: n is the order of the Hessenberg matrix H.
-     *             ilo: integer
-     *             ihi: integer
-     *                  It is assumed that H is already upper triangular in rows and columns
-     *                  1:ilo-1 and ihi+1:n.
-     *             lwork: The amount of workspace available.
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date: June 2017
-     * Further Details:
+    /*! §iparmq
+     *
+     * This program sets problem and machine dependent parameters useful for §xhseqr and related
+     * subroutines for eigenvalue problems.
+     * It is called whenever §ilaenv is called with $12\le\{ispec}\le 16$
+     * \param[in] ispec
+     *     specifies which tunable parameter §iparmq should return.
+     *     \li 12: (inmin) Matrices of order §nmin or less are sent directly to §xlahqr, the
+     *                     implicit double shift QR algorithm. §nmin must be at least 11.
+     *     \li 13: (inwin) Size of the deflation window. This is best set greater than or equal to
+     *                     the number of simultaneous shifts §ns. Larger matrices benefit from
+     *                     larger deflation windows.
+     *     \li 14: (inibl) Determines when to stop nibbling and invest in an (expensive)
+     *                     multi-shift QR sweep. If the aggressive early deflation subroutine finds
+     *                     §ld converged eigenvalues from an order §nw deflation window and
+     *                     $\{LD}>(\{nw}\ \{nibble})/100$, then the next QR sweep is skipped and
+     *                     early deflation is applied immediately to the remaining active diagonal
+     *                     block. Setting §iparmq(§ispec =14)=0 causes §ttqre to skip a multi-shift
+     *                     QR sweep whenever early deflation finds a converged eigenvalue. Setting
+     *                     §iparmq(§ispec =14) greater than or equal to 100 prevents §ttqre from
+     *                     skipping a multi-shift QR sweep.
+     *     \li 15: (nshfts) The number of simultaneous shifts in a multi-shift QR iteration.
+     *     \li 16: (iacc22) §iparmq is set to 0, 1 or 2 with the following meanings.\n
+     *                      0: During the multi-shift QR/QZ sweep, blocked eigenvalue reordering,
+     *                         blocked Hessenberg-triangular reduction, reflections and/or
+     *                         rotations are not accumulated when updating the far-from-diagonal
+     *                         matrix entries.\n
+     *                      1: During the multi-shift QR/QZ sweep, blocked eigenvalue reordering,
+     *                         blocked Hessenberg-triangular reduction, reflections and/or
+     *                         rotations are accumulated, and matrix-matrix multiplication is used
+     *                         to update the far-from-diagonal matrix entries.\n
+     *                      2: During the multi-shift QR/QZ sweep, blocked eigenvalue reordering,
+     *                         blocked Hessenberg-triangular reduction, reflections and/or
+     *                         rotations are accumulated, and 2 by 2 block structure is exploited
+     *                         during matrix-matrix multiplies.\n
+     *                      (If §xtrmm is slower than §xgemm, then §iparmq(§ispec =16)=1 may be
+     *                       more efficient than §iparmq(§ispec =16)=2 despite the greater level of
+     *                       arithmetic work implied by the latter choice.)
+     *
+     * \param[in] name Name of the calling subroutine
+     * \param[in] opts This is a concatenation of the string arguments to §ttqre.
+     * \param[in] n    §n is the order of the Hessenberg matrix $H$.
+     * \param[in] ilo, ihi
+     *     It is assumed that $H$ is already upper triangular in rows and columns $1:\{ilo}-1$ and
+     *     $\{ihi}+1:\{n}$.
+     *
+     * \param[in] lwork The amount of workspace available.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date June 2017
+     * \remark
      *     Little is known about how best to choose these parameters. It is possible to use
-     *         different values of the parameters for each of chseqr, dhseqr, shseqr and zhseqr.
+     *     different values of the parameters for each of §chseqr, §dhseqr, §shseqr and §zhseqr.\n
+     *
      *     It is probably best to choose different parameters for different matrices and different
-     *         parameters at different times during the iteration, but this has not been
-     *         implemented yet.
+     *     parameters at different times during the iteration, but this has not been implemented
+     *     yet.\n
+     *
      *     The best choices of most of the parameters depend in an ill-understood way on the
-     *         relative execution rate of xlaqr3 and xlaqr5 and on the nature of each particular
-     *         eigenvalue problem. Experiment may be the only practical way to determine which
-     *         choices are most effective.
-     *     Following is a list of default values supplied by iparmq. These defaults may be adjusted
-     *         in order to attain better performance in any particular computational environment.
-     *     iparmq(ispec = 12) The xlahqr vs xlaqr0 crossover point.
-     *         Default: 75. (Must be at least 11.)
-     *     iparmq(ispec = 13) Recommended deflation window size.
-     *         This depends on ilo, ihi and ns, the number of simultaneous shifts returned by
-     *         iparmq(ispec = 15). The default for (ihi-ilo+1)<=500 is ns. The default for
-     *         (ihi-ilo+1)>500 is 3*ns/2.
-     *     iparmq(ispec = 14) Nibble crossover point. Default: 14.
-     *     iparmq(ispec = 15) Number of simultaneous shifts, ns.
-     *         a multi-shift QR iteration. If ihi-ilo+1 is ...
-     *         greater than or equal to...      but less than...      the default is
-     *                                   0                    30                     ns = 2+
-     *                                  30                    60                     ns = 4+
-     *                                  60                   150                     ns = 10
-     *                                 150                   590                     ns = **
-     *                                 590                  3000                     ns = 64
-     *                                3000                  6000                     ns = 128
-     *                                6000                  infinity                 ns = 256
-     *         (+) By default matrices of this order are passed to the implicit double shift
-     *             routine xlahqr. See iparmq(ispec=12) above. These values of ns are used only in
-     *             case of a rare xlahqr failure.
-     *         (**) an ad-hoc function increasing from 10 to 64.
-     *     iparmq(ispec = 16) Select structured matrix multiply. (See ispec=16 above for details.)
-     *         Default: 3.                                                                       */
+     *     relative execution rate of §xlaqr3 and §xlaqr5 and on the nature of each particular
+     *     eigenvalue problem. Experiment may be the only practical way to determine which choices
+     *     are most effective.\n
+     *
+     *     Following is a list of default values supplied by §iparmq. These defaults may be
+     *     adjusted in order to attain better performance in any particular computational
+     *     environment.\n
+     *     \f[\begin{tabular}{rl}
+     *         \(\{iparmq}\)(\(\{ispec}\) = 12)
+     *             &The \(\{xlahqr}\) vs \(\{xlaqr0}\) crossover point.\\
+     *             &Default: 75. (Must be at least 11.)\\
+     *         \(\{iparmq}\)(\(\{ispec}\) = 13) &
+     *             Recommended deflation window size.\\
+     *             &This depends on \(\{ilo}\), \(\{ihi}\) and \(\{ns}\), the number of\\
+     *             &simultaneous shifts returned by\\
+     *             &\(\{iparmq}\)(\(\{ispec}\) = 15).\\
+     *             &The default for \((\{ihi}-\{ilo}+1)\le 500\) is \(\{ns}\).\\
+     *             & The default for \((\{ihi}-\{ilo}+1)>500\) is \(3\{ns}/2\).\\
+     *         \(\{iparmq}\)(\(\{ispec}\) = 14) & Nibble crossover point. Default: 14.\\
+     *         \(\{iparmq}\)(\(\{ispec}\) = 15)
+     *             &Number of simultaneous shifts, \(\{ns}\).\\
+     *             &a multi-shift QR iteration. If \(\{ihi}-\{ilo}+1\) is ...\\
+     *             &\begin{tabular}{rrr}
+     *                 \(\ge\)... & but less than... & the default is \\
+     *                          0 &               30 &        ns = 2+ \\
+     *                         30 &               60 &        ns = 4+ \\
+     *                         60 &              150 &        ns = 10 \\
+     *                        150 &              590 &        ns = ** \\
+     *                        590 &             3000 &        ns = 64 \\
+     *                       3000 &             6000 &       ns = 128 \\
+     *                       6000 &         infinity &       ns = 256
+     *             \end{tabular}\\
+     *             &(+) By default matrices of this order are passed\\
+     *                  &~~~~~~to the implicit double shift routine \(\{xlahqr}\).\\
+     *                  &~~~~~~See \(\{iparmq}\)(\(\{ispec}\) =12) above.\\
+     *                  &~~~~~~These values of \(\{ns}\) are used only in case of\\
+     *                  &~~~~~~a rare \(\{xlahqr}\) failure.\\
+     *             &(**) an ad-hoc function increasing from 10 to 64.\\
+     *         \(\{iparmq}\)(\(\{ispec}\) = 16)
+     *             &Select structured matrix multiply.\\
+     *             &(See \(\{ispec}\) = 16 above for details.) Default: 3.
+     *     \end{tabular}\f]                                                                      */
     static int iparmq(int ispec, char const* name, char const* opts, int n, int ilo, int ihi,
                       int lwork)
     {
         const int INMIN=12, INWIN=13, INIBL=14, ISHFTS=15, IACC22=16, NMIN=75, K22MIN=14,
                   KACMIN=14, NIBBLE=14, KNWSWP=500;
         int nh = 0, ns = 0;
-        if ((ispec==ISHFTS) || (ispec==INWIN) || (ispec==IACC22))
+        if (ispec==ISHFTS || ispec==INWIN || ispec==IACC22)
         {
             // Set the number simultaneous shifts
             nh = ihi - ilo + 1;
@@ -11383,7 +12248,7 @@ public:
             }
             if (nh>=150)
             {
-                ns = std::max(10, nh / int(std::log(real(nh))/std::log(TWO)));
+                ns = std::max(10, nh / int(std::round(std::log(real(nh))/std::log(TWO))));
             }
             if (nh>=590)
             {
@@ -11401,7 +12266,8 @@ public:
         }
         if (ispec==INMIN)
         {
-            // Matrices of order smaller than NMIN get sent to xLAHQR, the classic double shift algorithm. This must be at least 11.
+            // Matrices of order smaller than nmin get sent to xlahqr, the classic double shift
+            // algorithm. This must be at least 11.
             return NMIN;
         }
         else if (ispec==INIBL)
@@ -11430,14 +12296,15 @@ public:
         else if (ispec==IACC22)
         {
             /* IACC22: Whether to accumulate reflections before updating the far-from-diagonal
-             * elements and whether to use 2-by-2 block structure while doing it. A small amount of
+             * elements and whether to use 2 by 2 block structure while doing it. A small amount of
              * work could be saved by making this choice dependent also upon the nh = ihi-ilo+1. */
-            // Convert NAME to upper case if the first character is lower case.
-            char subnam[6];
+            // Convert name to upper case
+            char subnam[7];
             for (int i=0; i<6; i++)
             {
                 subnam[i] = std::toupper(name[i]);
             }
+            subnam[6] = '\0';
             if (std::strncmp(&subnam[1], "GGHRD", 5)==0 || std::strncmp(&subnam[1], "GGHD3", 5)==0)
             {
                 if (nh>=K22MIN)
@@ -11477,18 +12344,21 @@ public:
         }
     }
 
-    /* xerbla is an error handler for the LAPACK routines.
-     * It is called by an LAPACK routine if an input parameter has an invalid value.
-     * A message is printed and execution stops.
-     * Installers may consider modifying the STOP statement in order to call
+    /*! §xerbla
+     *
+     * §xerbla is an error handler for the LAPACK routines.
+     * It is called by a LAPACK routine if an input parameter has an invalid value.
+     * A message is printed and an exception is thrown.\n
+     * Installers may consider modifying the throw statement in order to call
      * system-specific exception-handling facilities.
-     * Parameters: srname: The name of the routine which called xerbla.
-     *             info: The position of the invalid parameter in the parameter list of the calling
-     *                   routine.
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.                                                                         */
+     * \param[in] srname The name of the routine which called §xerbla.
+     * \param[in] info
+     *     The position of the invalid parameter in the parameter list of the calling routine.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                       */
     static void xerbla(char const* srname, int info)
     {
         std::cerr << "On entry to " << srname << " parameter number " << info

@@ -571,7 +571,7 @@ INLINE_INFO            = YES
 # name. If set to NO, the members will appear in declaration order.
 # The default value is: YES.
 
-SORT_MEMBER_DOCS       = YES
+SORT_MEMBER_DOCS       = NO
 
 # If the SORT_BRIEF_DOCS tag is set to YES then doxygen will sort the brief
 # descriptions of file, namespace and class members alphabetically by member
@@ -948,7 +948,7 @@ IMAGE_PATH             =
 # need to set EXTENSION_MAPPING for the extension otherwise the files are not
 # properly processed by doxygen.
 
-INPUT_FILTER           = "sed -e 's/\xc2\xa7/\\\\c /g' -e 's/\$/\\\\f\$/g' -e 's/\\\{/\\\\texttt\{/g'"
+INPUT_FILTER           = "sed -e 's/\xc2\xa7/\\\\c /g' -e 's/\$/\\\\f\$/g' -e 's/\\\\{/\\\\texttt{/g' -e 's/\\\\b{bm}/\\\\begin{bmatrix}/g' -e 's/\\\\e{bm}/\\\\end{bmatrix}/g'"
 
 # The FILTER_PATTERNS tag can be used to specify filters on a per file pattern
 # basis. Doxygen will compare the file name with each pattern and apply the
@@ -1741,7 +1741,7 @@ PAPER_TYPE             = a4
 # If left blank no extra packages will be included.
 # This tag requires that the tag GENERATE_LATEX is set to YES.
 
-EXTRA_PACKAGES         =
+EXTRA_PACKAGES         = amsmath
 
 # The LATEX_HEADER tag can be used to specify a personal LaTeX header for the
 # generated LaTeX document. The header should contain everything until the first

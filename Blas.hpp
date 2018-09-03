@@ -22,7 +22,7 @@ private:
 public:
     // BLAS SRC (alphabetically)
 
-    /*! dasum
+    /*! §dasum
      *
      * §dasum takes the sum of the absolute values.
      * \param[in] n    number of elements in input vector(s).
@@ -76,7 +76,7 @@ public:
         return dtemp;
     }
 
-    /*! daxpy
+    /*! §daxpy
      *
      * §daxpy constant times a vector plus a vector.
      * Uses unrolled loops for increments equal to one.
@@ -148,7 +148,7 @@ public:
         }
     }
 
-    /*! dcopy
+    /*! §dcopy
      *
      * §dcopy copies a vector, §x, to a vector, §y.
      * uses unrolled loops for increments equal to one.
@@ -217,7 +217,7 @@ public:
         }
     }
 
-    /*! ddot
+    /*! §ddot
      *
      * §ddot forms the dot product of two vectors.
      * uses unrolled loops for increments equal to one.
@@ -285,7 +285,7 @@ public:
         return dtemp;
     }
 
-    /*! dgemm
+    /*! §dgemm
      *
      * §dgemm performs one of the matrix-matrix operations\n
      *     $C = \alpha\ op(A)op(B) + \beta C$,\n
@@ -591,7 +591,7 @@ public:
         }
     }
 
-    /*! dgemv
+    /*! §dgemv
      *
      * §dgemv performs one of the matrix-vector operations\n
      *     $y = \alpha Ax + \beta y$, or $y = \alpha A^Tx + \beta y$,\n
@@ -837,7 +837,7 @@ public:
         }
     }
 
-    /*! dger
+    /*! §dger
      *
      * §dger performs the rank 1 operation\n
      *     $A = \alpha xy^T + A$,\n
@@ -979,7 +979,7 @@ public:
         }
     }
 
-    /*! dnrm2
+    /*! §dnrm2
      *
      * §dnrm2 returns the euclidean norm of a vector:\n
      *     $\sqrt{x^T*x}$
@@ -1037,7 +1037,7 @@ public:
         return norm;
     }
 
-    /*! drot
+    /*! §drot
      *
      * §drot applies a plane rotation.
      * \param[in]     n    number of elements in input vector(s)
@@ -1096,7 +1096,7 @@ public:
         }
     }
 
-    /*! dscal
+    /*! §dscal
      *
      * §dscal scales a vector by a constant. uses unrolled loops for increment equal to one.
      * \param[in]     n    number of elements in input vector(s)
@@ -1154,7 +1154,7 @@ public:
         }
     }
 
-    /*! dswap
+    /*! §dswap
      *
      * §dswap interchanges two vectors. Uses unrolled loops for increments equal to one.
      * \param[in]     n    number of elements in input vector(s)
@@ -1232,7 +1232,7 @@ public:
         }
     }
 
-    /*! dsymv
+    /*! §dsymv
      *
      * §dsymv performs the matrix-vector operation\n
      *     $y = \alpha Ax + \beta y$,\n
@@ -1484,7 +1484,7 @@ public:
         }
     }
 
-    /*! dsyr2
+    /*! §dsyr2
      *
      * §dsyr2 performs the symmetric rank 2 operation\n
      *      $A = \alpha xy^T + \alpha yx^T + A$,\n
@@ -1690,7 +1690,7 @@ public:
         }
     }
 
-    /*! dtrmm
+    /*! §dtrmm
      *
      * §dtrmm performs one of the matrix-matrix operations\n
      *     $B = \alpha\ op(A)B$, or $B = \alpha B\ op(A)$,\n
@@ -2082,7 +2082,7 @@ public:
         }
     }
 
-    /*! dtrmv
+    /*! §dtrmv
      *
      * §dtrmv performs one of the matrix-vector operations\n
      *     $x = Ax$, or $x = A^Tx$,\n
@@ -2382,7 +2382,7 @@ public:
         }
     }
 
-    /*! idamax
+    /*! §idamax
      *
      * §idamax finds the index of element having max. absolute value.
      * \param[in] n    number of elements in input vector(s)
@@ -2444,7 +2444,7 @@ public:
         return ida;
     }
 
-    /*! xerbla
+    /*! §xerbla
      *
      * §xerbla is an error handler for the lapack routines. It is called by a BLAS routine if an
      * input parameter has an invalid value. A message is printed and an exception is thrown.
