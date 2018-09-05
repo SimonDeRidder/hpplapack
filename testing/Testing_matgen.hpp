@@ -13,43 +13,60 @@
 #include "Blas.hpp"
 #include "Lapack_dyn.hpp"
 
+/*!\class Testing_matgen
+ * \brief A template class containing LAPACK matrix generation routines.
+ * Testing_matgen contains the LAPACK matrix generation routines.
+ * These routines are used for testing.
+ * The template type is meant to be double, but can be any floating point type                   */
 template<class real>
 class Testing_matgen : public Lapack_dyn<real>
 {
-public:
+private:
     // constants
 
-    const real ZERO  = real(0.0);
-    const real HALF  = real(0.5);
-    const real ONE   = real(1.0);
-    const real TWO   = real(2.0);
-    const real TWOPI = real(6.2831853071795864769252867663);
+    const real ZERO  = real(0.0);                           //!< A constant zero   (0.0)     value
+    const real HALF  = real(0.5);                           //!< A constant half   (0.5)     value
+    const real ONE   = real(1.0);                           //!< A constant one    (1.0)     value
+    const real TWO   = real(2.0);                           //!< A constant two    (2.0)     value
+    const real TWOPI = real(6.2831853071795864769252867663);//!< A constant two pi (6.28...) value
+
+public:
     // LAPACK TESTING MATGEN
 
-    /* dlagge generates a real general m by n matrix A, by pre- and post- multiplying a real
-     * diagonal matrix D with random orthogonal matrices: A = U*D*V. The lower and upper bandwidths
-     * may then be reduced to kl and ku by additional orthogonal transformations.
-     * Parameters: m: The number of rows of the matrix A. m>=0.
-     *             n: The number of columns of the matrix A. n>=0.
-     *             kl: The number of nonzero subdiagonals within the band of A. 0<=kl<=m-1.
-     *             ku: The number of nonzero superdiagonals within the band of A. 0<=ku<=n-1.
-     *             d: an array, dimension (min(m,n))
-     *                The diagonal elements of the diagonal matrix D.
-     *             A: an array, dimension (lda,n)
-     *                The generated m by n matrix A.
-     *             lda: The leading dimension of the array A. lda>=m.
-     *             iseed: an integer array, dimension (4)
-     *                    On entry, the seed of the random number generator; the array elements
-     *                              must be between 0 and 4095, and iseed[3] must be odd.
-     *                    On exit, the seed is updated.
-     *             work: an array, dimension (m+n)
-     *             info: ==0: successful exit
-     *                    <0: if info==-i, the i-th argument had an illegal value
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date December 2016                                                                        */
+    /*! §dlagge
+     *
+     * §dlagge generates a real general §m by §n matrix $A$, by pre- and post-multiplying a real
+     * diagonal matrix $D $with random orthogonal matrices: $A = U D V$. The lower and upper
+     * bandwidths may then be reduced to §kl and §ku by additional orthogonal transformations.
+     * \param[in] m  The number of rows of the matrix $A$. $\{m}\ge 0$.
+     * \param[in] n  The number of columns of the matrix $A$. $\{n}\ge 0$.
+     * \param[in] kl
+     *     The number of nonzero subdiagonals within the band of $A$. $0\le\{kl}\le\{m}-1$.
+     *
+     * \param[in] ku
+     *     The number of nonzero superdiagonals within the band of $A$. $0\le\{ku}\le\{n}-1$.
+     *
+     * \param[in] d
+     *     an array, dimension ($\min(\{m},\{n})$)\n
+     *     The diagonal elements of the diagonal matrix $D$.
+     *
+     * \param[out]    A an array, dimension (§lda,§n)\n  The generated §m by §n matrix $A$.
+     * \param[in]     lda: The leading dimension of the array §A. $\{lda}\ge\{m}$.
+     * \param[in,out] iseed
+     *     an integer array, dimension (4)\n
+     *     On entry, the seed of the random number generator; the array elements must be between 0
+     *               and 4095, and §iseed[3] must be odd.\n
+     *     On exit, the seed is updated.
+     *
+     * \param[out] work an array, dimension ($\{m}+\{n}$)
+     * \param[out] info
+     *     = 0: successful exit\n
+     *     < 0: if §info = $-i$, the $i$-th argument had an illegal value
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                       */
     void dlagge(int m, int n, int kl, int ku, real const* d, real* A, int lda, int* iseed,
                        real* work, int& info)
     {
@@ -270,28 +287,37 @@ public:
         }
     }
 
-    /* dlagsy generates a real symmetric matrix A, by pre- and post- multiplying a real diagonal
-     * matrix D with a random orthogonal matrix: A = U*D*U'. The semi-bandwidth may then be reduced
-     * to k by additional orthogonal transformations.
-     * Parameters: n: The order of the matrix A. n>=0.
-     *             k: The number of nonzero subdiagonals within the band of A. 0<=k<=n-1.
-     *             d: an array, dimension (n)
-     *                The diagonal elements of the diagonal matrix D.
-     *             A: an array, dimension (lda,n)
-     *                The generated n by n symmetric matrix A (the full matrix is stored).
-     *             lda: The leading dimension of the array A. lda>=n.
-     *             iseed: an integer array, dimension (4)
-     *                    On entry, the seed of the random number generator; the array elements
-     *                              must be between 0 and 4095, and iseed[3] must be odd.
-     *                    On exit, the seed is updated.
-     *             work: an array, dimension (2*n)
-     *             info: ==0: successful exit
-     *                    <0: if info==-i, the i-th argument had an illegal value
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date December 2016                                                                        */
+    /*! §dlagsy
+     *
+     * §dlagsy generates a real symmetric matrix $A$, by pre- and post- multiplying a real diagonal
+     * matrix $D$ with a random orthogonal matrix: $A = U D U^T$. The semi-bandwidth may then be
+     * reduced to §k by additional orthogonal transformations.
+     * \param[in] n The order of the matrix $A$. $\{n}\ge 0$.
+     * \param[in] k
+     *     The number of nonzero subdiagonals within the band of $A$. $0\le\{k}\le\{n}-1$.
+     *
+     * \param[in]  d an array, dimension (§n)\n The diagonal elements of the diagonal matrix $D$.
+     * \param[out] A
+     *     an array, dimension (§lda,§n)\n
+     *     The generated §n by §n symmetric matrix $A$ (the full matrix is stored).
+     *
+     * \param[in]     lda   The leading dimension of the array §A. $\{lda}\ge\{n}$.
+     * \param[in,out] iseed
+     *     an integer array, dimension (4)\n
+     *     On entry, the seed of the random number generator; the array elements must be between 0
+     *               and 4095, and §iseed[3] must be odd.\n
+     *     On exit, the seed is updated.
+     *
+     * \param[out] work an array, dimension ($2\{n}$)
+     * \param[out] info
+     *     = 0: successful exit\n
+     *     < 0: if §info = $-i$, the $i$-th argument had an illegal value
+     *
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                       */
     void dlagsy(int n, int k, real const* d, real* A, int lda, int* iseed, real* work,
                        int& info)
     {
@@ -406,21 +432,25 @@ public:
         }
     }
 
-    /* dlaran returns a random real number from a uniform (0,1) distribution.
-     * Parameters: iseed: an integer array, dimension (4)
-     *                    On entry, the seed of the random number generator; the array elements
-     *                              must be between 0 and 4095, and iseed[3] must be odd.
-     *                    On exit, the seed is updated.
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date December 2016
-     * Further Details:
-     *     This routine uses a multiplicative congruential method with modulus 2^48 and multiplier
-     *     33952834046453 (see G.S.Fishman, 'Multiplicative congruential random number generators
-     *     with modulus 2**b: an exhaustive analysis for b = 32 and a partial analysis for b = 48',
-     *     Math. Comp. 189, pp 331-344, 1990).
+    /*! §dlaran
+     *
+     * §dlaran returns a random real number from a uniform (0,1) distribution.
+     * \param[in,out] iseed
+     *     an integer array, dimension (4)\n
+     *     On entry, the seed of the random number generator; the array elements must be between 0
+     *               and 4095, and §iseed[3] must be odd.\n
+     *     On exit, the seed is updated.
+     *
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016
+     * \remark
+     *     This routine uses a multiplicative congruential method with modulus $2^{48}$ and
+     *     multiplier 33952834046453 (see G.S.Fishman, 'Multiplicative congruential random number
+     *     generators with modulus 2**b: an exhaustive analysis for b = 32 and a partial analysis
+     *     for b = 48', Math. Comp. 189, pp 331-344, 1990).\n
      *     48-bit integers are stored in 4 integer array elements with 12 bits per element. Hence
      *     the routine is portable across machines with integers of 32 bits or more.             */
     real dlaran(int* iseed)
@@ -464,22 +494,28 @@ public:
         return rndout;
     }
 
-    /* dlarnd returns a random real number from a uniform or normal distribution.
-     * Paramters: idist: Specifies the distribution of the random numbers:
-     *                   ==1: uniform (0,1)
-     *                   ==2: uniform (-1,1)
-     *                   ==3: normal (0,1)
-     *            iseed: an integer array, dimension (4)
-     *                   On entry, the seed of the random number generator; the array elements must
-     *                             be between 0 and 4095, and iseed[3] must be odd.
-     *                   On exit, the seed is updated.
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date December 2016
-     * Further Details:
-     *     This routine calls the auxiliary routine dlaran to generate a random real number from a
+    /*! §dlarnd
+     *
+     * §dlarnd returns a random real number from a uniform or normal distribution.
+     * \param[in] idist
+     *     Specifies the distribution of the random numbers:\n
+     *         = 1: uniform (0,1)\n
+     *         = 2: uniform (-1,1)\n
+     *         = 3: normal (0,1)
+     *
+     * \param[in,out] iseed
+     *     an integer array, dimension (4)\n
+     *     On entry, the seed of the random number generator; the array elements must be between 0
+     *               and 4095, and §iseed[3] must be odd.\n
+     *     On exit, the seed is updated.
+     *
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016
+     * \remark
+     *     This routine calls the auxiliary routine §dlaran to generate a random real number from a
      *     uniform (0,1) distribution. The Box-Muller method is used to transform numbers from a
      *     uniform to a normal distribution.                                                     */
     real dlarnd(int idist, int* iseed)
@@ -505,107 +541,124 @@ public:
         return t1;// to satisfy compiler
     }
 
-    /* dlarot applies a (Givens) rotation to two adjacent rows or columns, where one element of the
-     * first and/or last column/row for use on matrices stored in some format other than GE, so
+    /*! §dlarot
+     *
+     * §dlarot applies a (Givens) rotation to two adjacent rows or columns, where one element of
+     * the first and/or last column/row for use on matrices stored in some format other than GE, so
      * that elements of the matrix may be used or modified for which no array element is provided.
-     * One example is a symmetric matrix in SB format (bandwidth=4), for which UPLO='L': Two
+     * One example is a symmetric matrix in SB format (bandwidth=4), for which §uplo = 'L': Two
      * adjacent rows will have the format:
-     *     row j:     C> C> C> C> C> .  .  .  .
-     *     row j+1:      C> C> C> C> C> .  .  .  .
-     * '*' indicates elements for which storage is provided,
-     * '.' indicates elements for which no storage is provided, but are not necessarily zero; their
-     *     values are determined by symmetry.
-     * ' ' indicates elements which are necessarily zero, and have no storage provided.
+     * \verbatim
+          row j:     C> C> C> C> C> .  .  .  .
+          row j+1:      C> C> C> C> C> .  .  .  .
+      '*' indicates elements for which storage is provided,
+      '.' indicates elements for which no storage is provided, but are not necessarily zero; their
+          values are determined by symmetry.
+      ' ' indicates elements which are necessarily zero, and have no storage provided.\endverbatim
      * Those columns which have two '*'s can be handled by drot.
      * Those columns which have no '*'s can be ignored, since as long as the Givens rotations are
      *     carefully applied to preserve symmetry, their values are determined.
      * Those columns which have one '*' have to be handled separately, by using separate variables
      *     "p" and "q":
-     *     row j:     C> C> C> C> C> p  .  .  .
-     *     row j+1:   q  C> C> C> C> C> .  .  .  .
-     * The element p would have to be set correctly, then that column is rotated, setting p to its
-     * new value. The next call to dlarot would rotate columns j and j+1, using p, and restore
-     * symmetry. The element q would start out being zero, and be made non-zero by the rotation.
-     * Later, rotations would presumably be chosen to zero q out.
-     * Typical Calling Sequences: rotating the i-th and (i+1)-st rows.
-     * ------- ------- ---------
-     * General dense matrix:
-     *     dlarot(true, false, false, N, c, s, &A[i,0], lda, DUMMY, DUMMY);
-     * General banded matrix in GB format:
-     *     j = MAX(0, i-KL);
-     *     nl = MIN(N, i+KU+2) - j;
-     *     dlarot(true, i-KL>=0, i+KU<N-1, nl, c, s, &A[KU+i-j,j], lda-1, xleft, xright);
-     *         [ note that i-j is just MIN(i,KL) ]
-     * Symmetric banded matrix in SY format, bandwidth K, lower triangle only:
-     *     j = MAX(0, i-K);
-     *     nl = MIN(K+1, i+1) + 1;
-     *     dlarot(true, i-K>=0, true, nl, c, s, &A[i,j], lda, xleft, xright);
-     * Same, but upper triangle only:
-     *     nl = MIN(K+2, N-i);
-     *     dlarot(true, true, i+K<N-1, nl, c, s, &A[i,i], lda, xleft, xright);
-     * Symmetric banded matrix in SB format, bandwidth K, lower triangle only:
-     *         [ same as for SY, except:]
-     *     ..., &A[i-j,j], lda-1, xleft, xright);
-     *         [ note that i-j is just MIN(i,K) ]
-     * Same, but upper triangle only:
-     *     ..., &A[K,i], lda-1, xleft, xright);
+     * \verbatim
+          row j:     C> C> C> C> C> p  .  .  .
+          row j+1:   q  C> C> C> C> C> .  .  .  .\endverbatim
+     * The element §p would have to be set correctly, then that column is rotated, setting §p to
+     * its new value. The next call to §dlarot would rotate columns $j$ and $j+1$, using §p, and
+     * restore symmetry. The element §q would start out being zero, and be made non-zero by the
+     * rotation. Later, rotations would presumably be chosen to zero §q out.\n\n
+     * Typical Calling Sequences: rotating the $i$-th and ($i+1$)-st rows.
+     * <HR>
+     * \li General dense matrix:
+     *     \code dlarot(true, false, false, n, c, s, &A[i,0], lda, DUMMY, DUMMY); \endcode
+     * \li General banded matrix in GB format:
+     *     \code j = max(0, i-kl);
+     * nl = min(n, i+ku+2) - j;
+     * dlarot(true, i-kl>=0, i+ku<n-1, nl, c, s, &A[ku+i-j,j], lda-1, xleft, xright); \endcode
+     *     [note that $i-j$ is just $\min(i,kl)$]
+     * \li Symmetric banded matrix in SY format, bandwidth §k, lower triangle only:
+     *     \code j = max(0, i-k);
+     * nl = min(k+1, i+1) + 1;
+     * dlarot(true, i-k>=0, true, nl, c, s, &A[i,j], lda, xleft, xright); \endcode
+     * \li Same, but upper triangle only:
+     *     \code nl = min(k+2, n-i);
+     * dlarot(true, true, i+k<n-1, nl, c, s, &A[i,i], lda, xleft, xright); \endcode
+     * \li Symmetric banded matrix in SB format, bandwidth §k, lower triangle only:\n
+     *     [ same as for SY, except:]
+     *     \code ..., &A[i-j,j], lda-1, xleft, xright); \endcode
+     *     [ note that i-j is just min(i,k) ]
+     * \li Same, but upper triangle only:
+     *     \code ..., &A[k,i], lda-1, xleft, xright); \endcode
+     *
      * Rotating columns is just the transpose of rotating rows, except for GB and SB:
-     * (rotating columns i and i+1)
-     * GB:
-     *     j = MAX(0, i-KU);
-     *     nl = MIN(N, i+KL+2) - j;
-     *     dlarot(true, i-KU>=0, i+KL<N-1, nl, c, s, &A[KU+j-i,i], lda-1, XTOP, XBOTTM);
-     *         [note that KU+j-i is just MAX(0,KU-i)]
-     * SB: (upper triangle)
-     *     ..., &A[K+j-i,i], lda-1, XTOP, XBOTTM);
-     * SB: (lower triangle)
-     *     ..., &A[0,i], lda-1, XTOP, XBOTTM);
-     * Parameters: lrows: If true, then dlarot will rotate two rows.
-     *                    If false, then it will rotate two columns.
-     *             lleft: If true, then xleft will be used instead of the corresponding element of
-     *                             A for the first element in the second row (if lrows==false) or
-     *                             column (if lrows==true)
-     *                    If false, then the corresponding element of A will be used.
-     *             lright: If true, then xright will be used instead of the corresponding element
-     *                              of A for the last element in the first row (if lrows==false)
-     *                              or column (if lrows==true)
-     *                     If false, then the corresponding element of A will be used.
-     *             nl: The length of the rows (if lrows==true) or columns (if lrows==false) to be
-     *                 rotated. If xleft and/or xright are used, the columns/rows they are in
-     *                 should be included in nl, e.g., if lleft==lright==true, then nl must be at
-     *                 least 2. The number of rows/columns to be rotated exclusive of those
-     *                 involving xleft and/or xright may not be negative, i.e., nl minus how many
-     *                 of lleft and lright are true must be at least zero; if not, XERBLA will be
-     *                 called.
-     *             c,
-     *             s: Specify the Givens rotation to be applied.
-     *                If lrows is true, then the matrix ( c  s )
-     *                                                  (-s  c ) is applied from the left;
-     *                if false, then the transpose thereof is applied from the right. For a Givens
-     *                          rotation, c^2 + s^2 should be 1, but this is not checked.
-     *             A: The array containing the rows/columns to be rotated. The first element of A
-     *                should be the upper left element to be rotated.
-     *             lda: The "effective" leading dimension of A. If A contains a matrix stored in GE
-     *                  or SY format, then this is just the leading dimension of A as dimensioned
-     *                  in the calling routine. If A contains a matrix stored in band (GB or SB)
-     *                  format, then this should be *one less* than the leading dimension used in
-     *                  the calling routine. Thus, if A were dimensioned A(lda,*) in dlarot, then
-     *                  A(1,j) would be the j-th element in the first of the two rows to be
-     *                  rotated, and A(2,j) would be the j-th in the second, regardless of how the
-     *                  array may be stored in the calling routine. [A cannot, however, actually be
-     *                  dimensioned thus, since for band format, the row number may exceed lda
-     *                  which is not legal.]
-     *                  If lrows==true, then lda must be at least 1, otherwise it must be at least
-     *                  nl minus the number of true values in xleft and xright.
-     *             xleft: If lleft is true, then xleft will be used and modified instead of A(2,1)
-     *                    (if lrows==true) or A(1,2) (if lrows==false).
-     *             xright: If lright is true, then xright will be used and modified instead of
-     *                     A(1,nl) (if lrows==true) or A(nl,1) (if lrows==false).
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date December 2016                                                                        */
+     * (rotating columns $i$ and $i+1$)
+     * \li GB:
+     *     \code j = max(0, i-ku);
+     * nl = min(n, i+kl+2) - j;
+     * dlarot(true, i-ku>=0, i+kl<n-1, nl, c, s, &A[ku+j-i,i], lda-1, xtop, xbottm); \endcode
+     *     [note that $ku+j-i$ is just $\max(0,ku-i)$]
+     * \li SB: (upper triangle)
+     *     \code ..., &A[k+j-i,i], lda-1, xtop, xbottm); \endcode
+     * \li SB: (lower triangle)
+     *     \code ..., &A[0,i], lda-1, xtop, xbottm); \endcode
+     * \param[in] lrows
+     *     If §true, then §dlarot will rotate two rows.\n
+     *     If §false, then it will rotate two columns.
+     *
+     * \param[in] lleft
+     *     If true, then §xleft will be used instead of the corresponding element of §A for the
+     *     first element in the second row (if §lrows = §false) or column (if §lrows = §true)\n
+     *     If false, then the corresponding element of §A will be used.
+     *
+     * \param[in] lright
+     *     If true, then §xright will be used instead of the corresponding element of §A for the
+     *     last element in the first row (if §lrows = §false) or column (if §lrows = §true)\n
+     *     If false, then the corresponding element of §A will be used.
+     *
+     * \param[in] nl
+     *     The length of the rows (if §lrows = §true) or columns (if §lrows = §false) to be
+     *     rotated. If §xleft and/or §xright are used, the columns/rows they are in should be
+     *     included in §nl, e.g., if §lleft = §lright = §true, then §nl must be at least 2. The
+     *     number of rows/columns to be rotated exclusive of those involving §xleft and/or §xright
+     *     may not be negative, i.e., §nl minus how many of §lleft and §lright are §true must be at
+     *     least zero; if not, §xerbla will be called.
+     * \param[in] c, s
+     *     Specify the Givens rotation to be applied.
+     *     If lrows is true, then the matrix
+     *         $\b{bm} c & s \\
+     *                -s & c \e{bm}$ is applied from the left;
+     *     if false, then the transpose thereof is applied from the right. For a Givens rotation,
+     *     $c^2 + s^2$ should be 1, but this is not checked.
+     *
+     * \param[in,out] A
+     *     The array containing the rows/columns to be rotated. The first element of §A should be
+     *     the upper left element to be rotated.
+     *
+     * \param[in] lda
+     *     The "effective" leading dimension of §A. If §A contains a matrix stored in GE or SY
+     *     format, then this is just the leading dimension of §A as dimensioned in the calling
+     *     routine. If §A contains a matrix stored in band (GB or SB) format, then this should be
+           *one less* than the leading dimension used in the calling routine. Thus, if §A were
+     *     dimensioned §A(§lda,*) in §dlarot, then §A[0,$j$] would be the $j$-th element in the
+     *     first of the two rows to be rotated, and §A[1,$j$] would be the $j$-th in the second,
+     *     regardless of how the array may be stored in the calling routine. [§A cannot, however,
+     *     actually be dimensioned thus, since for band format, the row number may exceed §lda
+     *     which is not legal.]\n
+     *     If §lrows = §true, then §lda must be at least 1, otherwise it must be at least §nl minus
+     *     the number of §true values in §xleft and §xright.
+     *
+     * \param[in,out] xleft
+     *     If §lleft is §true, then §xleft will be used and modified instead of §A[1,0]
+     *     (if §lrows = §true) or §A[0,1] (if §lrows = §false).
+     *
+     * \param[in,out] xright
+     *     If §lright is §true, then §xright will be used and modified instead of §A[0,§nl-1]
+     *     (if §lrows = §true) or §A[§nl-1,0] (if §lrows = §false).
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                       */
     void dlarot(bool lrows, bool lleft, bool lright, int nl, real c, real s, real* A,
                        int lda, real& xleft, real& xright)
     {
@@ -673,54 +726,65 @@ public:
         }
     }
 
-    /* dlatm1 computes the entries of d[0:n-1] as specified by mode, cond and irsign. idist and
-     * iseed determine the generation of random numbers. dlatm1 is called by dlatmr to generate
-     * random test matrices for LAPACK programs.
-     * Parameters: mode: On entry describes how d is to be computed:
-     *                   mode==0 means do not change d.
-     *                   mode==1 sets d[0]=1 and d[1:n-1]=1.0/cond
-     *                   mode==2 sets d[0:n-2]=1 and d[n-1]=1.0/cond
-     *                   mode==3 sets d[i]=cond^(-(I-1)/(n-1))
-     *                   mode==4 sets d[i]=1 - (i-1)/(n-1)*(1-1/cond)
-     *                   mode==5 sets d to random numbers in the range (1/cond, 1) such that their
-     *                           logarithms are uniformly distributed.
-     *                   mode==6 set d to random numbers from same distribution as the rest of the
-     *                           matrix.
-     *                   mode <0 has the same meaning as abs(mode), except that the order of the
-     *                           elements of d is reversed.
-     *                           Thus if mode is positive, d has entries ranging from 1 to 1/cond,
-     *                           if negative, from 1/cond to 1.
-     *             cond: On entry, used as described under mode above.
-     *                   If used, it must be >=1.
-     *             irsign: On entry, if mode neither -6, 0 nor 6, determines sign of entries of d
-     *                     0 => leave entries of d unchanged
-     *                     1 => multiply each entry of d by 1 or -1 with probability 0.5
-     *             idist: On entry, idist specifies the type of distribution to be used to generate
-     *                    a random matrix.
-     *                    1 => UNIFORM(0, 1)
-     *                    2 => UNIFORM(-1, 1)
-     *                    3 => NORMAL(0, 1)
-     *             iseed: an INTEGER array, dimension (4)
-     *                    On entry iseed specifies the seed of the random number generator. The
-     *                    random number generator uses a linear congruential sequence limited to
-     *                    small integers, and so should produce machine independent random numbers.
-     *                    The values of iseed are changed on exit, and can be used in the next call
-     *                    to dlatm1 to continue the same random number sequence.
-     *             d: an array, dimension (n)
-     *                Array to be computed according to mode, cond and irsign.
-     *                May be changed on exit if mode is nonzero.
-     *             n: Number of entries of d.
-     *             info: 0 => normal termination
-     *                  -1 => if mode not in range -6 to 6
-     *                  -2 => if mode neither -6, 0 nor 6, and irsign neither 0 nor 1
-     *                  -3 => if mode neither -6, 0 nor 6 and cond less than 1
-     *                  -4 => if mode equals 6 or -6 and idist not in range 1 to 3
-     *                  -7 => if n negative
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date December 2016                                                                        */
+    /*! §dlatm1
+     *
+     * §dlatm1 computes the entries of $\{d}[0:\{n}-1]$ as specified by §mode, §cond and §irsign.
+     * §idist and §iseed determine the generation of random numbers. §dlatm1 is called by §dlatmr
+     * to generate random test matrices for LAPACK programs.
+     * \param[in] mode
+     *     On entry describes how §d is to be computed:\n
+     *         §mode = 0 means do not change §d.\n
+     *         §mode = 1 sets $\{d}[0] = 1$ and $\{d}[1:\{n}-1] = 1.0/\{cond}$\n
+     *         §mode = 2 sets $\{d}[0:\{n}-2] = 1$ and $\{d}[\{n}-1] = 1.0/\{cond}$\n
+     *         §mode = 3 sets $\{d}[i] = \{cond}^{-\frac{i-1}{\{n}-1}}$\n
+     *         §mode = 4 sets $\{d}[i] = 1 - \frac{i-1}{\{n}-1}(1-1/\{cond})$\n
+     *         §mode = 5 sets §d to random numbers in the range ($1/\{cond}$, 1) such that their
+     *                   logarithms are uniformly distributed.\n
+     *         §mode = 6 set §d to random numbers from same distribution as the rest of the
+     *                   matrix.\n
+     *         §mode < 0 has the same meaning as $|\{mode}|$, except that the order of the elements
+     *                   of §d is reversed.\n
+     *         Thus if §mode is positive, §d has entries ranging from 1 to $1/\{cond}$,
+     *              if negative, from $1/\{cond}$ to 1.
+     *
+     * \param[in] cond   On entry, used as described under mode above. If used, it must be $\ge 1$.
+     * \param[in] irsign
+     *     On entry, if §mode neither -6, 0 nor 6, determines sign of entries of §d \n
+     *         $0\Rightarrow$ leave entries of §d unchanged\n
+     *         $1\Rightarrow$ multiply each entry of §d by 1 or -1 with probability 0.5
+     *
+     * \param[in] idist
+     *     On entry, §idist specifies the type of distribution to be used to generate a random
+     *     matrix.\n
+     *         $1\Rightarrow$ uniform(0, 1)\n
+     *         $2\Rightarrow$ uniform(-1, 1)\n
+     *         $3\Rightarrow$ normal(0, 1)
+     *
+     * \param[in,out] iseed
+     *     an integer array, dimension (4)\n
+     *     On entry §iseed specifies the seed of the random number generator. The random number
+     *     generator uses a linear congruential sequence limited to small integers, and so should
+     *     produce machine independent random numbers. The values of §iseed are changed on exit,
+     *     and can be used in the next call to §dlatm1 to continue the same random number sequence.
+     *
+     * \param[in,out] d
+     *     an array, dimension (§n)\n
+     *     Array to be computed according to §mode, §cond and §irsign.\n
+     *     May be changed on exit if §mode is nonzero.
+     *
+     * \param[in]  n    Number of entries of §d.
+     * \param[out] info
+     *      $0\Rightarrow$ normal termination\n
+     *     $-1\Rightarrow$ if §mode not in range -6 to 6\n
+     *     $-2\Rightarrow$ if §mode neither -6, 0 nor 6, and §irsign neither 0 nor 1\n
+     *     $-3\Rightarrow$ if §mode neither -6, 0 nor 6 and §cond less than 1\n
+     *     $-4\Rightarrow$ if §mode equals 6 or -6 and §idist not in range 1 to 3\n
+     *     $-7\Rightarrow$ if §n negative
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                       */
     void dlatm1(int mode, real cond, int irsign, int idist, int* iseed, real* d, int n,
                        int& info)
     {
@@ -843,157 +907,186 @@ public:
         }
     }
 
-    /* dlatms generates random matrices with specified singular values (or symmetric/hermitian with
-     * specified eigenvalues) for testing LAPACK programs.
+    /*! §dlatms
+     *
+     * §dlatms generates random matrices with specified singular values (or symmetric/hermitian
+     * with specified eigenvalues) for testing LAPACK programs.\n
      * dlatms operates by applying the following sequence of operations:
-     *     Set the diagonal to d, where d may be input or computed according to mode, cond, dmax,
-     *         and sym as described below.
-     *     Generate a matrix with the appropriate band structure, by one of two methods:
-     *         Method A: Generate a dense m x n matrix by multiplying D on the left and the right
-     *                   by random unitary matrices, then:
-     *                   Reduce the bandwidth according to kl and ku, using Householder
-     *                   transformations.
-     *         Method B: Convert the bandwidth-0 (i.e., diagonal) matrix to a bandwidth-1 matrix
+     * <ul>
+     * <li>Set the diagonal to §d, where §d may be input or computed according to §mode, §cond,
+     *         §dmax, and §sym as described below.</li>
+     * <li>Generate a matrix with the appropriate band structure, by one of two methods:
+     *     <ul>
+     *     <li>Method A: Generate a dense §m by §n matrix by multiplying §D on the left and the
+     *                   right by random unitary matrices, then:\n &emsp;&emsp;&emsp;&emsp;
+     *                   Reduce the bandwidth according to §kl and §ku, using Householder
+     *                   transformations.</li>
+     *     <li>Method B: Convert the bandwidth-0 (i.e., diagonal) matrix to a bandwidth-1 matrix
      *                   using Givens rotations, "chasing" out-of-band elements back, much as in
      *                   QR; then convert the bandwidth-1 to a bandwidth-2 matrix, etc.
-     *                   Note that for reasonably small bandwidths (relative to m and n) this
+     *                   Note that for reasonably small bandwidths (relative to §m and §n) this
      *                   requires less storage, as a dense matrix is not generated. Also, for
-     *                   symmetric matrices, only one triangle is generated.
+     *                   symmetric matrices, only one triangle is generated.</li>
+     *     </ul>
      *         Method A is chosen if the bandwidth is a large fraction of the order of the matrix,
-     *         and lda is at least m (so a dense matrix can be stored). Method B is chosen if the
-     *         bandwidth is small (<1/2 n for symmetric, <0.3 n+m for non-symmetric), or lda is
-     *         less than m and not less than the bandwidth.
-     *     Pack the matrix if desired. Options specified by pack are:
-     *         no packing
-     *         zero out upper half (if symmetric)
-     *         zero out lower half (if symmetric)
-     *         store the upper half columnwise (if symmetric or upper triangular)
-     *         store the lower half columnwise (if symmetric or lower triangular)
-     *         store the lower triangle in banded format (if symmetric or lower triangular)
-     *         store the upper triangle in banded format (if symmetric or upper triangular)
-     *         store the entire matrix in banded format
+     *         and §lda is at least §m (so a dense matrix can be stored). Method B is chosen if the
+     *         bandwidth is small ($<\frac{1}{2}\{n}$ for symmetric, $<0.3\{n}+\{m}$ for
+     *         non-symmetric), or §lda is less than §m and not less than the bandwidth.</li>
+     * <li>Pack the matrix if desired. Options specified by pack are:
+     *     <ul>
+     *     <li>no packing</li>
+     *     <li>zero out upper half (if symmetric)</li>
+     *     <li>zero out lower half (if symmetric)</li>
+     *     <li>store the upper half columnwise (if symmetric or upper triangular)</li>
+     *     <li>store the lower half columnwise (if symmetric or lower triangular)</li>
+     *     <li>store the lower triangle in banded format (if symmetric or lower triangular)</li>
+     *     <li>store the upper triangle in banded format (if symmetric or upper triangular)</li>
+     *     <li>store the entire matrix in banded format</li>
+     *     </ul>
      *         If Method B is chosen, and band format is specified, then the matrix will be
-     *         generated in the band format, so no repacking will be necessary.
-     * Parameters: m: The number of rows of A.
-     *             n: The number of columns of A.
-     *             dist: On entry, dist specifies the type of distribution to be used to generate
-     *                   the random eigen-/singular values.
-     *                   'U' => UNIFORM(0, 1)  ('U' for uniform)
-     *                   'S' => UNIFORM(-1, 1) ('S' for symmetric)
-     *                   'N' => NORMAL(0, 1)   ('N' for normal)
-     *             iseed: an integer array, dimension (4)
-     *                    On entry iseed specifies the seed of the random number generator. They
-     *                    should lie between 0 and 4095 inclusive, and iseed[3] should be odd. The
-     *                    random number generator uses a linear congruential sequence limited to
-     *                    small integers, and so should produce machine independent random numbers.
-     *                    The values of iseed are changed on exit, and can be used in the next call
-     *                    to dlatms to continue the same random number sequence.
-     *             sym: If sym=='S' or 'H', the generated matrix is symmetric, with eigenvalues
-     *                                      specified by d, cond, mode, and dmax; they may be
-     *                                      positive, negative, or zero.
-     *                  If sym=='P', the generated matrix is symmetric, with eigenvalues
-     *                               (= singular values) specified by d, cond, mode, and dmax; they
-     *                               will not be negative.
-     *                  If sym=='N', the generated matrix is nonsymmetric, with singular values
-     *                               specified by d, cond, mode, and dmax; they will not be
-     *                               negative.
-     *             d: an array, dimension (MIN(m, n))
-     *                This array is used to specify the singular values or eigenvalues of A (see
-     *                sym, above). If mode==0, then d is assumed to contain the
-     *                singular/eigenvalues, otherwise they will be computed according to mode,
-     *                cond and dmax, and placed in d.
-     *             mode: On entry this describes how the singular/eigenvalues are to be specified:
-     *                   mode==0 means use d as input
-     *                   mode==1 sets d[0]=1 and d[1:n-1]=1.0/cond
-     *                   mode==2 sets d[0:n-2]=1 and d[n-1]=1.0/cond
-     *                   mode==3 sets d[i]=cond**(-(I-1)/(n-1))
-     *                   mode==4 sets d[i]=1 - (i-1)/(n-1)*(1 - 1/cond)
-     *                   mode==5 sets d to random numbers in the range (1/cond, 1) such that their
-     *                           logarithms are uniformly distributed.
-     *                   mode==6 set d to random numbers from same distribution as the rest of the
-     *                           matrix.
-     *                   mode <0 has the same meaning as abs(mode), except that the order of the
-     *                           elements of d is reversed.
-     *                   Thus if mode is positive, d has entries ranging from 1 to 1/cond, if
-     *                       negative, from 1/cond to 1,
-     *                   If sym=='S' or 'H', and mode is neither 0, 6, nor -6, then the elements of
-     *                       d will also be multiplied by a random sign (i.e., +1 or -1.)
-     *             cond: On entry, this is used as described under mode above.
-     *                   If used, it must be >=1.
-     *             dmax: If mode is neither -6, 0 nor 6, the contents of d, as computed according
-     *                   to mode and cond, will be scaled by dmax / max(abs(D[i])); thus, the
-     *                   maximum absolute eigen- or singular value (which is to say the norm) will
-     *                   be abs(dmax). Note that dmax need not be positive: if dmax is negative
-     *                   (or zero), d will be scaled by a negative number (or zero).
-     *             kl: This specifies the lower bandwidth of the matrix. For example, kl=0 implies
-     *                 upper triangular, kl=1 implies upper Hessenberg, and kl being at least m-1
-     *                 means that the matrix has full lower bandwidth. kl must equal ku if the
-     *                 matrix is symmetric.
-     *             ku: This specifies the upper bandwidth of the matrix. For example, ku=0 implies
-     *                 lower triangular, ku=1 implies lower Hessenberg, and ku being at least n-1
-     *                 means that the matrix has full upper bandwidth. kl must equal ku if the
-     *                 matrix is symmetric.
-     *             pack: This specifies packing of matrix as follows:
-     *                   'N' => no packing
-     *                   'U' => zero out all subdiagonal entries (if symmetric)
-     *                   'L' => zero out all superdiagonal entries (if symmetric)
-     *                   'C' => store the upper triangle columnwise
-     *                          (only if the matrix is symmetric or upper triangular)
-     *                   'R' => store the lower triangle columnwise
-     *                          (only if the matrix is symmetric or lower triangular)
-     *                   'B' => store the lower triangle in band storage scheme
-     *                          (only if matrix symmetric or lower triangular)
-     *                   'Q' => store the upper triangle in band storage scheme
-     *                          (only if matrix symmetric or upper triangular)
-     *                   'Z' => store the entire matrix in band storage scheme
-     *                          (pivoting can be provided for by using this option to store A in
-     *                           the trailing rows of the allocated storage)
-     *                   Using these options, the various LAPACK packed and banded storage schemes
-     *                   can be obtained:
-     *                   GB           - use 'Z'
-     *                   PB, SB or TB - use 'B' or 'Q'
-     *                   PP, SP or TP - use 'C' or 'R'
-     *                   If two calls to dlatms differ only in the pack parameter, they will
-     *                   generate mathematically equivalent matrices.
-     *             A: an array, dimension (lda, n)
-     *                On exit A is the desired test matrix. A is first generated in full (unpacked)
-     *                form, and then packed, if so specified by pack. Thus, the first m elements of
-     *                the first n columns will always be modified. If pack specifies a packed or
-     *                banded storage scheme, all lda elements of the first n columns will be
-     *                modified; the elements of the array which do not correspond to elements of
-     *                the generated matrix are set to zero.
-     *             lda: lda specifies the first dimension of A as declared in the calling program.
-     *                  If pack=='N', 'U', 'L', 'C' or 'R', then lda must be at least m.
-     *                  If pack=='B' or 'Q', then lda must be at least MIN(kl, m-1) (which is equal
-     *                      to MIN(ku,n-1)).
-     *                  If pack=='Z', lda must be large enough to hold the packed array:
-     *                      MIN(ku, n-1) + MIN(kl, m-1) + 1.
-     *             work: an array, dimension (3*MAX(n, m))
-     *                   Workspace.
-     *             info: Error code. On exit, info will be set to one of the following values:
-     *                     0 => normal return
-     *                    -1 => m negative or unequal to n and sym=='S', 'H' or 'P'
-     *                    -2 => n negative
-     *                    -3 => dist illegal string
-     *                    -5 => sym illegal string
-     *                    -7 => mode not in range -6 to 6
-     *                    -8 => cond less than 1.0, and mode neither -6, 0 nor 6
-     *                   -10 => kl negative
-     *                   -11 => ku negative, or sym=='S' or 'H' and ku not equal to kl
-     *                   -12 => pack illegal string, or pack=='U' or 'L', and sym=='N';
-     *                          or pack=='C' or 'Q' and sym=='N' and kl is not zero;
-     *                          or pack=='R' or 'B' and sym=='N' and ku is not zero;
-     *                          or pack=='U', 'L', 'C', 'R', 'B', or 'Q', and m is not n.
-     *                   -14 => lda is less than m, or pack=='Z' and lda is less than
-     *                          MIN(ku,n-1) + MIN(kl,m-1) + 1.
-     *                     1 => Error return from dlatm1
-     *                     2 => Cannot scale to dmax (max. sing. value is 0)
-     *                     3 => Error return from dlagge or dlagsy
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date December 2016                                                                        */
+     *         generated in the band format, so no repacking will be necessary.</li>
+     * </ul>
+     * \param[in] m    The number of rows of §A.
+     * \param[in] n    The number of columns of A.
+     * \param[in] dist
+     *     On entry, §dist specifies the type of distribution to be used to generate the random
+     *     eigen-/singular values.\n
+     *         'U' $\Rightarrow$ uniform(0, 1)  ('U' for uniform)\n
+     *         'S' $\Rightarrow$ uniform(-1, 1) ('S' for symmetric)\n
+     *         'N' $\Rightarrow$ normal(0, 1)   ('N' for normal)
+     *
+     * \param[in,out] iseed
+     *     an integer array, dimension (4)\n
+     *     On entry §iseed specifies the seed of the random number generator. They should lie
+     *     between 0 and 4095 inclusive, and §iseed[3] should be odd. The random number generator
+     *     uses a linear congruential sequence limited to small integers, and so should produce
+     *     machine independent random numbers. The values of §iseed are changed on exit, and can be
+     *     used in the next call to §dlatms to continue the same random number sequence.
+     *
+     * \param[in] sym
+     *     If §sym = 'S' or 'H', the generated matrix is symmetric, with eigenvalues specified by
+     *                           §d, §cond, §mode, and §dmax; they may be positive, negative, or
+     *                           zero.\n
+     *     If §sym = 'P', the generated matrix is symmetric, with eigenvalues (= singular values)
+     *                    specified by §d, §cond, §mode, and §dmax; they will not be negative.\n
+     *     If §sym = 'N', the generated matrix is nonsymmetric, with singular values specified by
+     *                    §d, §cond, §mode, and §dmax; they will not be negative.
+     *
+     * \param[in,out] d
+     *     an array, dimension ($\min(\{m},\{n})$)\n
+     *     This array is used to specify the singular values or eigenvalues of §A (see §sym,
+     *     above). If §mode = 0, then §d is assumed to contain the singular/eigenvalues, otherwise
+     *     they will be computed according to §mode, §cond and §dmax, and placed in §d.
+     *
+     * \param[in] mode
+     *     On entry this describes how the singular/eigenvalues are to be specified:
+     *     \li §mode = 0 means use §d as input
+     *     \li §mode = 1 sets $\{d}[0]=1$ and $\{d}[1:\{n}-1]=1.0/\{cond}$
+     *     \li §mode = 2 sets $\{d}[0:\{n}-2]=1$ and $\{d}[\{n}-1]=1.0/\{cond}$
+     *     \li §mode = 3 sets $\{d}[i]=\{cond}^{-\frac{i-1}{\{n}-1}}$
+     *     \li §mode = 4 sets $\{d}[i]=1 - \frac{i-1}{\{n}-1}(1 - 1/\{cond})$
+     *     \li §mode = 5 sets §d to random numbers in the range ($1/\{cond}$, 1) such that their
+     *                   logarithms are uniformly distributed.
+     *     \li §mode = 6 set §d to random numbers from same distribution as the rest of the matrix.
+     *     \li §mode < 0 has the same meaning as $|\{mode}|$, except that the order of the elements
+     *                   of §d is reversed.
+     *
+     *         Thus if §mode is positive, §d has entries ranging from 1 to $1/\{cond}$, if
+     *             negative, from $1/\{cond}$ to 1,\n
+     *         If §sym = 'S' or 'H', and mode is neither 0, 6, nor -6, then the elements of §d will
+     *             also be multiplied by a random sign (i.e., +1 or -1.)
+     *
+     * \param[in] cond
+     *     On entry, this is used as described under §mode above. If used, it must be $\ge 1$.
+     *
+     * \param[in] dmax
+     *     If §mode is neither -6, 0 nor 6, the contents of §d, as computed according to §mode and
+     *     §cond, will be scaled by $\{dmax}/\max(|\{d}[i]|)$; thus, the maximum absolute eigen- or
+     *     singular value (which is to say the norm) will be $|\{dmax}|$. Note that §dmax need not
+     *     be positive: if §dmax is negative (or zero), §d will be scaled by a negative number
+     *     (or zero).
+     *
+     * \param[in] kl
+     *     This specifies the lower bandwidth of the matrix. For example, §kl = 0 implies upper
+     *     triangular, §kl = 1 implies upper Hessenberg, and §kl being at least §m-1 means that the
+     *     matrix has full lower bandwidth. §kl must equal §ku if the matrix is symmetric.
+     *
+     * \param[in] ku
+     *     This specifies the upper bandwidth of the matrix. For example, §ku = 0 implies lower
+     *     triangular, §ku = 1 implies lower Hessenberg, and §ku being at least §n-1 means that the
+     *     matrix has full upper bandwidth. §kl must equal §ku if the matrix is symmetric.
+     *
+     * \param[in] pack
+     *     This specifies packing of matrix as follows:\n
+     *         'N' $\Rightarrow$ no packing\n
+     *         'U' $\Rightarrow$ zero out all subdiagonal entries (if symmetric)\n
+     *         'L' $\Rightarrow$ zero out all superdiagonal entries (if symmetric)\n
+     *         'C' $\Rightarrow$ store the upper triangle columnwise
+     *                           (only if the matrix is symmetric or upper triangular)\n
+     *         'R' $\Rightarrow$ store the lower triangle columnwise
+     *                           (only if the matrix is symmetric or lower triangular)\n
+     *         'B' $\Rightarrow$ store the lower triangle in band storage scheme
+     *                           (only if matrix symmetric or lower triangular)\n
+     *         'Q' $\Rightarrow$ store the upper triangle in band storage scheme
+     *                           (only if matrix symmetric or upper triangular)\n
+     *         'Z' $\Rightarrow$ store the entire matrix in band storage scheme
+     *                           (pivoting can be provided for by using this option to store §A in
+     *                           the trailing rows of the allocated storage)\n
+     *         Using these options, the various LAPACK packed and banded storage schemes can be
+     *         obtained:\n
+     *         $\begin{tabular}{ll}GB           &- use 'Z'        \\
+     *                               PB, SB or TB &- use 'B' or 'Q' \\
+     *                               PP, SP or TP &- use 'C' or 'R' \end{tabular}$\n
+     *         If two calls to §dlatms differ only in the §pack parameter, they will generate
+     *         mathematically equivalent matrices.
+     *
+     * \param[in,out] A
+     *     an array, dimension (§lda,§n)\n
+     *     On exit §A is the desired test matrix. §A is first generated in full (unpacked) form,
+     *     and then packed, if so specified by §pack. Thus, the first §m elements of the first §n
+     *     columns will always be modified. If §pack specifies a packed or banded storage scheme,
+     *     all §lda elements of the first §n columns will be modified; the elements of the array
+     *     which do not correspond to elements of the generated matrix are set to zero.
+     *
+     * \param[in] lda
+     *     §lda specifies the first dimension of §A as declared in the calling program.\n
+     *     If §pack = 'N', 'U', 'L', 'C' or 'R', then §lda must be at least §m.\n
+     *     If §pack = 'B' or 'Q', then §lda must be at least $\min(\{kl},\{m}-1)$ (which is equal
+     *                            to $\min(\{ku},\{n}-1)$).\n
+     *     If §pack = 'Z', §lda must be large enough to hold the packed array:
+     *                     $\min(\{ku},\{n}-1) + \min(\{kl},\{m}-1) + 1$.
+     *
+     * \param[out] work an array, dimension ($3\max(\{n},\{m})$)\n Workspace.
+     * \param[out] info
+     *     Error code. On exit, §info will be set to one of the following values:\n
+     *     $\begin{tabular}{r@{\(\ \Rightarrow\ \)}l}
+     *                     0 & normal return\\
+     *                    -1 & \{m} negative or unequal to \{n} and \{sym} = 'S', 'H' or 'P'\\
+     *                    -2 & \{n} negative\\
+     *                    -3 & \{dist} illegal string\\
+     *                    -5 & \{sym} illegal string\\
+     *                    -7 & \{mode} not in range -6 to 6\\
+     *                    -8 & \{cond} less than 1.0, and \{mode} neither -6, 0 nor 6\\
+     *                   -10 & \{kl} negative\\
+     *                   -11 & \{ku} negative, or \{sym} = 'S' or 'H' and \{ku} not equal to
+     *                         \{kl}\\
+     *                   -12 & \begin{tabular}[t]{@{}l@{}}
+     *                         \{pack} illegal string, or \{pack} = 'U' or 'L', and \{sym} = 'N';\\
+     *                         or \{pack} = 'C' or 'Q' and \{sym} = 'N' and \{kl} is not zero;\\
+     *                         or \{pack} = 'R' or 'B' and \{sym} = 'N' and \{ku} is not zero;\\
+     *                         or \{pack} = 'U', 'L', 'C', 'R', 'B', or 'Q', and \{m} is not \{n}.
+     *                         \end{tabular}\\
+     *                   -14 & \begin{tabular}[t]{@{}l@{}}
+     *                         \{lda} is less than \{m}, or \{pack} = 'Z' and \{lda} is less than\\
+     *                         \(\min(\{ku},\{n}-1) + \min(\{kl},\{m}-1) + 1\).\end{tabular}\\
+     *                     1 & Error return from \{dlatm1}\\
+     *                     2 & Cannot scale to \{dmax} (max. sing. value is 0)\\
+     *                     3 & Error return from \{dlagge} or \{dlagsy}\end{tabular}$
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                       */
     void dlatms(int m, int n, const char* dist, int* iseed, const char* sym, real* d,
                        int mode, real cond, real dmax, int kl, int ku, char const* pack, real* A,
                        int lda, real* work, int& info)
@@ -1270,7 +1363,7 @@ public:
         if (llb==0 && uub==0)
         {
             // Diagonal Matrix: We are done, unless it is to be stored SP/PP/TP (pack=='R' or 'C')
-            Blas<real>::dcopy(mnmin, d, 1, &A[ioffst/*+lda*0*/], ilda+1);
+            Blas<real>::dcopy(mnmin, d, 1, &A[ioffst], ilda+1);
             if (ipack<=2 || ipack>=5)
             {
                 ipackg = ipack;
@@ -1290,7 +1383,7 @@ public:
                 {
                     ipackg = 0;
                 }
-                Blas<real>::dcopy(mnmin, d, 1, &A[ioffst/*+lda*0*/], ilda+1);
+                Blas<real>::dcopy(mnmin, d, 1, &A[ioffst], ilda+1);
                 int ic, ir, jkl, jku;
                 if (topdwn)
                 {
@@ -1535,7 +1628,7 @@ public:
                     {
                         ipackg = 1;
                     }
-                    Blas<real>::dcopy(mnmin, d, 1, &A[ioffg/*+lda*0*/], ilda+1);
+                    Blas<real>::dcopy(mnmin, d, 1, &A[ioffg], ilda+1);
                     for (k=0; k<uub; k++)
                     {
                         itemp1 = k+2;
@@ -1627,7 +1720,7 @@ public:
                     {
                         ipackg = 2;
                     }
-                    Blas<real>::dcopy(mnmin, d, 1, &A[ioffg/*+lda*0*/], ilda+1);
+                    Blas<real>::dcopy(mnmin, d, 1, &A[ioffg], ilda+1);
                     for (k=0; k<uub; k++)
                     {
                         for (jc=n-2; jc>=0; jc--)

@@ -15,91 +15,98 @@
 #include "Lapack_dyn.hpp"
 #include "Testing_matgen.hpp"
 
+/*!\class Testing_lin
+ * \brief A template class containing LAPACK linear algebra testing routines.
+ * Testing_lin contains the LAPACK routines for testing linear algebra routines.
+ * The template type is meant to be double, but can be any floating point type                   */
 template<class real>
 class Testing_lin : public Lapack_dyn<real>
 {
-public:
+private:
     // constants
 
-    const real ZERO = real(0.0);
-    const real ONE  = real(1.0);
+    const real ZERO = real(0.0);//!< A constant zero (0.0) value
+    const real ONE  = real(1.0);//!< A constant one  (1.0) value
 
     // "Common" variables
 
+    /*! A struct containing I/O and error info */
     struct infostruct
     {
-        int info;
-        std::ostream& iounit;
-        bool ok;
-        bool lerr;
-    } infoc = {0, std::cout, true, false};
+        int info;                          //!< integer containing subroutine error info
+        std::ostream& iounit;              //!< input stream
+        bool ok;                           //!< flag to state all is ok
+        bool lerr;                         //!< flag to indicate an error has occured
+    } infoc = {0, std::cout, true, false}; //!< A classwide infostruct instance
 
+    /*! A struct containing routine names */
     struct srnamstruct
     {
-        char srnam[32];
-    } srnamc;
+        char srnam[32]; //!< routine name variable
+    } srnamc;           //!< A classwide srnamstruct instance
 
+    /*! A struct containing parameters to emulate different environments */
     struct laenvstruct
     {
-        int iparms[100];
-    } claenv;
+        int iparms[100]; //!< struct containing parameters. used in §ilaenv, §iparmq
+    } claenv;            //!< A classwide leanvstruct instance
 
-    // matgen instance
+    Testing_matgen<real> MatGen; //!< matgen instance
 
-    Testing_matgen<real> MatGen;
+public:
 
     // LAPACK TESTING LIN (alphabetically)
 
-    /* alahd prints header information for the different test paths.
-     * Parameters: iounit: The output stream to which the header information should be printed.
-     *             path: char[3+]
-     *                   The name of the path for which the header information is to be printed.
-     *                   Current paths are:
-     *                   _GE:  General matrices
-     *                   _GB:  General band
-     *                   _GT:  General Tridiagonal
-     *                   _PO:  Symmetric or Hermitian positive definite
-     *                   _PS:  Symmetric or Hermitian positive semi-definite
-     *                   _PP:  Symmetric or Hermitian positive definite packed
-     *                   _PB:  Symmetric or Hermitian positive definite band
-     *                   _PT:  Symmetric or Hermitian positive definite tridiagonal
-     *                   _SY:  Symmetric indefinite, with partial (Bunch-Kaufman) pivoting
-     *                   _SR:  Symmetric indefinite, with rook (bounded Bunch-Kaufman) pivoting
-     *                   _SK:  Symmetric indefinite, with rook (bounded Bunch-Kaufman) pivoting
-     *                         (new storage format for factors: L and diagonal of D is stored in A,
-     *                         subdiagonal of D is stored in E)
-     *                   _SP:  Symmetric indefinite packed, with partial (Bunch-Kaufman) pivoting
-     *                   _HA:  (complex) Hermitian , with Aasen Algorithm
-     *                   _HE:  (complex) Hermitian indefinite, with partial (Bunch-Kaufman) pivoting
-     *                   _HR:  (complex) Hermitian indefinite,
-     *                         with rook (bounded Bunch-Kaufman) pivoting
-     *                   _HK:  (complex) Hermitian indefinite,
-     *                         with rook (bounded Bunch-Kaufman) pivoting
-     *                         (new storage format for factors: L and diagonal of D is stored in A,
-     *                         subdiagonal of D is stored in E)
-     *                   _HP:  (complex) Hermitian indefinite packed,
-     *                         with partial (Bunch-Kaufman) pivoting
-     *                   _TR:  Triangular
-     *                   _TP:  Triangular packed
-     *                   _TB:  Triangular band
-     *                   _QR:  QR (general matrices)
-     *                   _LQ:  LQ (general matrices)
-     *                   _QL:  QL (general matrices)
-     *                   _RQ:  RQ (general matrices)
-     *                   _QP:  QR with column pivoting
-     *                   _TZ:  Trapezoidal
-     *                   _LS:  Least Squares driver routines
-     *                   _LU:  LU variants
-     *                   _CH:  Cholesky variants
-     *                   _QS:  QR variants
-     *                   _QT:  QRT (general matrices)
-     *                   _QX:  QRT (triangular-pentagonal matrices)
-     *                   The first character must be one of S, D, C, or Z (C or Z only if complex).
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date December 2016                                                                        */
+    /*! §alahd
+     *
+     * §alahd prints header information for the different test paths.
+     * \param[in] iounit The output stream to which the header information should be printed.
+     * \param[in] path   char[3+]\n
+     *     The name of the path for which the header information is to be printed.
+     *     Current paths are:
+     *     \li _GE: General matrices
+     *     \li _GB: General band
+     *     \li _GT: General Tridiagonal
+     *     \li _PO: Symmetric or Hermitian positive definite
+     *     \li _PS: Symmetric or Hermitian positive semi-definite
+     *     \li _PP: Symmetric or Hermitian positive definite packed
+     *     \li _PB: Symmetric or Hermitian positive definite band
+     *     \li _PT: Symmetric or Hermitian positive definite tridiagonal
+     *     \li _SY: Symmetric indefinite, with partial (Bunch-Kaufman) pivoting
+     *     \li _SR: Symmetric indefinite, with rook (bounded Bunch-Kaufman) pivoting
+     *     \li _SK: Symmetric indefinite, with rook (bounded Bunch-Kaufman) pivoting
+     *              (new storage format for factors: L and diagonal of D is stored in A, subdiagonal
+     *               of D is stored in E)
+     *     \li _SP: Symmetric indefinite packed, with partial (Bunch-Kaufman) pivoting
+     *     \li _HA: (complex) Hermitian , with Aasen Algorithm
+     *     \li _HE: (complex) Hermitian indefinite, with partial (Bunch-Kaufman) pivoting
+     *     \li _HR: (complex) Hermitian indefinite, with rook (bounded Bunch-Kaufman) pivoting
+     *     \li _HK: (complex) Hermitian indefinite, with rook (bounded Bunch-Kaufman) pivoting
+     *              (new storage format for factors: L and diagonal of D is stored in A, subdiagonal
+     *               of D is stored in E)
+     *     \li _HP: (complex) Hermitian indefinite packed, with partial (Bunch-Kaufman) pivoting
+     *     \li _TR: Triangular
+     *     \li _TP: Triangular packed
+     *     \li _TB: Triangular band
+     *     \li _QR: QR (general matrices)
+     *     \li _LQ: LQ (general matrices)
+     *     \li _QL: QL (general matrices)
+     *     \li _RQ: RQ (general matrices)
+     *     \li _QP: QR with column pivoting
+     *     \li _TZ: Trapezoidal
+     *     \li _LS: Least Squares driver routines
+     *     \li _LU: LU variants
+     *     \li _CH: Cholesky variants
+     *     \li _QS: QR variants
+     *     \li _QT: QRT (general matrices)
+     *     \li _QX: QRT (triangular-pentagonal matrices)
+     *
+     *     The first character must be one of S, D, C, or Z (C or Z only if complex).
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                        */
     void alahd(std::ostream& iounit, char const* path)
     {
         if (!iounit.good())
@@ -820,26 +827,31 @@ public:
         }
     }
 
-    /* alareq handles input for the LAPACK test program. It is called to evaluate the input line
-     * which requested nmats matrix types for nin. The flow of control is as follows:
-     * If nmats = ntypes then
-     *     dotype[0:ntypes-1] = TRUE
-     * else
-     *     Read the next input line for nmats matrix types
-     *     Set dotype[I] = TRUE for each valid type I
-     * endif
-     * Parameters: nin: An LAPACK path name for testing.
-     *             nmats: The number of matrix types to be used in testing this path.
-     *             dotype: a boolean array, dimension (ntypes)
-     *                     The vector of flags indicating if each type will be tested.
-     *             ntypes: The maximum number of matrix types for this path.
-     *             ntypes: The input stream.
-     *             nout:The output stream.
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date December 2016                                                                        */
+    /*! §alareq
+     *
+     * §alareq handles input for the LAPACK test program. It is called to evaluate the input line
+     * which requested §nmats matrix types for nin. The flow of control is as follows:
+     * \code {.unparsed}
+     * if (nmats = ntypes) {
+     *     dotype[0:ntypes-1] = true;
+     * } else {
+     *     Read the next input line for nmats matrix types;
+     *     Set dotype[i] = true for each valid type i;
+     * } \endcode
+     * \param[in]  path  A LAPACK path name for testing.
+     * \param[in]  nmats The number of matrix types to be used in testing this path.
+     * \param[out] dotype
+     *     a boolean array, dimension (§ntypes)\n
+     *     The vector of flags indicating if each type will be tested.
+     *
+     * \param[in] ntypes The maximum number of matrix types for this path.
+     * \param[in] nin    The input stream.
+     * \param[in] nout   The output stream.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                       */
     void alareq(char const* path, int nmats, bool* dotype, int ntypes, std::istream& nin,
                 std::ostream& nout)
     {
@@ -971,17 +983,19 @@ public:
         return;
     }
 
-    /* alasum prints a summary of results from one of the -CHK- routines.
-     * Parameters: type: The LAPACK path name.
-     *             nout: The output stream to which results are to be printed.
-     *             nfail: The number of tests which did not pass the threshold ratio.
-     *             nrun: The total number of tests.
-     *             nerrs: The number of error messages recorded.
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date December 2016                                                                        */
+    /*! §alasum
+     *
+     * §alasum prints a summary of results from one of the §-chk- routines.
+     * \param[in] type  The LAPACK path name.
+     * \param[in] nout  The output stream to which results are to be printed.
+     * \param[in] nfail The number of tests which did not pass the threshold ratio.
+     * \param[in] nrun  The total number of tests.
+     * \param[in] nerrs The number of error messages recorded.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                        */
     void alasum(char const* type, std::ostream& nout, int nfail, int nrun, int nerrs)
     {
         char typecopy[4];
@@ -1004,12 +1018,15 @@ public:
         nout.flush();
     }
 
-    /* dchkaa is the main test program for the DOUBLE PRECISION LAPACK linear equation routines
+    /*! §dchkaa
+     *
+     * §dchkaa is the main test program for the DOUBLE PRECISION LAPACK linear equation routines
      * The program must be driven by a short data file. The first 15 records (not including the
      * first comment line) specify problem dimensions and program options using list-directed
      * input. The remaining lines specify the LAPACK test paths and the number of matrix types to
-     * use in testing. An annotated example of a data file can be obtained by deleting the first 3
-     * characters from the following 40 lines:
+     * use in testing. An annotated example of a data file can be obtained by deleting the first 2
+     * characters from the following 40 lines:\n
+     * \verbatim
      * Data file for testing DOUBLE PRECISION LAPACK linear eqn. routines
      * 7                      Number of values of M
      * 0 1 2 3 5 10 16        Values of M (row dimension)
@@ -1052,19 +1069,21 @@ public:
      * DLS    6               List types on next line if 0 < NTYPES <  6
      * DEQ
      * DQT
-     * DQX
-     * Parameters: NMAX: The maximum allowable value for M and N.
-     *             MAXIN: The number of different values that can be used for each of M, N, NRHS,
-     *                    NB, NX and RANK
-     *             MAXRHS: The maximum number of right hand sides
-     *             MATMAX: The maximum number of matrix types to use for testing
-     *             nin: The input stream
-     *             nout: The output stream
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date April 2012                                                                           */
+     * DQX \endverbatim
+     * \param[in] NMAX  The maximum allowable value for §M and §N
+     * \param[in] MAXIN
+     *     The number of different values that can be used for each of §M, §N, §NRHS, §NB, §NX and
+     *     §RANK
+     *
+     * \param[in] MAXRHS The maximum number of right hand sides
+     * \param[in] MATMAX The maximum number of matrix types to use for testing
+     * \param[in] nin    The input stream
+     * \param[in] nout   The output stream
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date April 2012                                                                          */
     void dchkaa(const int NMAX, const int MAXIN, const int MAXRHS, const int MATMAX,
                 std::istream& nin, std::ostream& nout)
     {
@@ -2114,39 +2133,52 @@ public:
         delete[] Work;
     }
 
-    /* dchkq3 tests dgeqp3.
-     * Parameters: dotype: a boolean array, dimension (NTYPES)
-     *                     The matrix types to be used for testing. Matrices of type j
-     *                     (for 0<=j<NTYPES) are used for testing if dotype[j]==true; if
-     *                     dotype[j]==false, then type j is not used.
-     *             nm: The number of values of M contained in the vector mval.
-     *             mval: an integer array, dimension (nm)
-     *                   The values of the matrix row dimension M.
-     *             nn: The number of values of N contained in the vector nval.
-     *             nval: an integer array, dimension (nn)
-     *                   The values of the matrix column dimension N.
-     *             nnb: The number of values of NB and NX contained in the vectors nbval and nxval.
-     *                  The blocking parameters are used in pairs (NB,NX).
-     *             nbval: an integer array, dimension (nnb)
-     *                    The values of the blocksize NB.
-     *             nxval: an integer array, dimension (nnb)
-     *                    The values of the crossover point NX.
-     *             thresh: The threshold value for the test ratios. A result is included in the
-     *                     output file if result>=thresh. To have every test ratio printed, use
-     *                     thresh=0.
-     *             A: an array, dimension (MMAX*NMAX) where MMAX is the maximum value of M in mval
-     *                and NMAX is the maximum value of N in nval.
-     *             CopyA: an array, dimension (MMAX*NMAX)
-     *             S: an array, dimension min(MMAX,NMAX))
-     *             tau: an array, dimension (MMAX)
-     *             work: an array, dimension (MMAX*NMAX + 4*NMAX + MMAX)
-     *             iwork: an integer array, dimension (2*NMAX)
-     *             nout: The output stream.
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date December 2016                                                                        */
+    /*! §dchkq3
+     *
+     * §dchkq3 tests §dgeqp3.
+     * \param[in] dotype
+     *     a boolean array, dimension (§NTYPES)\n
+     *     The matrix types to be used for testing. Matrices of type $j$ (for $0\le j<\{NTYPES}$)
+     *     are used for testing if $\{dotype}[j] = true$ if $\{dotype}[j] = false$, then type $j$
+     *     is not used.
+     *
+     * \param[in] nm   The number of values of §M contained in the vector §mval.
+     * \param[in] mval
+     *     an integer array, dimension (§nm)\n
+     *     The values of the matrix row dimension §M.
+     *
+     * \param[in] nn   The number of values of §N contained in the vector §nval.
+     * \param[in] nval
+     *     an integer array, dimension (§nn)\n
+     *     The values of the matrix column dimension §N.
+     *
+     * \param[in] nnb
+     *     The number of values of §NB and §NX contained in the vectors §nbval and §nxval.
+     *     The blocking parameters are used in pairs (§NB,§NX).
+     *
+     * \param[in] nbval an integer array, dimension (§nnb)\n The values of the blocksize §NB.
+     * \param[in] nxval
+     *     an integer array, dimension (§nnb)\n The values of the crossover point §NX.
+     *
+     * \param[in] thresh
+     *     The threshold value for the test ratios. A result is included in the output file if
+     *     $\{result}\ge\{thresh}$. To have every test ratio printed, use §thresh = 0.
+     *
+     * \param[out] A
+     *     an array, dimension ($\{MMAX}\ \{NMAX}$) where §MMAX is the maximum value of §M in §mval
+     *     and §NMAX is the maximum value of §N in §nval.
+     *
+     * \param[out] CopyA an array, dimension ($\{MMAX}\ \{NMAX}$)
+     * \param[out] S     an array, dimension ($\min(\{MMAX},\{NMAX})$)
+     * \param[out] tau   an array, dimension (§MMAX)
+     * \param[out] work  an array, dimension ($\{MMAX}\ \{NMAX}+4\{NMAX}+\{MMAX}$)
+     * \param[out] iwork an integer array, dimension ($2\{NMAX}$)
+     * \param[in]  nout  The output stream.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                       */
     void dchkq3(bool const* dotype, int nm, int const* mval, int nn, int const* nval,
                        int nnb, int const* nbval, int const* nxval, real thresh, real* A,
                        real* CopyA, real* S, real* tau, real* work, int* iwork, std::ostream& nout)
@@ -2295,19 +2327,25 @@ public:
         alasum(PATH, nout, nfail, nrun, nerrs);
     }
 
-    /* dlaord sorts the elements of a vector x in increasing or decreasing order.
-     * Parameters: job: = 'I':  Sort in increasing order
-     *                  = 'D':  Sort in decreasing order
-     *             n: The length of the vector X.
-     *             X: an array, dimension (1+(n-1)*incx)
-     *                On entry, the vector of length n to be sorted.
-     *                On exit, the vector x is sorted in the prescribed order.
-     *             incx: The spacing between successive elements of X. incx>=0.
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date December 2016                                                                        */
+    /*! §dlaord
+     *
+     * dlaord sorts the elements of a vector §x in increasing or decreasing order.
+     * \param[in] job
+     *     = 'I': Sort in increasing order\n
+     *     = 'D': Sort in decreasing order
+     *
+     * \param[in] n The length of the vector §X.
+     * \param[in] x
+     *     an array, dimension ($1+(\{n}-1)\{incx}$)\n
+     *     On entry, the vector of length §n to be sorted.\n
+     *     On exit, the vector §x is sorted in the prescribed order.
+     *
+     * \param[in] incx The spacing between successive elements of §X. $\{incx}\ge 0$.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                       */
     void dlaord(char const* job, int n, real* x, int incx)
     {
         int i, ix, ixnext;
@@ -2369,35 +2407,42 @@ public:
         }
     }
 
-    /* dqpt01 tests the QR-factorization with pivoting of a matrix A. The array Af contains the
-     * (possibly partial) QR-factorization of A, where the upper triangle of Af[0:k-1,0:k-1] is a
-     * partial triangular factor, the entries below the diagonal in the first k columns are the
-     * Householder vectors, and the rest of Af contains a partially updated matrix.
-     * This function returns ||A*P - Q*R||/(||norm(A)||*eps*m)
-     * Parameters: m: The number of rows of the matrices A and Af.
-     *             n: The number of columns of the matrices A and Af.
-     *             k: The number of columns of Af that have been reduced to upper triangular form.
-     *             A: an array, dimension (lda, n)
-     *                The original matrix A.
-     *             Af: an array, dimension (lda,n)
-     *                 The (possibly partial) output of dgeqpf. The upper triangle of Af(1:k,1:k)
-     *                 is a partial triangular factor, the entries below the diagonal in the first
-     *                 k columns are the Householder vectors, and the rest of Af contains a
-     *                 partially updated matrix.
-     *                 Af is modified but restored on exit
-     *             lda: The leading dimension of the arrays A and Af.
-     *             tau: an array, dimension (k)
-     *                  Details of the Householder transformations as returned by dgeqpf.
-     *             jpvt: an integer array, dimension (n)
-     *                   Pivot information as returned by dgeqpf.
-     *                   note: should contain zero-based indices
-     *             work: an array, dimension (lwork)
-     *             lwork: The length of the array work. lwork>=m*n+n.
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date December 2016                                                                        */
+    /*! §dqpt01
+     *
+     * §dqpt01 tests the QR-factorization with pivoting of a matrix $A$. The array §Af contains the
+     * (possibly partial) QR-factorization of $A$, where the upper triangle of
+     * $\{Af}[0:\{k}-1,0:\{k}-1]$ is a partial triangular factor, the entries below the diagonal in
+     * the first §k columns are the Householder vectors, and the rest of §Af contains a partially
+     * updated matrix.\n
+     * \param[in] m  The number of rows of the matrices $A$ and §Af.
+     * \param[in] n  The number of columns of the matrices $A$ and §Af.
+     * \param[in] k  The number of columns of §Af that have been reduced to upper triangular form.
+     * \param[in] A  an array, dimension (§lda,§n)\n The original matrix $A$.
+     * \param[in] Af
+     *     an array, dimension (§lda,§n)\n
+     *     The (possibly partial) output of §dgeqpf. The upper triangle of
+     *     $\{Af}[0:\{k}-1,0:\{k}-1]$ is a partial triangular factor, the entries below the
+     *     diagonal in the first §k columns are the Householder vectors, and the rest of §Af
+     *     contains a partially updated matrix. Af is modified but restored on exit
+     *
+     * \param[in] lda The leading dimension of the arrays §A and §Af.
+     * \param[in] tau
+     *     an array, dimension (§k)\n
+     *     Details of the Householder transformations as returned by §dgeqpf.
+     *
+     * \param[in] jpvt
+     *     an integer array, dimension (§n)\n
+     *     Pivot information as returned by §dgeqpf.\n
+     *     NOTE: zero-based indices!
+     *
+     * \param[out] work  an array, dimension (§lwork)
+     * \param[in]  lwork The length of the array §work. $\{lwork}\ge\{m}\{n}+\{n}$.
+     * \return $\frac{\|AP - QR\|}{\|A\|eps\ \{m}}$.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                        */
     real dqpt01(int m, int n, int k, real const* A, real* Af, int lda, real
                        const* tau, int const* jpvt, real* work, int lwork)
     {
@@ -2428,14 +2473,14 @@ public:
         }
         for (j=k; j<n; j++)
         {
-            Blas<real>::dcopy(m, &Af[/*0+*/lda*j], 1, &work[j*m], 1);
+            Blas<real>::dcopy(m, &Af[lda*j], 1, &work[j*m], 1);
         }
         this->dormqr("Left","No transpose", m, n, k, Af, lda, tau, work, m, &work[m*n], lwork-m*n,
                      info);
         for (j=0; j<n; j++)
         {
             // Compare i-th column of QR and jpvt[i]-th column of A
-            Blas<real>::daxpy(m, -ONE, &A[/*0+*/lda*jpvt[j]], 1, &work[j*m], 1);
+            Blas<real>::daxpy(m, -ONE, &A[lda*jpvt[j]], 1, &work[j*m], 1);
         }
         real rwork[1];
         real dqpt01 = this->dlange("One-norm", m, n, work, m, rwork) /
@@ -2448,30 +2493,42 @@ public:
         return dqpt01;
     }
 
-    /* dqrt11 computes the test ratio
-     *     || Q'*Q - I || / (eps * m)
-     * where the orthogonal matrix Q is represented as a product of elementary transformations.
-     * Each transformation has the form
-     *     H(k) = I - tau[k] v(k) v(k)'
-     * where v(k) is an m-vector of the form [0 ... 0 1 x(k)]', where x(k) is a vector of length
-     * m-k stored in A[k+1:m-1,k].
-     * Parameters: m: The number of rows of the matrix A.
-     *             k: The number of columns of A whose subdiagonal entries contain information
-     *                about orthogonal transformations.
-     *             A: an array, dimension (lda,k)
-     *                The (possibly partial) output of a QR reduction routine.
-     *                A is modified but restored on exit
-     *             lda: The leading dimension of the array A.
-     *             tau: an array, dimension (k)
-     *                  The scaling factors tau for the elementary transformations as computed by
-     *                  the QR factorization routine.
-     *             work: an array, dimension (lwork)
-     *             lwork: The length of the array work. lwork >= m*m+m.
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date December 2016                                                                        */
+    /*! §dqrt11
+     *
+     * §dqrt11 computes the test ratio
+     *     \f[
+     *         \frac{\| Q^TQ - I \|}{eps\ \{m}}
+     *     \f]
+     * where the orthogonal matrix $Q$ is represented as a product of elementary transformations.
+     * Each transformation has the form\n
+     *     $H(k) = I - \tau[k] v(k) v(k)^T$\n
+     * where $\tau[k]$ is stored in $\{tau}[k]$ and $v(k)$ is an §m -vector of the form
+     * $\b{bm} 0 & \ldots & 0 & 1 & x(k) \e{bm}^T$, where $x(k)$ is a vector of length $\{m}-k$
+     * stored in $A[k:\{m}-1,k]$.
+     * \param[in] m The number of rows of the matrix $A$.
+     * \param[in] k
+     *     The number of columns of $A$ whose subdiagonal entries contain information about
+     *     orthogonal transformations.
+     *
+     * \param[in] A
+     *     an array, dimension (§lda,§k)\n
+     *     The (possibly partial) output of a QR reduction routine.
+     *     §A is modified but restored on exit
+     *
+     * \param[in] lda The leading dimension of the array §A.
+     * \param[in] tau
+     *     an array, dimension (§k)\n
+     *     The scaling factors $\tau$ for the elementary transformations as computed by the QR
+     *     factorization routine.
+     *
+     * \param[out] work  an array, dimension (§lwork)
+     * \param[in]  lwork The length of the array §work. $\{lwork}\ge\{m}\{m}+\{m}$.
+     * \return The test ratio $\frac{\| Q^TQ - I \|}{eps\ \{m}}$
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                       */
     real dqrt11(int m, int k, real* A, int lda, real const* tau, real* work,
                        int lwork)
     {
@@ -2500,24 +2557,35 @@ public:
         return this->dlange("One-norm", m, m, work, m, rdummy) / (real(m)*this->dlamch("Epsilon"));
     }
 
-    /* dqrt12 computes the singular values 'svlues' of the upper trapezoid of A[0:m-1,0:n-1] and
-     * returns the ratio
-     *     || s - svlues||/(||svlues||*eps*max(m,n))
-     * Parameters: m: The number of rows of the matrix A.
-     *             n: The number of columns of the matrix A.
-     *             A: an array, dimension (lda,n)
-     *                The m-by-n matrix A. Only the upper trapezoid is referenced.
-     *             lda: The leading dimension of the array A.
-     *             s: an array, dimension (min(m,n))
-     *                The singular values of the matrix A.
-     *             work: an array, dimension (lwork)
-     *             lwork: The length of the array work.
-     *                    lwork >= max(m*n+4*min(m,n)+max(m,n), m*n+2*min(m,n)+4*n).
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date December 2016                                                                        */
+    /*! §dqrt12
+     *
+     * §dqrt12 computes the singular values §svlues of the upper trapezoid of
+     * $A[0:\{m}-1,0:\{n}-1]$ and returns the ratio
+     *     \f[
+     *         \frac{\|\{s}-\{svlues}\|}{\|\{svlues}\|eps\,\max(\{m},\{n})}
+     *     \f]
+     * \param[in] m The number of rows of the matrix $A$.
+     * \param[in] n The number of columns of the matrix $A$.
+     * \param[in] A
+     *     an array, dimension (§lda,§n)\n
+     *     The §m by §n matrix $A$. Only the upper trapezoid is referenced.
+     *
+     * \param[in] lda The leading dimension of the array §A.
+     * \param[in] s
+     *     an array, dimension ($\min(\{m},\{n})$)\n
+     *     The singular values of the matrix $A$.
+     *
+     * \param[out] work  an array, dimension (§lwork)
+     * \param[in]  lwork
+     *     The length of the array work.
+     *     $\{lwork}\ge\max(\{m}\{n}+4\min(\{m},\{n})+\max(\{m},\{n}),
+     *                  \ \ \{m}\{n}+2\min(\{m},\{n})+4\{n})$.
+     * \return $\frac{\|\{s}-\{svlues}\|}{\|\{svlues}\|eps\,\max(\{m},\{n})}$
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                       */
     real dqrt12(int m, int n, real const* A, int lda, real const* s, real* work, int lwork)
     {
         // Test that enough workspace is supplied
@@ -2604,20 +2672,20 @@ public:
         return dqrt12;
     }
 
-    /* icopy copies an integer vector x to an integer vector y.
+    /*! §icopy
+     *
+     * §icopy copies an integer vector $x$ to an integer vector $y$.
      * Uses unrolled loops for increments equal to 1.
-     * Parameters: n: The length of the vectors sx and sy.
-     *             sx: an integer array, dimension (1+(n-1)*abs(incx))
-     *                 The vector X.
-     *             incx: The spacing between consecutive elements of sx.
-     *             sy: an integer array, dimension (1+(n-1)*abs(incy))
-     *                 The vector Y.
-     *             incy: The spacing between consecutive elements of sy.
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date December 2016                                                                        */
+     * \param[in]  n    The length of the vectors §sx and §sy.
+     * \param[in]  sx   an integer array, dimension ($1+(\{n}-1)|\{incx}|$)\n The vector $x$.
+     * \param[in]  incx The spacing between consecutive elements of §sx.
+     * \param[out] sy   an integer array, dimension ($1+(\{n}-1)|\{incy}|$)\n The vector $y$.
+     * \param[in]  incy The spacing between consecutive elements of §sy.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                       */
     void icopy(int n, int const* sx, int incx, int* sy, int incy)
     {
         if (n<=0)
@@ -2672,63 +2740,66 @@ public:
         }
     }
 
-    /* ilaenv returns problem-dependent parameters for the local environment. See ispec for a
-     * description of the parameters.
-     * In this version, the problem-dependent parameters are contained in the integer array iparms
-     * in the struct claenv and the value with index ispec is copied to ilaenv. This version of
-     * ilaenv is to be used in conjunction with xlaenv in testing and timing.
-     * Paramters: ispec: Specifies the parameter to be returned as the value of ilaenv.
-     *                   == 1: the optimal blocksize; if this value is 1, an unblocked algorithm
-     *                         will give the best performance.
-     *                   == 2: the minimum block size for which the block routine should be used;
-     *                         if the usable block size is less than this value, an unblocked
-     *                         routine should be used.
-     *                   == 3: the crossover point (in a block routine, for N less than this value,
-     *                         an unblocked routine should be used)
-     *                   == 4: the number of shifts, used in the nonsymmetric eigenvalue routines
-     *                   == 5: the minimum column dimension for blocking to be used; rectangular
-     *                         blocks must have dimension at least k by m, where k is given by
-     *                         ilaenv(2,...) and m by ilaenv(5,...)
-     *                   == 6: the crossover point for the SVD (when reducing an m by n matrix to
-     *                         bidiagonal form, if max(m,n)/min(m,n) exceeds this value, a QR
-     *                         factorization is used first to reduce the matrix to a triangular
-     *                         form.)
-     *                   == 7: the number of processors
-     *                   == 8: the crossover point for the multishift QR and QZ methods for
-     *                         nonsymmetric eigenvalue problems.
-     *                   == 9: maximum size of the subproblems at the bottom of the computation
-     *                         tree in the divide-and-conquer algorithm
-     *                   ==10: ieee NaN arithmetic can be trusted not to trap
-     *                   ==11: infinity arithmetic can be trusted not to trap
-     *                   Other specifications (up to 100) can be added later.
-     *             name: The name of the calling subroutine.
-     *             opts: The character options to the subroutine name, concatenated into a single
-     *                   character string. For example, UPLO=='U', TRANS=='T', and DIAG=='N' for a
-     *                   triangular routine would be specified as opts = 'UTN'.
-     *             N1,
-     *             N2,
-     *             N3,
-     *             N4: Problem dimensions for the subroutine name; these may not all be required.
-     * Returns: >= 0: the value of the parameter specified by ispec
-     *           < 0: if ==-k, the k-th argument had an illegal value.
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date November 2017
-     * Further Details:
-     *     The following conventions have been used when calling ilaenv from the lapack routines:
-     *     1) opts is a concatenation of all of the character options to subroutine name, in the
-     *        same order that they appear in the argument list for name, even if they are not used
-     *        in determining the value of the parameter specified by ispec.
-     *     2) The problem dimensions N1, N2, N3, N4 are specified in the order that they appear in
-     *        the argument list for name. N1 is used first, N2 second, and so on, and unused
-     *        problem dimensions are passed a value of -1.
-     *     3) The parameter value returned by ilaenv is checked for validity in the calling
-     *        subroutine. For example, ilaenv is used to retrieve the optimal blocksize for STRTRI
-     *        as follows:
-     *            NB = ilaenv(1, 'STRTRI', UPLO // DIAG, N, -1, -1, -1 )
-     *            if (NB<=1) NB = MAX(1, N)                                                      */
+    /*! §ilaenv
+     *
+     * §ilaenv returns problem-dependent parameters for the local environment. See §ispec for a
+     * description of the parameters.\n
+     * In this version, the problem-dependent parameters are contained in the integer array §iparms
+     * in the struct §claenv and the value with index §ispec is copied to §ilaenv. This version of
+     * §ilaenv is to be used in conjunction with §xlaenv in testing and timing.
+     * \param[in] ispec
+     *     Specifies the parameter to be returned as the value of §ilaenv.
+     *     \li 1:  the optimal blocksize; if this value is 1, an unblocked algorithm will give the
+     *             best performance.
+     *     \li 2:  the minimum block size for which the block routine should be used; if the usable
+     *             block size is less than this value, an unblocked routine should be used.
+     *     \li 3:  the crossover point (in a block routine, for §N less than this value, an
+     *             unblocked routine should be used)
+     *     \li 4:  the number of shifts, used in the nonsymmetric eigenvalue routines
+     *     \li 5:  the minimum column dimension for blocking to be used; rectangular blocks must
+     *             have dimension at least §k by §m, where §k is given by §ilaenv(2,...) and §m by
+     *             §ilaenv(5,...)
+     *     \li 6:  the crossover point for the SVD (when reducing an §m by §n matrix to bidiagonal
+     *             form, if $\max(\{m},\{n})/\min(\{m},\{n})$ exceeds this value, a QR
+     *             factorization is used first to reduce the matrix to a triangular form.)
+     *     \li 7:  the number of processors
+     *     \li 8:  the crossover point for the multishift QR and QZ methods for nonsymmetric
+     *             eigenvalue problems.
+     *     \li 9:  maximum size of the subproblems at the bottom of the computation tree in the
+     *             divide-and-conquer algorithm
+     *     \li 10: ieee NaN arithmetic can be trusted not to trap
+     *     \li 11: infinity arithmetic can be trusted not to trap
+     *
+     *     Other specifications (up to 100) can be added later.
+     *
+     * \param[in] name The name of the calling subroutine.
+     * \param[in] opts
+     *     The character options to the subroutine name, concatenated into a single character
+     *     string. For example, §UPLO = 'U', §TRANS = 'T', and §DIAG = 'N' for a triangular routine
+     *     would be specified as §opts = 'UTN'.
+     * \param[in] n1, n2, n3, n4
+     *     Problem dimensions for the subroutine name; these may not all be required.
+     * \return
+     *     $\ge 0$: the value of the parameter specified by §ispec
+     *     $< 0$:   if =$-k$, the $k$-th argument had an illegal value.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date November 2017
+     * \remark
+     *     The following conventions have been used when calling §ilaenv from the lapack routines:
+     * <ol><li>§opts is a concatenation of all of the character options to subroutine name, in the
+     *         same order that they appear in the argument list for §name, even if they are not
+     *         used in determining the value of the parameter specified by §ispec.</li>
+     *     <li>The problem dimensions §n1, §n2, §n3, §n4 are specified in the order that they
+     *         appear in the argument list for §name. §n1 is used first, §n2 second, and so on, and
+     *         unused problem dimensions are passed a value of -1.</li>
+     *     <li>The parameter value returned by §ilaenv is checked for validity in the calling
+     *         subroutine. For example, §ilaenv is used to retrieve the optimal blocksize for
+     *         §strtri as follows:\n
+     *            §nb = §ilaenv(1, 'STRTRI', §UPLO[0]+§DIAG[0], §n, -1, -1, -1);\n
+     *            if (§nb$\le 1$) §nb = $\max(1,\{n})$</li></ol>                                 */
     virtual int ilaenv(int ispec, char const* name, char const* opts, int n1, int n2, int n3,
                        int n4)
     {
@@ -2796,26 +2867,36 @@ public:
         }
     }
 
-    /* This is a special version of xerbla to be used only as part of the test program for testing
-     * error exits from the LAPACK routines. Error messages are printed if info!=infoc.info or if
-     * srname!=snramc.snram.
-     * Parameters: srname: The name of the subroutine calling xerbla. This name should match the
-     *                     struct field snramc.snram.
-     *             info: The error return code from the calling subroutine. info should equal the
-     *                   struct field infoc.info.
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date December 2016
-     * Further Details:
-     *     The following variables are passed via the struct fields infoc and srnamc:
-     *     infoc.info   int           Expected integer return code
-     *     infoc.iounit std::ostream& Unit number for printing error messages
-     *     infoc.ok     bool          Set to true if info==infoc.info and srname==snramc.srnam,
-     *                                otherwise set to false
-     *     infoc.lerr   bool          Set to true, indicating that XERBLA was called
-     *     snramc.srnam char*         Expected name of calling subroutine                              */
+    /*! §xerbla
+     *
+     * This is a special version of §xerbla to be used only as part of the test program for testing
+     * error exits from the LAPACK routines. Error messages are printed if
+     * $\{info}\ne\{infoc.info}$ or if $\{srname}\ne\{snramc.snram}$.
+     * \param[in] srname
+     *     The name of the subroutine calling §xerbla. This name should match the struct field
+     *     §snramc.snram.
+     *
+     * \param[in] info
+     *     The error return code from the calling subroutine. §info should equal the struct field
+     *     §infoc.info.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016
+     * \remark
+     *     The following variables are passed via the struct fields §infoc and §srnamc: \n
+     *     $\begin{tabular}{lll}
+     *     infoc.info   & int            & Expected integer return code\\
+     *     infoc.iounit & std::ostream\& & output stream for printing error\\
+     *                  &                & messages\\
+     *     infoc.ok     & bool           & Set to true if info=infoc.info\\
+     *                  &                & and srname=snramc.srnam,\\
+     *                  &                & otherwise set to false.\\
+     *     infoc.lerr   & bool           & Set to true,\\
+     *                  &                & indicating that xerbla was called\\
+     *     snramc.srnam & char*          & Expected name of calling subroutine\\
+     *     \end{tabular}$                                                                        */
     virtual void xerbla(const char* srname, int info)
     {
         infoc.lerr = true;
@@ -2841,37 +2922,39 @@ public:
         }
     }
 
-    /* xlaenv sets certain machine- and problem-dependent quantities which will later be retrieved
-     * by ilaenv.
-     * Parameters: ispec: Specifies the parameter to be set in the field array iparms.
-     *                    ==1: the optimal blocksize; if this value is 1, an unblocked algorithm
-     *                         will give the best performance.
-     *                    ==2: the minimum block size for which the block routine should be used;
-     *                         if the usable block size is less than this value, an unblocked
-     *                         routine should be used.
-     *                    ==3: the crossover point (in a block routine, for N less than this value,
-     *                         an unblocked routine should be used)
-     *                    ==4: the number of shifts, used in the nonsymmetric eigenvalue routines
-     *                    ==5: the minimum column dimension for blocking to be used; rectangular
-     *                         blocks must have dimension at least k by m, where k is given by
-     *                         ilaenv(2,...) and m by ilaenv(5,...)
-     *                    ==6: the crossover point for the SVD (when reducing an m by n matrix to
-     *                         bidiagonal form, if max(m,n)/min(m,n) exceeds this value, a QR
-     *                         factorization is used first to reduce the matrix to a triangular
-     *                         form)
-     *                    ==7: the number of processors
-     *                    ==8: another crossover point, for the multishift QR and QZ methods for
-     *                         nonsymmetric eigenvalue problems.
-     *                    ==9: maximum size of the subproblems at the bottom of the computation
-     *                         tree in the divide-and-conquer algorithm (used by xGELSD and xGESDD)
-     *                   ==10: ieee NaN arithmetic can be trusted not to trap
-     *                   ==11: infinity arithmetic can be trusted not to trap
-     *             nvalue: The value of the parameter specified by ispec.
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date December 2016                                                                        */
+    /*! §xlaenv
+     *
+     * §xlaenv sets certain machine- and problem-dependent quantities which will later be retrieved
+     * by §ilaenv.
+     * \param[in] ispec
+     *     Specifies the parameter to be set in the field array §iparms.
+     *     \li 1  the optimal blocksize; if this value is 1, an unblocked algorithm will give the
+     *            best performance.
+     *     \li 2  the minimum block size for which the block routine should be used; if the usable
+     *            block size is less than this value, an unblocked routine should be used.
+     *     \li 3  the crossover point (in a block routine, for §n less than this value, an
+     *            unblocked routine should be used)
+     *     \li 4  the number of shifts, used in the nonsymmetric eigenvalue routines
+     *     \li 5  the minimum column dimension for blocking to be used; rectangular blocks must
+     *            have dimension at least §k by §m, where §k is given by §ilaenv(2,...) and §m by
+     *            §ilaenv(5,...)
+     *     \li 6  the crossover point for the SVD (when reducing an §m by §n matrix to bidiagonal
+     *            form, if $\max(\{m},\{n})/\min(\{m},\{n})$ exceeds this value, a QR factorization
+     *            is used first to reduce the matrix to a triangular form)
+     *     \li 7  the number of processors
+     *     \li 8  another crossover point, for the multishift QR and QZ methods for nonsymmetric
+     *            eigenvalue problems.
+     *     \li 9  maximum size of the subproblems at the bottom of the computation tree in the
+     *            divide-and-conquer algorithm (used by §xgelsd and §xgesdd)
+     *     \li 10 ieee NaN arithmetic can be trusted not to trap
+     *     \li 11 infinity arithmetic can be trusted not to trap
+     *
+     * \param[in] nvalue The value of the parameter specified by §ispec.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                       */
     void xlaenv(int ispec, int nvalue)
     {
         if (ispec>=1 && ispec<=9)

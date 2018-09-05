@@ -13,27 +13,34 @@
 #include "Blas.hpp"
 #include "Lapack_dyn.hpp"
 
+/*!\class Testing_eig
+ * \brief A template class containing LAPACK eigenvalue testing routines.
+ * Testing_eig contains the LAPACK routines for testing eigenvalue-related routines.
+ * The template type is meant to be double, but can be any floating point type                   */
 template<class real>
 class Testing_eig : public Lapack_dyn<real>
 {
+private:
+    // constants
+
+    const real ZERO = real(0.0); //!< A constant zero (0.0) value
+
 public:
     virtual ~Testing_eig(){}
 
-    // constants
-
-    const real ZERO = real(0.0);
-
     // LAPACK TESTING EIG (alphabetically)
 
-    /* dchkbl tests dgebal, a routine for balancing a general real matrix and isolating some of
+    /*! §dchkbl
+     *
+     * §dchkbl tests §dgebal, a routine for balancing a general real matrix and isolating some of
      * its eigenvalues.
-     * Parameters: nin: inputs tream of test examples.
-     *             nout: output stream.
-     * Authors: Univ.of Tennessee
-     *          Univ.of California Berkeley
-     *          Univ.of Colorado Denver
-     *          NAG Ltd.
-     * Date: December 2016                                                                       */
+     * \param[in] nin  input stream of test examples.
+     * \param[in] nout output stream.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                       */
     void dchkbl(std::istream& nin, std::ostream& nout)
     {
         const int lda = 20;
