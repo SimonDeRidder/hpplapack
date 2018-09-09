@@ -926,6 +926,178 @@ public:
         }
     }
 
+    /*! §dgebak
+     *
+     * §dgebak forms the right or left eigenvectors of a real general matrix by backward
+     * transformation on the computed eigenvectors of the balanced matrix output by §dgebal.
+     * \param[in] job
+     *     Specifies the type of backward transformation required:\n
+     *      = 'N', do nothing, return immediately;\n
+     *      = 'P', do backward transformation for permutation only;\n
+     *      = 'S', do backward transformation for scaling only;\n
+     *      = 'B', do backward transformations for both permutation and scaling.\n
+     *      §job must be the same as the argument §job supplied to §dgebal.
+     *
+     * \param[in] side
+     *     = 'R': §V contains right eigenvectors;\n
+     *     = 'L': §V contains left eigenvectors.
+     *
+     * \param[in] n   The number of rows of the matrix §V. $\{n}\ge 0$.
+     * \param[in] ilo, ihi
+     *     The integers §ilo and §ihi determined by §dgebal.\n
+     *     $0\le\{ilo}<=\{ihi}<\{n}$, if $\{n}>0$; $\{ilo}=0$ and $\{ihi}=-1$, if $\{n}=0$.\n
+     *     NOTE: zero-based indices!
+     *
+     * \param[in] scale
+     *     an array, dimension (§n)\n
+     *     Details of the permutation and scaling factors, as returned by §dgebal.
+     *
+     * \param[in]     m The number of columns of the matrix §V. $\{m}\ge 0$.
+     * \param[in,out] V
+     *     an array, dimension (§ldv,§m)\n
+     *     On entry, the matrix of right or left eigenvectors to be transformed, as returned by
+     *     §dhsein or §dtrevc.\n
+     *     On exit, §V is overwritten by the transformed eigenvectors.
+     *
+     * \param[in]  ldv  The leading dimension of the array §V. $\{ldv}\ge\max(1,\{n})$.
+     * \param[out] info
+     *     = 0: successful exit\n
+     *     < 0: if §info = $-i$, the $i$-th argument had an illegal value.
+     * \authors Univ. of Tennessee
+     * \authors Univ. of California Berkeley
+     * \authors Univ. of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                       */
+    static void dgebak(char const* job, char const* side, int n, int ilo, int ihi,
+                       real const* scale, int m, real* V, int ldv, int& info)
+    {
+        // Decode and Test the input parameters
+        bool rightv = (std::toupper(side[0])=='R');
+        bool leftv  = (std::toupper(side[0])=='L');
+        info = 0;
+        char upjob = std::toupper(job[0]);
+        if (upjob!='N' && upjob!='P' && upjob!='S' && upjob!='B')
+        {
+            info = -1;
+        }
+        else if (!rightv && !leftv)
+        {
+            info = -2;
+        }
+        else if (n<0)
+        {
+            info = -3;
+        }
+        else if (ilo<0 || ilo>=std::max(1, n))
+        {
+            info = -4;
+        }
+        else if (ihi<std::min(ilo, n-1) || ihi>=n)
+        {
+            info = -5;
+        }
+        else if (m<0)
+        {
+            info = -7;
+        }
+        else if (ldv<std::max(1, n))
+        {
+            info = -9;
+        }
+        if (info!=0)
+        {
+            xerbla("DGEBAK", -info);
+            return;
+        }
+        // Quick return if possible
+        if (n==0)
+        {
+            return;
+        }
+        if (m==0)
+        {
+            return;
+        }
+        if (upjob=='N')
+        {
+            return;
+        }
+        int i;
+        real s;
+        if (ilo!=ihi)
+        {
+            // Backward balance
+            if (upjob=='S' || upjob=='B')
+            {
+                if (rightv)
+                {
+                    for (i=ilo; i<=ihi; i++)
+                    {
+                        s = scale[i];
+                        Blas<real>::dscal(m, s, &V[i], ldv);
+                    }
+                }
+                if (leftv)
+                {
+                    for (i=ilo; i<=ihi; i++)
+                    {
+                        s = ONE / scale[i];
+                        Blas<real>::dscal(m, s, &V[i], ldv);
+                    }
+                }
+            }
+        }
+        // Backward permutation
+        // for i=ilo-1; i>=0; i--
+        //       ihi+1; i<n;  i++
+        int ii, k;
+        if (upjob=='P' || upjob=='B')
+        {
+            if (rightv)
+            {
+                for (ii=0; ii<n; ii++)
+                {
+                    i = ii;
+                    if (i>=ilo && i<=ihi)
+                    {
+                        continue;
+                    }
+                    if (i<ilo)
+                    {
+                        i = ilo - ii - 1;
+                    }
+                    k = scale[i] - 1;
+                    if (k==i)
+                    {
+                        continue;
+                    }
+                    Blas<real>::dswap(m, &V[i], ldv, &V[k], ldv);
+                }
+            }
+            if (leftv)
+            {
+                for (ii=0; ii<n; ii++)
+                {
+                    i = ii;
+                    if (i>=ilo && i<=ihi)
+                    {
+                        continue;
+                    }
+                    if (i<ilo)
+                    {
+                        i = ilo - ii - 1;
+                    }
+                    k = scale[i] - 1;
+                    if (k==i)
+                    {
+                        continue;
+                    }
+                    Blas<real>::dswap(m, &V[i], ldv, &V[k], ldv);
+                }
+            }
+        }
+    }
+
     /*! §dgebal
      *
      * §dgebal balances a general real matrix $A$. This involves, first, permuting $A$ by a
@@ -957,12 +1129,12 @@ public:
      *
      * \param[out] scale
      *     an array of dimension (§n)
-     *     Details of the permutations and scaling factors applied to §A. If §P[j] is the index of
-     *     the row and column interchanged with row and column j and §D[j] is the scaling factor
-     *     applied to row and column j, then\n
-     *                   §scale[§j] = §P[§j]    for j = 0,...,§ilo-1 \n
-     *     &emsp;&emsp;&emsp;&emsp; = §D[§j]    for j = §ilo,...,§ihi \n
-     *     &emsp;&emsp;&emsp;&emsp; = §P[§j]    for j = §ihi+1,...,§n-1.\n
+     *     Details of the permutations and scaling factors applied to §A. If §P[§j] is the
+     *     one-based(!) index of the row and column interchanged with row and column §j and §D[§j]
+     *     is the scaling factor applied to row and column §j, then\n
+     *                   §scale[§j] = §P[§j]    for §j = 0,...,§ilo-1 \n
+     *     &emsp;&emsp;&emsp;&emsp; = §D[§j]    for §j = §ilo,...,§ihi \n
+     *     &emsp;&emsp;&emsp;&emsp; = §P[§j]    for §j = §ihi+1,...,§n-1.\n
      *     The order in which the interchanges are made is §n-1 to §ihi+1, then 0 to §ilo-1.
      *
      * \param[out] info
@@ -1924,15 +2096,16 @@ public:
      * \date December 2016                                                                       */
     static void dlacpy(char const* uplo, int m, int n, real const* A, int lda, real* B, int ldb)
     {
-        int i, j, ldaj;
+        int i, j, ldaj, ldbj;
         if (std::toupper(uplo[0])=='U')
         {
             for (j=0; j<n; j++)
             {
                 ldaj = lda*j;
+                ldbj = ldb*j;
                 for (i=0; i<=j && i<m; i++)
                 {
-                    B[i+ldaj] = A[i+ldaj];
+                    B[i+ldbj] = A[i+ldaj];
                 }
             }
         }
@@ -1941,9 +2114,10 @@ public:
             for (j=0; j<n; j++)
             {
                 ldaj = lda*j;
+                ldbj = ldb*j;
                 for (i=j; i<m; i++)
                 {
-                    B[i+ldaj] = A[i+ldaj];
+                    B[i+ldbj] = A[i+ldaj];
                 }
             }
         }
@@ -1952,9 +2126,10 @@ public:
             for (j=0; j<n; j++)
             {
                 ldaj = lda*j;
+                ldbj = ldb*j;
                 for (i=0; i<m; i++)
                 {
-                    B[i+ldaj] = A[i+ldaj];
+                    B[i+ldbj] = A[i+ldaj];
                 }
             }
         }
@@ -2391,7 +2566,7 @@ public:
      *     otherwise, §work is not referenced.
      *
      * \return
-     * $\{dlange} = \left( \begin{array}{ll}
+     * $\{dlange} = \left(\begin{array}{ll}
      *     \max\left(\left|A[i,j]\right|\right), & \{norm}=\text{'M' or 'm'}           \\
      *     \{norm1}(A),                          & \{norm}=\text{'1', 'O' or 'o'}      \\
      *     \{normI}(A),                          & \{norm}=\text{'I' or 'i'}           \\
@@ -7528,6 +7703,349 @@ public:
         Blas<real>::dcopy(k, &work[iwk3], 1, vl, 1);
     }
 
+    /*! §dlasda computes the singular value decomposition (SVD) of a real upper bidiagonal matrix
+     *  with diagonal §d and off-diagonal §e. Used by §sbdsdc.
+     *
+     * Using a divide and conquer approach, §dlasda computes the singular value decomposition (SVD)
+     * of a real upper bidiagonal §n by §M matrix $B$ with diagonal $D$ and offdiagonal $E$, where
+     * §M = §n + §sqre. The algorithm computes the singular values in the SVD $B = U S V_T$. The
+     * orthogonal matrices $U$ and $V_T$ are optionally computed in compact form.\n
+     * A related subroutine, §dlasd0, computes the singular values and the singular vectors in
+     * explicit form.
+     * \param[in] icompq
+     *     Specifies whether singular vectors are to be computed in compact form, as follows\n
+     *     = 0: Compute singular values only.\n
+     *     = 1: Compute singular vectors of upper bidiagonal matrix in compact form.
+     *
+     * \param[in] smlsiz The maximum size of the subproblems at the bottom of the computation tree.
+     * \param[in] n
+     *     The row dimension of the upper bidiagonal matrix.
+     *     This is also the dimension of the main diagonal array §D.
+     *
+     * \param[in] sqre
+     *     Specifies the column dimension of the bidiagonal matrix.\n
+     *     = 0: The bidiagonal matrix has column dimension §M = §n; \n
+     *     = 1: The bidiagonal matrix has column dimension §M = §n + 1.
+     *
+     * \param[in,out] d
+     *     an array, dimension (§n)\n
+     *     On entry §d contains the main diagonal of the bidiagonal matrix.\n
+     *     On exit §d, if §info = 0, contains its singular values.
+     *
+     * \param[in] e
+     *     an array, dimension (§M-1)\n
+     *     Contains the subdiagonal entries of the bidiagonal matrix.\n
+     *     On exit, §e has been destroyed.
+     *
+     * \param[out] U
+     *     an array, dimension (§ldu,§smlsiz) if §icompq = 1, and not referenced if §icompq = 0.\n
+     *     If §icompq = 1, on exit, §U contains the left singular vector matrices of all subproblems
+     *     at the bottom level.
+     *
+     * \param[in] ldu
+     *     $\{ldu}\ge\{n}$.\n
+     *     The leading dimension of arrays §U, §Vt, §Difl, §Difr, §Poles, §Givnum, and §Z.
+     *
+     * \param[out] Vt
+     *     an array, dimension (§ldu,$\{smlsiz}+1$) if §icompq = 1, and not referenced if
+     *     §icompq = 0.\n If §icompq = 1, on exit, $\{Vt}^T$ contains the right singular vector
+     *     matrices of all subproblems at the bottom level.
+     *
+     * \param[out] k
+     *     an integer array, dimension (§n) if §icompq = 1 and dimension 1 if §icompq = 0.\n
+     *     If §icompq = 1, on exit, $\{k}[i]$ is the dimension of the $i$-th secular equation on the
+     *     computation tree.
+     *
+     * \param[out] Difl
+     *     an array, dimension (§ldu,§nlvl), where $\{nlvl}=\lfloor\log_2(\{n}/\{smlsiz})\rfloor$.
+     *
+     * \param[out] Difr
+     *     an array,\n dimension (§ldu, $2\{nlvl}$) if §icompq = 1 and\n
+     *                 dimension (§n) if §icompq = 0.\n
+     *     If §icompq = 1, on exit, $\{Difl}[0:\{n}-1,i]$ and $\{Difr}[0:\{n}-1,2i]$ record
+     *     distances between singular values on the $i$-th level and singular values on the
+     *     $(i-1)$-th level, and $\{Difr}[0:\{n}-1,2i+1]$ contains the normalizing factors for the
+     *     right singular vector matrix. See §dlasd8 for details.
+     *
+     * \param[out] Z
+     *     an array,\n dimension (§ldu,§nlvl) if §icompq = 1 and\n
+     *                 dimension (§n) if §icompq = 0.\n
+     *     The first §k elements of $\{Z}[0,i]$ contain the components of the deflation-adjusted
+     *     updating row vector for subproblems on the $i$-th level.
+     *
+     * \param[out] Poles
+     *     an array, dimension (§ldu,$2\{nlvl}$) if §icompq = 1, and not referenced if §icompq = 0.
+     *     \n If §icompq = 1, on exit, $\{Poles}[:,2i]$ and $\{Poles}[:,2i+1]$ contain the new and
+     *     old singular values involved in the secular equations on the $i$-th level.
+     *
+     * \param[out] Givptr
+     *     an integer array, dimension (§n) if §icompq = 1, and not referenced if §icompq = 0.\n
+     *     If §icompq = 1, on exit, $\{Givptr}[i]$ records the number of Givens rotations performed
+     *     on the $i$-th problem on the computation tree.
+     *
+     * \param[out] Givcol
+     *     an integer array, dimension (§ldgcol,$2\{nlvl}$) if §icompq = 1, and not referenced if
+     *     §icompq = 0.\n If §icompq = 1, on exit, for each $i$, $\{Givcol}[:,2i]$ and
+     *     $\{Givcol}[:,2i+1]$ record the locations of Givens rotations performed on the $i$-th
+     *     level on the computation tree.\n
+     *     NOTE: zero-base indices!
+     *
+     * \param[in]  ldgcol $\{ldgcol}\ge\{n}$. The leading dimension of arrays §Givcol and §Perm.
+     * \param[out] Perm
+     *     an integer array, dimension (§ldgcol,§nlvl) if §icompq = 1, and not referenced if
+     *     §icompq = 0.\n If §icompq = 1, on exit, $\{Perm}[:,i]$ records permutations done on the
+     *     $i$-th level of the computation tree.\n
+     *     NOTE: zero-base indices!
+     *
+     * \param[out] Givnum
+     *     an array, dimension (§ldu,$2\{nlvl}$) if §icompq = 1, and not referenced if §icompq = 0.
+     *     \n If §icompq = 1, on exit, for each $i$, $\{Givnum}[0,2i]$ and $\{Givnum}[0,2i+1]$
+     *     record the $c$- and $s$-values of Givens rotations performed on the $i$-th level on the
+     *     computation tree.
+     *
+     * \param[out] c
+     *     an array, dimension (§n) if §icompq = 1, and dimension 1 if §icompq = 0.\n
+     *     If §icompq = 1 and the $i$-th subproblem is not square, on exit, $\{c}[i]$ contains the
+     *     $c$-value of a Givens rotation related to the right null space of the $i$-th subproblem.
+     *
+     * \param[out] s
+     *     an array, dimension (§n) if §icompq = 1, and dimension 1 if §icompq = 0.\n
+     *     If §icompq = 1 and the $i$-th subproblem is not square, on exit, $\{s}[i]$ contains the
+     *     $s$-value of a Givens rotation related to the right null space of the $i$-th subproblem.
+     *
+     * \param[out] work  an array, dimension ($6\{n}+(\{smlsiz}+1)^2$).
+     * \param[out] iwork an integer array, dimension ($7\{n}$)
+     * \param[out] info
+     *     = 0: successful exit.\n
+     *     < 0: if §info = $-i$, the $i$-th argument had an illegal value.
+     *     > 0: if §info = 1, a singular value did not converge
+     * \authors Univ. of Tennessee
+     * \authors Univ. of California Berkeley
+     * \authors Univ. of Colorado Denver
+     * \authors NAG Ltd.
+     * \date June 2017
+     * \remark
+     *     Contributors:\n
+     *     Ming Gu and Huan Ren, Computer Science Division,
+     *     University of California at Berkeley, USA                                              */
+    static void dlasda(int icompq, int smlsiz, int n, int sqre, real* d, real* e, real* U, int ldu,
+                       real* Vt, int* k, real* Difl, real* Difr, real* Z, real* Poles, int* Givptr,
+                       int* Givcol, int ldgcol, int* Perm, real* Givnum, real* c, real* s,
+                       real* work, int* iwork, int& info)
+    {
+        // Test the input parameters.
+        info = 0;
+        if (icompq<0 || icompq>1)
+        {
+            info = -1;
+        }
+        else if (smlsiz<3)
+        {
+            info = -2;
+        }
+        else if (n<0)
+        {
+            info = -3;
+        }
+        else if (sqre<0 || sqre>1)
+        {
+            info = -4;
+        }
+        else if (ldu<(n+sqre))
+        {
+            info = -8;
+        }
+        else if (ldgcol<n)
+        {
+            info = -17;
+        }
+        if (info!=0)
+        {
+            xerbla("DLASDA", -info);
+            return;
+        }
+        int m = n + sqre;
+        // If the input matrix is too small, call dlasdq to find the SVD.
+        if (n<=smlsiz)
+        {
+            if (icompq==0)
+            {
+                dlasdq("U", sqre, n, 0, 0, 0, d, e, Vt, ldu, U, ldu, U, ldu, work, info);
+            }
+            else
+            {
+                dlasdq("U", sqre, n, m, n, 0, d, e, Vt, ldu, U, ldu, U, ldu, work, info);
+            }
+            return;
+        }
+        // Book-keeping and set up the computation tree.
+        int inode = 0;
+        int ndiml = inode + n;
+        int ndimr = ndiml + n;
+        int idxq  = ndimr + n;
+        int iwk   = idxq  + n;
+        int ncc = 0;
+        int nru = 0;
+        int smlszp = smlsiz + 1;
+        int vf = 0;
+        int vl = vf + m;
+        int nwork1 = vl + m;
+        int nwork2 = nwork1 + smlszp*smlszp;
+        int nlvl, nd;
+        dlasdt(n, nlvl, nd, &iwork[inode], &iwork[ndiml], &iwork[ndimr], smlsiz);
+        // for the nodes on bottom level of the tree, solve their subproblems by dlasdq.
+        int ndb1 = (nd-1) / 2;
+        int i, ic, idxqi, itemp, j, nl, nlf, nlp1, nr, nrf, nrp1, sqrei, vfi, vli;
+        for (i=ndb1; i<nd; i++)
+        {
+            // ic : center row of each node
+            // nl : number of rows of left  subproblem
+            // nr : number of rows of right subproblem
+            // nlf: starting row of the left  subproblem
+            // nrf: starting row of the right subproblem
+            ic = iwork[inode+i];
+            nl = iwork[ndiml+i];
+            nlp1 = nl + 1;
+            nr = iwork[ndimr+i];
+            nlf = ic - nl;
+            nrf = ic + 1;
+            idxqi = idxq + nlf;
+            vfi = vf + nlf;
+            vli = vl + nlf;
+            sqrei = 1;
+            if (icompq==0)
+            {
+                dlaset("A", nlp1, nlp1, ZERO, ONE, &work[nwork1], smlszp);
+                dlasdq("U", sqrei, nl, nlp1, nru, ncc, &d[nlf], &e[nlf], &work[nwork1], smlszp,
+                       &work[nwork2], nl, &work[nwork2], nl, &work[nwork2], info);
+                itemp = nwork1 + nl*smlszp;
+                Blas<real>::dcopy(nlp1, &work[nwork1], 1, &work[vfi], 1);
+                Blas<real>::dcopy(nlp1, &work[itemp], 1, &work[vli], 1);
+            }
+            else
+            {
+                dlaset("A", nl, nl, ZERO, ONE, &U[nlf], ldu);
+                dlaset("A", nlp1, nlp1, ZERO, ONE, &Vt[nlf], ldu);
+                dlasdq("U", sqrei, nl, nlp1, nl, ncc, &d[nlf], &e[nlf], &Vt[nlf], ldu, &U[nlf], ldu,
+                       &U[nlf], ldu, &work[nwork1], info);
+                Blas<real>::dcopy(nlp1, &Vt[nlf], 1, &work[vfi], 1);
+                Blas<real>::dcopy(nlp1, &Vt[nlf+ldu*nl], 1, &work[vli], 1);
+            }
+            if (info!=0)
+            {
+                return;
+            }
+            for (j=0; j<nl; j++)
+            {
+                iwork[idxqi+j] = j;
+            }
+            if (i==(nd-1) && sqre==0)
+            {
+                sqrei = 0;
+            }
+            else
+            {
+                sqrei = 1;
+            }
+            idxqi += nlp1;
+            vfi += nlp1;
+            vli += nlp1;
+            nrp1 = nr + sqrei;
+            if (icompq==0)
+            {
+                dlaset("A", nrp1, nrp1, ZERO, ONE, &work[nwork1], smlszp);
+                dlasdq("U", sqrei, nr, nrp1, nru, ncc, &d[nrf], &e[nrf], &work[nwork1], smlszp,
+                       &work[nwork2], nr, &work[nwork2], nr, &work[nwork2], info);
+                itemp = nwork1 + (nrp1-1)*smlszp;
+                Blas<real>::dcopy(nrp1, &work[nwork1], 1, &work[vfi], 1);
+                Blas<real>::dcopy(nrp1, &work[itemp], 1, &work[vli], 1);
+            }
+            else
+            {
+                dlaset("A", nr, nr, ZERO, ONE, &U[nrf], ldu);
+                dlaset("A", nrp1, nrp1, ZERO, ONE, &Vt[nrf], ldu);
+                dlasdq("U", sqrei, nr, nrp1, nr, ncc, &d[nrf], &e[nrf], &Vt[nrf], ldu, &U[nrf], ldu,
+                       &U[nrf], ldu, &work[nwork1], info);
+                Blas<real>::dcopy(nrp1, &Vt[nrf], 1, &work[vfi], 1);
+                Blas<real>::dcopy(nrp1, &Vt[nrf+ldu*(nrp1-1)], 1, &work[vli], 1);
+            }
+            if (info!=0)
+            {
+                return;
+            }
+            for (j=0; j<nr; j++)
+            {
+                iwork[idxqi+j] = j;
+            }
+        }
+        // Now conquer each subproblem bottom-up.
+        j = (1 << nlvl) - 1; // 2^nlvl - 1
+        int lf, ll, lvl, lvl2, ldgl, ldgl2, ldul, ldul2;
+        real alpha, beta;
+        for (lvl=nlvl-1; lvl>=0; lvl--)
+        {
+            lvl2 = lvl * 2;
+            // Find the first node lf and last node ll on the current level lvl.
+            if (lvl==0)
+            {
+                lf = 0;
+                ll = 0;
+            }
+            else
+            {
+                lf = (1 << lvl) - 1; // 2^lvl - 1
+                ll = 2*lf;
+            }
+            if (icompq!=0)
+            {
+                ldgl  = ldgcol * lvl;
+                ldgl2 = ldgcol * lvl2;
+                ldul  = ldu    * lvl;
+                ldul2 = ldu    * lvl2;
+            }
+            for (i=lf; i<=ll; i++)
+            {
+                ic = iwork[inode+i];
+                nl = iwork[ndiml+i];
+                nr = iwork[ndimr+i];
+                nlf = ic - nl;
+                //nrf = ic + 1;
+                if (i==ll)
+                {
+                    sqrei = sqre;
+                }
+                else
+                {
+                    sqrei = 1;
+                }
+                vfi   = vf   + nlf;
+                vli   = vl   + nlf;
+                idxqi = idxq + nlf;
+                alpha = d[ic];
+                beta  = e[ic];
+                if (icompq==0)
+                {
+                    dlasd6(icompq, nl, nr, sqrei, &d[nlf], &work[vfi], &work[vli], alpha, beta,
+                           &iwork[idxqi], Perm, Givptr[0], Givcol, ldgcol, Givnum, ldu, Poles, Difl,
+                           Difr, Z, k[0], c[0], s[0], &work[nwork1], &iwork[iwk], info);
+                }
+                else
+                {
+                    j--;
+                    dlasd6(icompq, nl, nr, sqrei, &d[nlf], &work[vfi], &work[vli], alpha, beta,
+                           &iwork[idxqi], &Perm[nlf+ldgl], Givptr[j], &Givcol[nlf+ldgl2], ldgcol,
+                           &Givnum[nlf+ldul2], ldu, &Poles[nlf+ldul2], &Difl[nlf+ldul],
+                           &Difr[nlf+ldul2], &Z[nlf+ldul], k[j], c[j], s[j], &work[nwork1],
+                           &iwork[iwk], info);
+                }
+                if (info!=0)
+                {
+                    return;
+                }
+            }
+        }
+    }
+
     /*! §dlasdq computes the SVD of a real bidiagonal matrix with diagonal §d and off-diagonal §e.
      *  Used by §sbdsdc.
      *
@@ -10473,6 +10991,7 @@ public:
             snr = srt;
         }
         // Correct signs of SSMAX and SSMIN
+        tsign = ONE;
         if (pmax==0)
         {
             tsign = real((ZERO<=csr)-(csr<ZERO)) * real((ZERO<=csl)-(csl<ZERO))
@@ -11051,7 +11570,7 @@ public:
         char opts[2];
         opts[0] = upside;
         opts[1] = uptrans;
-        int lwkopt, nb;
+        int lwkopt=0, nb;
         if (info==0)
         {
             // Compute the workspace requirements

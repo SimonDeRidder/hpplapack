@@ -2191,8 +2191,8 @@ public:
         int nfail = 0;
         int nerrs = 0;
         int iseed[4] = {1988, 1989, 1990, 1991};
-        int i, ihigh, ilow, im, imode, in, inb, info, istep, k, lda, lw, lwork, m, mnmin, mode, n,
-            nb, nx, temp;
+        int i, ihigh=0, ilow=0, im, imode, in, inb, info, istep=0, k, lda, lw, lwork, m, mnmin,
+            mode, n, nb, nx, temp;
         real result[NTESTS];
         real eps = this->dlamch("Epsilon");
         infoc.info = 0;
