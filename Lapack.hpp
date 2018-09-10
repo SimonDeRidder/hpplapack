@@ -2135,6 +2135,101 @@ public:
         }
     }
 
+    /*! §dladiv performs complex division in real arithmetic, avoiding unnecessary overflow.
+     *
+     * §dladiv performs complex division in  real arithmetic\n
+     *     $p+iq = \frac{a+ib}{c+id}$\n
+     * The algorithm is due to Michael Baudin and Robert L. Smith and can be found in the paper
+     * "A Robust Complex Division in Scilab"
+     * \param[in]  a, b, c, d The scalars $a$, $b$, $c$, and $d$ in the above expression.
+     * \param[out] p, q The scalars $p$ and $q$ in the above expression.
+     * \authors Univ. of Tennessee
+     * \authors Univ. of California Berkeley
+     * \authors Univ. of Colorado Denver
+     * \authors NAG Ltd.
+     * \date January 2013                                                                        */
+    static void dladiv(real a, real b, real c, real d, real& p, real& q)
+    {
+        const real BS = TWO;
+        real ab = std::max(std::fabs(a), std::fabs(b));
+        real cd = std::max(std::fabs(c), std::fabs(d));
+        real s = ONE;
+        real ov  = dlamch("Overflow threshold");
+        real un  = dlamch("Safe minimum");
+        real eps = dlamch("Epsilon");
+        real be = BS / (eps*eps);
+        if (ab >= HALF*ov)
+        {
+            a *= HALF;
+            b *= HALF;
+            s *= TWO;
+        }
+        if (cd >= HALF*ov)
+        {
+            c *= HALF;
+            d *= HALF;
+            s *= HALF;
+        }
+        if (ab <= un*BS/eps)
+        {
+            a *= be;
+            b *= be;
+            s /= be;
+        }
+        if (cd <= un*BS/eps)
+        {
+            c *= be;
+            d *= be;
+            s *= be;
+        }
+        if (std::fabs(d)<=std::fabs(c))
+        {
+            dladiv1(a, b, c, d, p, q);
+        }
+        else
+        {
+            dladiv1(b, a, d, c, p, q);
+            q = -q;
+        }
+        p *= s;
+        q *= s;
+    }
+
+    /*! §dladiv1
+     *
+     * Auxiliary routine to §dladiv                                                              */
+    static void dladiv1(real& a, real b, real c, real d, real& p, real& q)
+    {
+        real r = d / c;
+        real t = ONE / (c + d*r);
+        p = dladiv2(a, b, c, d, r, t);
+        a = -a;
+        q = dladiv2(b, a, c, d, r, t);
+    }
+
+    /*! §dladiv2
+     *
+     * Auxiliary routine to §dladiv1.                                                              */
+    static real dladiv2(real a, real b, real c, real d, real r, real t)
+    {
+        if (r!=ZERO)
+        {
+            real br = b * r;
+            if (br!=ZERO)
+            {
+                return (a + br) * t;
+            }
+            else
+            {
+                return a * t + (b*t) * r;
+            }
+        }
+        else
+        {
+           return (a + d*(b/c)) * t;
+        }
+    }
+
     /*! §dlaed6 used by §sstedc. Computes one Newton step in solution of the secular equation.
      *
      * §dlaed6 computes the positive or negative root (closest to the origin) of\n
@@ -2662,6 +2757,102 @@ public:
             dlange = scale*std::sqrt(sum);
         }
         return dlange;
+    }
+
+    /*! §dlanst returns the value of the 1-norm, or the Frobenius norm, or the infinity norm, or
+     *  the element of largest absolute value of a real symmetric tridiagonal matrix.
+     *
+     * §dlanst returns the value of the one norm, or the Frobenius norm, or the  infinity norm, or
+     * the element of largest absolute value of a real symmetric tridiagonal matrix $A$.\n
+     *     $\{dlanst}=\left(\begin{tabular}{ll}
+     *         \(\max(|A[i,j]|)\),          & \{norm} = 'M' or 'm'           \\
+     *         \(\operatorname{norm1}(A)\), & \{norm} = '1', 'O' or 'o'      \\
+     *         \(\operatorname{normI}(A)\), & \{norm} = 'I' or 'i'           \\
+     *         \(\operatorname{normF}(A)\), & \{norm} = 'F', 'f', 'E' or 'e'
+     *     \end{tabular}\right.$\n
+     * where $\operatorname{norm1}$ denotes the one norm of a matrix (maximum column sum),
+     * $\operatorname{normI}$ denotes the infinity norm  of a matrix (maximum row sum) and
+     * $\operatorname{normF}$ denotes the Frobenius norm of a matrix (square root of sum of
+     * squares).\n Note that $\max(|A[i,j]|)$ is not a consistent matrix norm.
+     * \param[in] norm Specifies the value to be returned in §dlanst as described above.
+     * \param[in] n
+     *     The order of the matrix $A$. $\{n}\ge 0$. When §n = 0, §dlanst is set to zero.
+     *
+     * \param[in] d an array, dimension (§n)\n The diagonal elements of $A$.
+     * \param[in] e
+     *     an array, dimension ($\{n}-1$)\n
+     *     The ($\{n}-1$) sub-diagonal or super-diagonal elements of $A$.
+     * \return The norm of $A$ specified by §norm.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                       */
+    static real dlanst(char const* norm, int n, real const* d, real const* e)
+    {
+        int i;
+        real anorm, sum;
+        if (n<=0)
+        {
+            anorm = ZERO;
+        }
+        else if (std::toupper(norm[0])=='M')
+        {
+            // Find max(abs(A[i,j])).
+            anorm = std::fabs(d[n-1]);
+            for (i=0; i<n-1; i++)
+            {
+                sum = std::fabs(d[i]);
+                if (anorm < sum || std::isnan(sum))
+                {
+                    anorm = sum;
+                }
+                sum = std::fabs(e[i]);
+                if (anorm < sum || std::isnan(sum))
+                {
+                    anorm = sum;
+                }
+            }
+        }
+        else if (std::toupper(norm[0])=='O' || norm[0]=='1' || std::toupper(norm[0])=='I')
+        {
+            // Find norm1(A).
+            if (n==1)
+            {
+                anorm = std::fabs(d[0]);
+            }
+            else
+            {
+                anorm = std::fabs(d[0])   + std::fabs(e[0]);
+                sum   = std::fabs(e[n-2]) + std::fabs(d[n-1]);
+                if (anorm < sum || std::isnan(sum))
+                {
+                    anorm = sum;
+                }
+                for (i=1; i<n-1; i++)
+                {
+                    sum = std::fabs(d[i]) + std::fabs(e[i]) + std::fabs(e[i-1]);
+                    if (anorm < sum || std::isnan(sum))
+                    {
+                        anorm = sum;
+                    }
+                }
+            }
+        }
+        else if (std::toupper(norm[0])=='F' || std::toupper(norm[0])=='E')
+        {
+            // Find normF(A).
+            real SCALE = ZERO;
+            sum = ONE;
+            if (n>1)
+            {
+                dlassq(n-1, e, 1, SCALE, sum);
+                sum *= 2;
+            }
+            dlassq(n, d, 1, SCALE, sum);
+            anorm = SCALE * std::sqrt(sum);
+        }
+        return anorm;
     }
 
     /*! §dlapy2 returns $\sqrt{x^2+y^2}$.
@@ -7739,8 +7930,8 @@ public:
      *
      * \param[out] U
      *     an array, dimension (§ldu,§smlsiz) if §icompq = 1, and not referenced if §icompq = 0.\n
-     *     If §icompq = 1, on exit, §U contains the left singular vector matrices of all subproblems
-     *     at the bottom level.
+     *     If §icompq = 1, on exit, §U contains the left singular vector matrices of all
+     *     subproblems at the bottom level.
      *
      * \param[in] ldu
      *     $\{ldu}\ge\{n}$.\n
@@ -7753,8 +7944,8 @@ public:
      *
      * \param[out] k
      *     an integer array, dimension (§n) if §icompq = 1 and dimension 1 if §icompq = 0.\n
-     *     If §icompq = 1, on exit, $\{k}[i]$ is the dimension of the $i$-th secular equation on the
-     *     computation tree.
+     *     If §icompq = 1, on exit, $\{k}[i]$ is the dimension of the $i$-th secular equation on
+     *     the computation tree.
      *
      * \param[out] Difl
      *     an array, dimension (§ldu,§nlvl), where $\{nlvl}=\lfloor\log_2(\{n}/\{smlsiz})\rfloor$.
@@ -7827,7 +8018,7 @@ public:
      * \remark
      *     Contributors:\n
      *     Ming Gu and Huan Ren, Computer Science Division,
-     *     University of California at Berkeley, USA                                              */
+     *     University of California at Berkeley, USA                                             */
     static void dlasda(int icompq, int smlsiz, int n, int sqre, real* d, real* e, real* U, int ldu,
                        real* Vt, int* k, real* Difl, real* Difr, real* Z, real* Poles, int* Givptr,
                        int* Givcol, int ldgcol, int* Perm, real* Givnum, real* c, real* s,
@@ -7926,8 +8117,8 @@ public:
             {
                 dlaset("A", nl, nl, ZERO, ONE, &U[nlf], ldu);
                 dlaset("A", nlp1, nlp1, ZERO, ONE, &Vt[nlf], ldu);
-                dlasdq("U", sqrei, nl, nlp1, nl, ncc, &d[nlf], &e[nlf], &Vt[nlf], ldu, &U[nlf], ldu,
-                       &U[nlf], ldu, &work[nwork1], info);
+                dlasdq("U", sqrei, nl, nlp1, nl, ncc, &d[nlf], &e[nlf], &Vt[nlf], ldu, &U[nlf],
+                       ldu, &U[nlf], ldu, &work[nwork1], info);
                 Blas<real>::dcopy(nlp1, &Vt[nlf], 1, &work[vfi], 1);
                 Blas<real>::dcopy(nlp1, &Vt[nlf+ldu*nl], 1, &work[vli], 1);
             }
@@ -7964,8 +8155,8 @@ public:
             {
                 dlaset("A", nr, nr, ZERO, ONE, &U[nrf], ldu);
                 dlaset("A", nrp1, nrp1, ZERO, ONE, &Vt[nrf], ldu);
-                dlasdq("U", sqrei, nr, nrp1, nr, ncc, &d[nrf], &e[nrf], &Vt[nrf], ldu, &U[nrf], ldu,
-                       &U[nrf], ldu, &work[nwork1], info);
+                dlasdq("U", sqrei, nr, nrp1, nr, ncc, &d[nrf], &e[nrf], &Vt[nrf], ldu, &U[nrf],
+                       ldu, &U[nrf], ldu, &work[nwork1], info);
                 Blas<real>::dcopy(nrp1, &Vt[nrf], 1, &work[vfi], 1);
                 Blas<real>::dcopy(nrp1, &Vt[nrf+ldu*(nrp1-1)], 1, &work[vli], 1);
             }
@@ -8026,8 +8217,8 @@ public:
                 if (icompq==0)
                 {
                     dlasd6(icompq, nl, nr, sqrei, &d[nlf], &work[vfi], &work[vli], alpha, beta,
-                           &iwork[idxqi], Perm, Givptr[0], Givcol, ldgcol, Givnum, ldu, Poles, Difl,
-                           Difr, Z, k[0], c[0], s[0], &work[nwork1], &iwork[iwk], info);
+                           &iwork[idxqi], Perm, Givptr[0], Givcol, ldgcol, Givnum, ldu, Poles,
+                           Difl, Difr, Z, k[0], c[0], s[0], &work[nwork1], &iwork[iwk], info);
                 }
                 else
                 {
