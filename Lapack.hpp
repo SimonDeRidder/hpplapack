@@ -145,6 +145,413 @@ public:
 
     // LAPACK SRC (alphabetically)
 
+    /*! §dbdsdc
+     *
+     * §dbdsdc computes the singular value decomposition (SVD) of a real §n by §n (upper or lower)
+     * bidiagonal matrix $B$: $B = U S V_T$, using a divide and conquer method, where $S$ is a
+     * diagonal matrix with non-negative diagonal elements (the singular values of $B$), and $U$
+     * and $V_T$ are orthogonal matrices of left and right singular vectors, respectively. §dbdsdc
+     * can be used to compute all singular values, and optionally, singular vectors or singular
+     * vectors in compact form.\n
+     * This code makes very mild assumptions about floating point arithmetic. It will work on
+     * machines with a guard digit in add/subtract, or on those binary machines without guard
+     * digits which subtract like the Cray X-MP, Cray Y-MP, Cray C-90, or Cray-2. It could
+     * conceivably fail on hexadecimal or decimal machines without guard digits, but we know of
+     * none. See §dlasd3 for details.\n
+     * The code currently calls §dlasdq if singular values only are desired. However, it can be
+     * slightly modified to compute singular values using the divide and conquer method.
+     * \param[in] uplo
+     *     = 'U': $B$ is upper bidiagonal.\n
+     *     = 'L': $B$ is lower bidiagonal.
+     *
+     * \param[in] compq
+     *     Specifies whether singular vectors are to be computed as follows:\n
+     *         = 'N': Compute singular values only;\n
+     *         = 'P': Compute singular values and compute singular vectors in compact form;\n
+     *         = 'I': Compute singular values and singular vectors.
+     *
+     * \param[in]     n The order of the matrix $B$. $\{n}\ge 0$.
+     * \param[in,out] d
+     *     an array, dimension (§n)\n
+     *     On entry, the §n diagonal elements of the bidiagonal matrix $B$.\n
+     *     On exit, if §info = 0, the singular values of $B$.
+     *
+     * \param[in,out] e
+     *     an array, dimension ($\{n}-1$)\n
+     *     On entry, the elements of §e contain the offdiagonal elements of the bidiagonal matrix
+     *     whose SVD is desired.\n
+     *     On exit, §e has been destroyed.
+     *
+     * \param[out] U
+     *     an array, dimension (§ldu,§n)\n.
+     *     If §compq = 'I', then:\n On exit, if §info = 0, §U contains the left singular vectors of
+     *     the bidiagonal matrix.\n For other values of §compq, §U is not referenced.
+     *
+     * \param[in] ldu
+     *     The leading dimension of the array §U. $\{ldu}\ge 1$.\n
+     *     If singular vectors are desired, then $\{ldu}\ge\max(1,\{n})$.
+     *
+     * \param[out] Vt
+     *     an array, dimension (§ldvt,§n)\n
+     *     If §compq = 'I', then:\n On exit, if §info = 0, $\{Vt}^T$ contains the right singular
+     *     vectors of the bidiagonal matrix.\n For other values of §compq, §Vt is not referenced.
+     *
+     * \param[in] ldvt
+     *     The leading dimension of the array §Vt. $\{ldvt}\ge 1$.\n
+     *     If singular vectors are desired, then $\{ldvt}\ge\max(1,\{n})$.
+     *
+     * \param[out] q
+     *     an array, dimension (§LDQ)\n
+     *     If §compq = 'P', then:\n
+     *         On exit, if §info = 0, §q and §iq contain the left and right singular vectors in a
+     *         compact form, requiring $\mathcal{O}(\{n}\log\{n})$ space instead of $2\{n}^2$.
+     *         In particular, §q contains all the real data in
+     *         $\{LDQ}\ge\{n}*(11+2\{smlsiz}+8\lfloor\log_2(\{n}/(\{smlsiz}+1))\rfloor)$ words of
+     *         memory, where §smlsiz is returned by §ilaenv and is equal to the maximum size of the
+     *         subproblems at the bottom of the computation tree (usually about 25).\n
+     *     For other values of §compq, §q is not referenced.
+     *
+     * \param[out] iq
+     *     an integer array, dimension (§LDIQ)\n
+     *     If §compq = 'P', then:\n
+     *         On exit, if §info = 0, §q and §iq contain the left and right singular vectors in a
+     *         compact form, requiring $\mathcal{O}(\{n}\log\{n})$ space instead of $2\{n}^2$.
+     *         In particular, §iq contains all integer data in
+     *         $\{LDIQ}\ge\{n}(3+3\lfloor\log_2(\{n}/(\{smlsiz}+1))\rfloor)$ words of memory, where
+     *         §smlsiz is returned by §ilaenv and is equal to the maximum size of the subproblems
+     *         at the bottom of the computation tree (usually about 25).\n
+     *     For other values of §compq, §iq is not referenced.
+     *
+     * \param[out] work
+     *     an array, dimension ($\max(1,\{LWORK})$)\n
+     *         If §compq = 'N' then $\{LWORK}\ge(4\{n})$.\n
+     *         If §compq = 'P' then $\{LWORK}\ge(6\{n})$.\n
+     *         If §compq = 'I' then $\{LWORK}\ge(3\{n}^2+4\{n})$.
+     *
+     * \param[out] iwork an integer array, dimension ($8\{n}$)
+     * \param[out] info
+     *     = 0: successful exit.\n
+     *     < 0: if §info = $-i$, the $i$-th argument had an illegal value.\n
+     *     > 0: The algorithm failed to compute a singular value.
+     *          The update process of divide and conquer failed.
+     * \authors Univ. of Tennessee
+     * \authors Univ. of California Berkeley
+     * \authors Univ. of Colorado Denver
+     * \authors NAG Ltd.
+     * \date June 2016
+     * \remark
+     *     Contributors:\n
+     *     Ming Gu and Huan Ren, Computer Science Division,
+     *     University of California at Berkeley, USA                                             */
+    static void dbdsdc(char const* uplo, char const* compq, int n, real* d, real* e, real* U,
+                       int ldu, real* Vt, int ldvt, real* q, int* iq, real* work, int* iwork,
+                       int& info)
+    {
+        // Test the input parameters.
+        info = 0;
+        int icompq, iuplo = 0;
+        if (std::toupper(uplo[0])=='U')
+        {
+            iuplo = 1;
+        }
+        if (std::toupper(uplo[0])=='L')
+        {
+            iuplo = 2;
+        }
+        if (std::toupper(compq[0])=='N')
+        {
+            icompq = 0;
+        }
+        else if (std::toupper(compq[0])=='P')
+        {
+            icompq = 1;
+        }
+        else if (std::toupper(compq[0])=='I')
+        {
+            icompq = 2;
+        }
+        else
+        {
+            icompq = -1;
+        }
+        if (iuplo==0)
+        {
+            info = -1;
+        }
+        else if (icompq<0)
+        {
+            info = -2;
+        }
+        else if (n<0)
+        {
+            info = -3;
+        }
+        else if (ldu<1 || (icompq==2 && ldu<n))
+        {
+            info = -7;
+        }
+        else if (ldvt<1 || (icompq==2 && ldvt<n))
+        {
+            info = -9;
+        }
+        if (info!=0)
+        {
+            xerbla("DBDSDC", -info);
+            return;
+        }
+        // Quick return if possible
+        if (n==0)
+        {
+            return;
+        }
+        int smlsiz = ilaenv(9, "DBDSDC", " ", 0, 0, 0, 0);
+        if (n==1)
+        {
+            if (icompq==1)
+            {
+                q[0] = std::copysign(ONE, d[0]);
+                q[smlsiz*n] = ONE;
+            }
+            else if (icompq==2)
+            {
+               U[0] = std::copysign(ONE, d[0]);
+               Vt[0] = ONE;
+            }
+            d[0] = std::fabs(d[0]);
+            return;
+        }
+        int nm1 = n - 1;
+        int nm2 = n - 2;
+        // If matrix lower bidiagonal,
+        // rotate to be upper bidiagonal by applying Givens rotations on the left
+        int wstart = 0;
+        int qstart = 2;
+        if (icompq==1)
+        {
+            Blas<real>::dcopy(n, d, 1, q[0], 1);
+            Blas<real>::dcopy(nm1, e, 1, q[n], 1);
+        }
+        int i;
+        real r;
+        if (iuplo==2)
+        {
+            qstart = 4;
+            if (icompq == 2)
+            {
+                wstart = 2 * nm1;
+            }
+            real cs, sn;
+            for (i=0; i<nm1; i++)
+            {
+                dlartg(d[i], e[i], cs, sn, r);
+                d[i]   = r;
+                e[i]   = sn * d[i+1];
+                d[i+1] = cs * d[i+1];
+                if (icompq==1)
+                {
+                    q[i+2*n] = cs;
+                    q[i+3*n] = sn;
+                }
+                else if (icompq==2)
+                {
+                    work[i]     =  cs;
+                    work[nm1+i] = -sn;
+                }
+            }
+        }
+        // If icompq = 0, use dlasdq to compute the singular values.
+        if (icompq==0)
+        {
+            /* Ignore wstart, instead using work, since the two vectors for cs and -sn above are
+             * added only if icompq == 2, and adding them exceeds documented work size of 4*n.   */
+            dlasdq("U", 0, n, 0, 0, 0, d, e, Vt, ldvt, U, ldu, U, ldu, work, info);
+        }
+        else
+        {
+            // If n is smaller than the minimum divide size smlsiz,
+            // then solve the problem with another solver.
+            int iu, ivt;
+            if (n<=smlsiz)
+            {
+                if (icompq==2)
+                {
+                    dlaset("A", n, n, ZERO, ONE, U, ldu);
+                    dlaset("A", n, n, ZERO, ONE, Vt, ldvt);
+                    dlasdq("U", 0, n, n, n, 0, d, e, Vt, ldvt, U, ldu, U, ldu, &work[wstart],
+                           info);
+                }
+                else if (icompq==1)
+                {
+                    iu = 0;
+                    ivt = iu + n;
+                    dlaset("A", n, n, ZERO, ONE, &q[iu+qstart*n], n);
+                    dlaset("A", n, n, ZERO, ONE, &q[ivt+qstart*n], n);
+                    dlasdq("U", 0, n, n, n, 0, d, e, &q[ivt+qstart*n], n, &q[iu+qstart*n], n,
+                           &q[iu+qstart*n], n, &work[wstart], info);
+                }
+            }
+            else
+            {
+                if (icompq==2)
+                {
+                    dlaset("A", n, n, ZERO, ONE, U, ldu);
+                    dlaset("A", n, n, ZERO, ONE, Vt, ldvt);
+                }
+                // Scale.
+                real orgnrm = dlanst("M", n, d, e);
+                if (orgnrm==ZERO)
+                {
+                    return;
+                }
+                int ierr;
+                dlascl("G", 0, 0, orgnrm, ONE, n, 1, d, n, ierr);
+                dlascl("G", 0, 0, orgnrm, ONE, nm1, 1, e, nm1, ierr);
+                real eps = real(0.9) * dlamch("Epsilon");
+                int difl, difr, givcol, givnum, givptr, ic, is, k, perm, poles, z;
+                if (icompq==1)
+                {
+                    int mlvl = int(std::log(real(n)/real(smlsiz+1)) / std::log(TWO)) + 1;
+                    iu     = 0;
+                    ivt    = smlsiz;
+                    difl   = ivt + smlsiz + 1;
+                    difr   = difl + mlvl;
+                    z      = difr + mlvl*2;
+                    ic     = z + mlvl;
+                    is     = ic + 1;
+                    poles  = is + 1;
+                    givnum = poles + 2*mlvl;
+                    k      = 1;
+                    givptr = 2;
+                    perm   = 3;
+                    givcol = perm + mlvl;
+                }
+                for (i=0; i<n; i++)
+                {
+                    if (std::fabs(d[i])<eps)
+                    {
+                        d[i] = std::copysign(eps, d[i]);
+                    }
+                }
+                int start = 0;
+                int sqre = 0;
+                int nsize;
+                for (i=0; i<nm1; i++)
+                {
+                    if (std::fabs(e[i])<eps || i==nm2)
+                    {
+                        // Subproblem found.
+                        // First determine its size and then apply divide and conquer on it.
+                        if (i<nm2)
+                        {
+                            // A subproblem with e[i] small for i < n - 2.
+                            nsize = i - start + 1;
+                        }
+                        else if (std::fabs(e[i])>=eps)
+                        {
+                            // A subproblem with e[n-2] not too small but i = n - 2.
+                            nsize = n - start;
+                        }
+                        else
+                        {
+                            // A subproblem with e[n-2] small. This implies an 1-by-1 subproblem at
+                            // d[n-1]. Solve this 1-by-1 problem first.
+                            nsize = i - start + 1;
+                            if (icompq==2)
+                            {
+                                U[nm1+ldu*nm1] = std::copysign(ONE, d[nm1]);
+                                Vt[nm1+ldvt*nm1] = ONE;
+                            }else if (icompq==1)
+                            {
+                                q[nm1+qstart*n] = std::copysign(ONE, d[nm1]);
+                                q[nm1+(smlsiz+qstart)*n] = ONE;
+                            }
+                            d[nm1] = std::fabs(d[nm1]);
+                        }
+                        if (icompq==2)
+                        {
+                            dlasd0(nsize, sqre, &d[start], &e[start], &U[start+ldu*start], ldu,
+                                   &Vt[start+ldvt*start], ldvt, smlsiz, iwork, &work[wstart],
+                                   info);
+                        }
+                        else
+                        {
+                            dlasda(icompq, smlsiz, nsize, sqre, &d[start], &e[start],
+                                   &q[start+(iu+qstart)*n], n, &q[start+(ivt+qstart)*n],
+                                   &iq[start+k*n], &q[start+(difl+qstart)*n],
+                                   &q[start+(difr+qstart)*n], &q[start+(z+qstart)*n],
+                                   &q[start+(poles+qstart)*n], &iq[start+givptr*n],
+                                   &iq[start+givcol*n], n, &iq[start+perm*n],
+                                   &q[start+(givnum+qstart)*n], &q[start+(ic+qstart)*n],
+                                   &q[start+(is+qstart)*n], &work[wstart], iwork, info);
+                            //TODO: convert iq[start+givcol*n] and iq[start+perm*n] to zero-based!
+                        }
+                        if (info!=0)
+                        {
+                            return;
+                        }
+                        start = i + 1;
+                    }
+                }
+                // Unscale
+                dlascl("G", 0, 0, ONE, orgnrm, n, 1, d, n, ierr);
+            }
+        }
+        // Use Selection Sort to minimize swaps of singular vectors
+        int ii, j, kk;
+        real p;
+        for (ii=1; ii<n; ii++)
+        {
+            i = ii - 1;
+            kk = i;
+            p = d[i];
+            for (j=ii; j<n; j++)
+            {
+                if (d[j]>p)
+                {
+                    kk = j;
+                    p = d[j];
+                }
+            }
+            if (kk!=i)
+            {
+                d[kk] = d[i];
+                d[i] = p;
+                if (icompq==1)
+                {
+                    iq[i] = kk+1;
+                }
+                else if (icompq==2)
+                {
+                    Blas<real>::dswap(n, &U[ldu*i], 1, &U[ldu*kk], 1);
+                    Blas<real>::dswap(n, &Vt[i], ldvt, &Vt[kk], ldvt);
+                }
+            }
+            else if (icompq==1)
+            {
+                iq[i] = i+1;
+            }
+        }
+        // If icompq = 1, use iq[n-1] as the indicator for uplo
+        if (icompq==1)
+        {
+            if (iuplo==1)
+            {
+                iq[nm1] = 1;
+            }
+            else
+            {
+                iq[nm1] = 0;
+            }
+        }
+        // If B is lower bidiagonal,
+        // update U by those Givens rotations which rotated B to be upper bidiagonal
+        if (iuplo==2 && icompq==2)
+        {
+            dlasr("L", "V", "B", n, n, work, &work[nm1], U, ldu);
+        }
+    }
+
+
     /*! \fn dbdsqr
      *
      * \brief §dbdsqr
@@ -492,7 +899,7 @@ public:
                 if (breakloop2)
                 {
                     e[ll] = ZERO;
-                    // Matrix splits since E[ll] = 0
+                    // Matrix splits since e[ll] = 0
                     if (ll==m-1)
                     {
                         // Convergence of bottom singular value, return to top of loop
@@ -505,7 +912,7 @@ public:
                     ll = -1;
                 }
                 ll++;
-                // E[ll] through E[m-1] are nonzero, E[ll-1] is zero
+                // e[ll] through e[m-1] are nonzero, e[ll-1] is zero
                 if (ll==m-1)
                 {
                     // 2 by 2 block, handle separately
@@ -2550,6 +2957,428 @@ public:
         }
     }
 
+    /*! §dlaln2 solves a 1 by 1 or 2 by 2 linear system of equations of the specified form.
+     *
+     * §dlaln2 solves a system of the form  $(c A - w D ) X = s B$ or $(c A^T - w D) X = s B$ with
+     * possible scaling ($s$) and perturbation of $A$. ($A^T$ means $A$-transpose.)\n
+     * $A$ is an §na by §na real matrix, $c$ is a real scalar, $D$ is an §na by §na real diagonal
+     * matrix, $w$ is a real or complex value, and $X$ and $B$ are §na by 1 matrices -- real if §w
+     * is real, complex if §w is complex. §na may be 1 or 2.\n
+     * If $w$ is complex, $X$ and $B$ are represented as §na by 2 matrices, the first column of
+     * each being the real part and the second being the imaginary part.\n
+     * $s$ is a scaling factor ($\le 1$), computed by §dlaln2, which is so chosen that $X$ can be
+     * computed without overflow. $X$ is further scaled if necessary to assure that
+     * $\on{norm}(c A - w D)\on{norm}(X)$ is less than overflow.\n
+     * If both singular values of $(c A - w D)$ are less than §smin, $\{smin}\cdot\{Identity}$
+     * will be used instead of $(c A - w D)$. If only one singular value is less than §smin, one
+     * element of $(c A - w D)$ will be perturbed enough to make the smallest singular value
+     * roughly §smin. If both singular values are at least §smin, $(c A - w D)$ will not be
+     * perturbed. In any case, the perturbation will be at most some small multiple of
+     * $\max(\{smin},\{ulp}\cdot\on{norm}(c A - w D))$. The singular values are computed by
+     * infinity-norm approximations, and thus will only be correct to a factor of 2 or so.\n
+     * Note: all input quantities are assumed to be smaller than overflow by a reasonable factor.
+     * (See §bignum.)
+     * \param[in] ltrans
+     *     = true:  $A$-transpose will be used.\n
+     *     = false: $A$ will be used (not transposed.)
+     *
+     * \param[in] na   The size of the matrix $A$.\n It may (only) be 1 or 2.
+     * \param[in] nw   1 if $w$ is real, 2 if $w$ is complex.\n It may only be 1 or 2.
+     * \param[in] smin
+     *     The desired lower bound on the singular values of $A$. This should be a safe distance
+     *     away from underflow or overflow, say, between (underflow/machine precision) and
+     *     (machine precision * overflow ). (See §bignum and §ulp.)
+     *
+     * \param[in] ca  The coefficient $c$, which $A$ is multiplied by.
+     * \param[in] A   an array, dimension (§lda,§na)\n The §na by §na matrix $A$.
+     * \param[in] lda The leading dimension of §A. It must be at least §na.
+     * \param[in] d1  The 0,0 element in the diagonal matrix $D$.
+     * \param[in] d2  The 1,1 element in the diagonal matrix $D$. Not used if §na = 1.
+     * \param[in] B
+     *     an array, dimension (§ldb,§nw)\n
+     *     The §na by §nw matrix $B$ (right-hand side). If §nw = 2 ($w$ is complex), column 0
+     *     contains the real part of $B$ and column 1 contains the imaginary part.
+     *
+     * \param[in]  ldb The leading dimension of $B$. It must be at least §na.
+     * \param[in]  wr  The real part of the scalar $w$.
+     * \param[in]  wi The imaginary part of the scalar $w$. Not used if §nw = 1.
+     * \param[out] X
+     *     an array, dimension (§ldx,§nw)\n
+     *     The §na by &nw matrix $X$ (unknowns), as computed by §dlaln2.\n
+     *     If §nw = 2 ($w$ is complex), on exit, column 1 will contain the real part of $X$ and
+     *     column 2 will contain the imaginary part.
+     *
+     * \param[in]  ldx   The leading dimension of §X. It must be at least §na.
+     * \param[out] scale
+     *     The scale factor that $B$ must be multiplied by to insure that overflow does not occur
+     *     when computing $X$. Thus, $(c A - w D) X$  will be $\{scale}\ B$, not $B$ (ignoring
+     *     perturbations of $A$.) It will be at most 1.
+     *
+     * \param[out] xnorm
+     *     The infinity-norm of $X$, when $X$ is regarded as an §na by §nw real matrix.
+     *
+     * \param[out] info
+     *     An error flag. It will be set to zero if no error occurs, a negative number if an
+     *     argument is in error, or a positive number if $c A - w D$ had to be perturbed.
+     *     The possible values are:\n
+     *         = 0: No error occurred, and $(c A - w D)$ did not have to be perturbed.\n
+     *         = 1: $(c A - w D)$ had to be perturbed to make its smallest (or only) singular value
+     *              greater than §smin. \n
+     *     NOTE: In the interests of speed, this routine does not check the inputs for errors.
+     * \authors Univ. of Tennessee
+     * \authors Univ. of California Berkeley
+     * \authors Univ. of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                       */
+    static void dlaln2(bool ltrans, int na, int nw, real smin, real ca, real const* A, int lda,
+                       real d1, real d2, real const* B, int ldb, real wr, real wi, real* X,
+                       int ldx, real& scale, real& xnorm, int& info)
+    {
+        const bool ZSWAP[4] = {false, false, true,  true};
+        const bool RSWAP[4] = {false, true,  false, true};
+        const int IPIVOT[16] = {0, 1, 2, 3,
+                                1, 0, 3, 2,
+                                2, 3, 0, 1,
+                                3, 2, 1, 0};
+        // Compute bignum
+        real smlnum = TWO * dlamch("Safe minimum");
+        real bignum = ONE / smlnum;
+        if (smin<smlnum)
+        {
+            smin = smlnum;
+        }
+        // Don't check for input errors
+        info = 0;
+        // Standard Initializations
+        scale = ONE;
+        real bnorm;
+        if (na==1)
+        {
+            real cnorm, csr;
+            // 1 by 1 (i.e., scalar) system C X = B
+            if (nw==1)
+            {
+                // Real 1 by 1 system.
+                // C = ca A - w D
+                csr = ca*A[0] - wr*d1;
+                cnorm = std::fabs(csr);
+                // If |C| < smin, use C = smin
+                if (cnorm<smin)
+                {
+                    csr   = smin;
+                    cnorm = smin;
+                    info = 1;
+                }
+                // Check scaling for X = B / C
+                bnorm = std::fabs(B[0]);
+                if (cnorm<ONE && bnorm>ONE)
+                {
+                    if (bnorm>bignum*cnorm)
+                    {
+                        scale = ONE / bnorm;
+                    }
+                }
+                // Compute X
+                X[0] = (B[0]*scale) / csr;
+                xnorm = std::fabs(X[0]);
+            }
+            else
+            {
+                // Complex 1 by 1 system ($w$ is complex) C = ca A - w D
+                csr = ca*A[0] - wr*d1;
+                real csi =    -wi * d1;
+                cnorm = std::fabs(csr) + std::fabs(csi);
+                // If |C| < smin, use C = smin
+                if (cnorm<smin)
+                {
+                    csr   = smin;
+                    csi   = ZERO;
+                    cnorm = smin;
+                    info = 1;
+                }
+                // Check scaling for X = B / C
+                bnorm = std::fabs(B[0]) + std::fabs(B[ldb]);
+                if (cnorm<ONE && bnorm>ONE)
+                {
+                    if (bnorm>bignum*cnorm)
+                    {
+                        scale = ONE / bnorm;
+                    }
+                }
+                // Compute X
+                dladiv(scale*B[0], scale*B[ldb], csr, csi, X[0], X[ldx]);
+                xnorm = std::fabs(X[0]) + std::fabs(X[ldx]);
+            }
+        }
+        else
+        {
+            int icmax, j;
+            real bbnd, br1, br2, cmax, cr21, cr22, lr21, temp, ur11, ur11r, ur12, ur22, xr1, xr2;
+            real crv[4];
+            // 2 by 2 System
+            // Compute the real part of  C = ca A - w D  (or  ca A^T - w D)
+            crv[0] = ca*A[0]     - wr*d1;//CR[0,0]
+            crv[3] = ca*A[1+lda] - wr*d2;//CR[1,1]
+            if (ltrans)
+            {
+                crv[2] = ca*A[1];  //CR[0,1]
+                crv[1] = ca*A[lda];//CR[1,0]
+            }
+            else
+            {
+                crv[1] = ca*A[1];  //CR[1,0]
+                crv[2] = ca*A[lda];//CR[0,1]
+            }
+            if (nw==1)
+            {
+                // Real 2 by 2 system (w is real)
+                // Find the largest element in C
+                cmax = ZERO;
+                icmax = -1;
+                for (j=0; j<4; j++)
+                {
+                    if (std::fabs(crv[j])>cmax)
+                    {
+                        cmax = std::fabs(crv[j]);
+                        icmax = j;
+                    }
+                }
+                // If norm(C) < smin, use smin*identity.
+                if (cmax<smin)
+                {
+                    bnorm = std::max(std::fabs(B[0]), std::fabs(B[1]));
+                    if (smin<ONE && bnorm>ONE)
+                    {
+                        if (bnorm>bignum*smin)
+                        {
+                            scale = ONE / bnorm;
+                        }
+                    }
+                    temp = scale / smin;
+                    X[0]  = temp*B[0];
+                    X[1]  = temp*B[1];
+                    xnorm = temp*bnorm;
+                    info = 1;
+                    return;
+                }
+                // Gaussian elimination with complete pivoting.
+                ur11 = crv[icmax];
+                cr21 = crv[IPIVOT[1+4*icmax]];//IPIVOT[1,icmax]
+                ur12 = crv[IPIVOT[2+4*icmax]];//IPIVOT[2,icmax]
+                cr22 = crv[IPIVOT[3+4*icmax]];//IPIVOT[3,icmax]
+                ur11r = ONE / ur11;
+                lr21 = ur11r * cr21;
+                ur22 = cr22 - ur12*lr21;
+                // If smaller pivot < smin, use smin
+                if (std::fabs(ur22)<smin)
+                {
+                    ur22 = smin;
+                    info = 1;
+                }
+                if (RSWAP[icmax])
+                {
+                    br1 = B[1];
+                    br2 = B[0];
+                }
+                else
+                {
+                    br1 = B[0];
+                    br2 = B[1];
+                }
+                br2 -= lr21 * br1;
+                bbnd = std::max(std::fabs(br1*(ur22*ur11r)), std::fabs(br2));
+                if (bbnd>ONE && std::fabs(ur22)<ONE)
+                {
+                    if (bbnd>=bignum*std::fabs(ur22))
+                    {
+                        scale = ONE / bbnd;
+                    }
+                }
+                xr2 = (br2*scale) / ur22;
+                xr1 = (scale*br1)*ur11r - xr2*(ur11r*ur12);
+                if (ZSWAP[icmax])
+                {
+                    X[0] = xr2;
+                    X[1] = xr1;
+                }
+                else
+                {
+                    X[0] = xr1;
+                    X[1] = xr2;
+                }
+                xnorm = std::max(std::fabs(xr1), std::fabs(xr2));
+                // Further scaling if norm(A) norm(X) > overflow
+                if (xnorm>ONE && cmax>ONE)
+                {
+                    if (xnorm > bignum/cmax)
+                    {
+                        temp = cmax / bignum;
+                        X[0]  *= temp;
+                        X[1]  *= temp;
+                        xnorm *= temp;
+                        scale *= temp;
+                    }
+                }
+            }
+            else
+            {
+                real bi1, bi2, ci21, ci22, li21, u22abs, ui11, ui11r, ui12, ui12s, ui22, ur12s,
+                     xi1, xi2;
+                real civ[4];
+                // Complex 2 by 2 system (w is complex)
+                // Find the largest element in C
+                civ[0] = -wi * d1;//CI[0,0]
+                civ[1] = ZERO;    //CI[1,0]
+                civ[2] = ZERO;    //CI[0,1]
+                civ[3] = -wi * d2;//CI[1,1]
+                cmax = ZERO;
+                icmax = -1;
+                for (j=0; j<4; j++)
+                {
+                    if (std::fabs(crv[j])+std::fabs(civ[j])>cmax)
+                    {
+                        cmax = std::fabs(crv[j]) + std::fabs(civ[j]);
+                        icmax = j;
+                    }
+                }
+                // If norm(C) < smin, use smin*identity.
+                if (cmax<smin)
+                {
+                    bnorm = std::max(std::fabs(B[0])+std::fabs(B[ldb]),
+                                     std::fabs(B[1])+std::fabs(B[1+ldb]));
+                    if (smin<ONE && bnorm>ONE)
+                    {
+                        if (bnorm>bignum*smin)
+                        {
+                            scale = ONE / bnorm;
+                        }
+                    }
+                    temp = scale / smin;
+                    X[0]     = temp*B[0];
+                    X[1]     = temp*B[1];
+                    X[ldx]   = temp*B[ldb];
+                    X[1+ldx] = temp*B[1+ldb];
+                    xnorm = temp*bnorm;
+                    info = 1;
+                    return;
+                }
+                // Gaussian elimination with complete pivoting.
+                ur11 = crv[icmax];
+                ui11 = civ[icmax];
+                cr21 = crv[IPIVOT[1+4*icmax]];//IPIVOT[1,icmax]
+                ci21 = civ[IPIVOT[1+4*icmax]];//IPIVOT[1,icmax]
+                ur12 = crv[IPIVOT[2+4*icmax]];//IPIVOT[2,icmax]
+                ui12 = civ[IPIVOT[2+4*icmax]];//IPIVOT[2,icmax]
+                cr22 = crv[IPIVOT[3+4*icmax]];//IPIVOT[3,icmax]
+                ci22 = civ[IPIVOT[3+4*icmax]];//IPIVOT[3,icmax]
+                if (icmax==0 || icmax==3)
+                {
+                    // Code when off-diagonals of pivoted C are real
+                    if (std::fabs(ur11)>std::fabs(ui11))
+                    {
+                        temp  = ui11 / ur11;
+                        ur11r = ONE / (ur11*(ONE+temp*temp));
+                        ui11r = -temp * ur11r;
+                    }
+                    else
+                    {
+                        temp  = ur11 / ui11;
+                        ui11r = -ONE / (ui11*(ONE+temp*temp));
+                        ur11r = -temp * ui11r;
+                    }
+                    lr21  = cr21 * ur11r;
+                    li21  = cr21 * ui11r;
+                    ur12s = ur12 * ur11r;
+                    ui12s = ur12 * ui11r;
+                    ur22  = cr22 - ur12*lr21;
+                    ui22  = ci22 - ur12*li21;
+                }
+                else
+                {
+                    // Code when diagonals of pivoted C are real
+                    ur11r = ONE / ur11;
+                    ui11r = ZERO;
+                    lr21  = cr21 * ur11r;
+                    li21  = ci21 * ur11r;
+                    ur12s = ur12 * ur11r;
+                    ui12s = ui12 * ur11r;
+                    ur22  = cr22 - ur12*lr21 + ui12*li21;
+                    ui22  = -ur12*li21 - ui12*lr21;
+                }
+                u22abs = std::fabs(ur22) + std::fabs(ui22);
+                // If smaller pivot < smin, use smin
+                if (u22abs<smin)
+                {
+                    ur22 = smin;
+                    ui22 = ZERO;
+                    info = 1;
+                }
+                if (RSWAP[icmax])
+                {
+                    br2 = B[0];
+                    br1 = B[1];
+                    bi2 = B[ldb];
+                    bi1 = B[1+ldb];
+                }
+                else
+                {
+                    br1 = B[0];
+                    br2 = B[1];
+                    bi1 = B[ldb];
+                    bi2 = B[1+ldb];
+                }
+                br2 -= lr21*br1 + li21*bi1;
+                bi2 -= li21*br1 - lr21*bi1;
+                bbnd = std::max((std::fabs(br1)+std::fabs(bi1))
+                                * (u22abs*(std::fabs(ur11r)+std::fabs(ui11r))),
+                                std::fabs(br2)+std::fabs(bi2));
+                if (bbnd>ONE && u22abs<ONE)
+                {
+                    if (bbnd>=bignum*u22abs)
+                    {
+                        scale = ONE / bbnd;
+                        br1 *= scale;
+                        bi1 *= scale;
+                        br2 *= scale;
+                        bi2 *= scale;
+                    }
+                }
+                dladiv(br2, bi2, ur22, ui22, xr2, xi2);
+                xr1 = ur11r*br1 - ui11r*bi1 - ur12s*xr2 + ui12s*xi2;
+                xi1 = ui11r*br1 + ur11r*bi1 - ui12s*xr2 - ur12s*xi2;
+                if (ZSWAP[icmax])
+                {
+                    X[0]     = xr2;
+                    X[1]     = xr1;
+                    X[ldx]   = xi2;
+                    X[1+ldx] = xi1;
+                }
+                else
+                {
+                    X[0]     = xr1;
+                    X[1]     = xr2;
+                    X[ldx]   = xi1;
+                    X[1+ldx] = xi2;
+                }
+                xnorm = std::max(std::fabs(xr1)+std::fabs(xi1), std::fabs(xr2)+std::fabs(xi2));
+                // Further scaling if  norm(A) norm(X) > overflow
+                if (xnorm>ONE && cmax>ONE)
+                {
+                    if (xnorm > bignum/cmax)
+                    {
+                        temp = cmax / bignum;
+                        X[0]     *= temp;
+                        X[1]     *= temp;
+                        X[ldx]   *= temp;
+                        X[1+ldx] *= temp;
+                        xnorm    *= temp;
+                        scale    *= temp;
+                    }
+                }
+            }
+        }
+    }
+
     /*! §dlamrg creates a permutation list to merge the entries of two independently sorted sets
      *  into a single set sorted in ascending order.
      *
@@ -2765,14 +3594,14 @@ public:
      * §dlanst returns the value of the one norm, or the Frobenius norm, or the  infinity norm, or
      * the element of largest absolute value of a real symmetric tridiagonal matrix $A$.\n
      *     $\{dlanst}=\left(\begin{tabular}{ll}
-     *         \(\max(|A[i,j]|)\),          & \{norm} = 'M' or 'm'           \\
-     *         \(\operatorname{norm1}(A)\), & \{norm} = '1', 'O' or 'o'      \\
-     *         \(\operatorname{normI}(A)\), & \{norm} = 'I' or 'i'           \\
-     *         \(\operatorname{normF}(A)\), & \{norm} = 'F', 'f', 'E' or 'e'
+     *         \(\max(|A[i,j]|)\), & \{norm} = 'M' or 'm'           \\
+     *         \(\on{norm1}(A)\),  & \{norm} = '1', 'O' or 'o'      \\
+     *         \(\on{normI}(A)\),  & \{norm} = 'I' or 'i'           \\
+     *         \(\on{normF}(A)\),  & \{norm} = 'F', 'f', 'E' or 'e'
      *     \end{tabular}\right.$\n
-     * where $\operatorname{norm1}$ denotes the one norm of a matrix (maximum column sum),
-     * $\operatorname{normI}$ denotes the infinity norm  of a matrix (maximum row sum) and
-     * $\operatorname{normF}$ denotes the Frobenius norm of a matrix (square root of sum of
+     * where $\on{norm1}$ denotes the one norm of a matrix (maximum column sum),
+     * $\on{normI}$ denotes the infinity norm  of a matrix (maximum row sum) and
+     * $\on{normF}$ denotes the Frobenius norm of a matrix (square root of sum of
      * squares).\n Note that $\max(|A[i,j]|)$ is not a consistent matrix norm.
      * \param[in] norm Specifies the value to be returned in §dlanst as described above.
      * \param[in] n
@@ -2792,11 +3621,12 @@ public:
     {
         int i;
         real anorm, sum;
+        char upnorm = std::toupper(norm[0]);
         if (n<=0)
         {
             anorm = ZERO;
         }
-        else if (std::toupper(norm[0])=='M')
+        else if (upnorm=='M')
         {
             // Find max(abs(A[i,j])).
             anorm = std::fabs(d[n-1]);
@@ -2814,7 +3644,7 @@ public:
                 }
             }
         }
-        else if (std::toupper(norm[0])=='O' || norm[0]=='1' || std::toupper(norm[0])=='I')
+        else if (upnorm=='O' || norm[0]=='1' || upnorm=='I')
         {
             // Find norm1(A).
             if (n==1)
@@ -2839,18 +3669,18 @@ public:
                 }
             }
         }
-        else if (std::toupper(norm[0])=='F' || std::toupper(norm[0])=='E')
+        else if (upnorm=='F' || upnorm=='E')
         {
             // Find normF(A).
-            real SCALE = ZERO;
+            real scale = ZERO;
             sum = ONE;
             if (n>1)
             {
-                dlassq(n-1, e, 1, SCALE, sum);
+                dlassq(n-1, e, 1, scale, sum);
                 sum *= 2;
             }
-            dlassq(n, d, 1, SCALE, sum);
-            anorm = SCALE * std::sqrt(sum);
+            dlassq(n, d, 1, scale, sum);
+            anorm = scale * std::sqrt(sum);
         }
         return anorm;
     }
@@ -5996,7 +6826,7 @@ public:
      *     $0 \le \{d}[i] < \{d}[j]$ for $i < j$\n
      * and that $\{rho} > 0$. This is arranged by the calling routine, and is no loss in
      * generality. The rank-one modified system is thus\n
-     *     $\operatorname{diag}(\{d})*\operatorname{diag}(\{d}) + \{rho}\ \{z}\ \{z}^T$.\n
+     *     $\on{diag}(\{d})*\on{diag}(\{d}) + \{rho}\ \{z}\ \{z}^T$.\n
      * where we assume the Euclidean norm of $z$ is 1.\n
      * The method consists of approximating the rational functions in the secular equation by
      * simpler interpolating rational functions.
@@ -6956,7 +7786,7 @@ public:
      *
      * §dlasd5: This subroutine computes the square root of the §i -th eigenvalue of a positive
      * symmetric rank-one modification of a 2-by-2 diagonal matrix\n
-     *     $\operatorname{diag}(\{d}) \operatorname{diag}(\{d}) + \{rho}\ \{z}\ \{z}^T$.\n
+     *     $\on{diag}(\{d}) \on{diag}(\{d}) + \{rho}\ \{z}\ \{z}^T$.\n
      * The diagonal entries in the array §d are assumed to satisfy\n
      *     $0 \le \{d}[i] < \{d}[j]$ for $i < j$.\n
      * We also assume $\{rho} > 0$ and that the Euclidean norm of the vector §z is one.

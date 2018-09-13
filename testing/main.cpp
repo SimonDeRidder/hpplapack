@@ -12,6 +12,7 @@ int main(int argc, char* argv[])
     // TEST EIG ROUTINES
     Testing_eig<double>* te = new Testing_eig<double>();
     // test dgebal
+    // TODO integrate into dchkee
     ifstream f("data/dbal.in");
     char dummy[20];
     f.getline(dummy, 20);

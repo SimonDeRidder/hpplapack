@@ -948,7 +948,7 @@ IMAGE_PATH             =
 # need to set EXTENSION_MAPPING for the extension otherwise the files are not
 # properly processed by doxygen.
 
-INPUT_FILTER           = "sed -e 's/\xc2\xa7/\\\\c /g' -e 's/\$/\\\\f\$/g' -e 's/\\\\{/\\\\texttt{/g' -e 's/\\\\b{bm}/\\\\begin{bmatrix}/g' -e 's/\\\\e{bm}/\\\\end{bmatrix}/g'"
+INPUT_FILTER           = "sed -e 's/\xc2\xa7/\\\\c /g' -e 's/\$/\\\\f\$/g' -e 's/\\\\{/\\\\texttt{/g' -e 's/\\\\b{bm}/\\\\begin{bmatrix}/g' -e 's/\\\\e{bm}/\\\\end{bmatrix}/g' -e 's/\\\\on{/\\\\operatorname{/g'"
 
 # The FILTER_PATTERNS tag can be used to specify filters on a per file pattern
 # basis. Doxygen will compare the file name with each pattern and apply the
