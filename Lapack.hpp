@@ -223,10 +223,10 @@ public:
      *     For other values of §compq, §iq is not referenced.
      *
      * \param[out] work
-     *     an array, dimension ($\max(1,\{LWORK})$)\n
-     *         If §compq = 'N' then $\{LWORK}\ge(4\{n})$.\n
-     *         If §compq = 'P' then $\{LWORK}\ge(6\{n})$.\n
-     *         If §compq = 'I' then $\{LWORK}\ge(3\{n}^2+4\{n})$.
+     *     an array, dimension ($\max(1,\{lwork})$)\n
+     *         If §compq = 'N' then $\{lwork}\ge(4\{n})$.\n
+     *         If §compq = 'P' then $\{lwork}\ge(6\{n})$.\n
+     *         If §compq = 'I' then $\{lwork}\ge(3\{n}^2+4\{n})$.
      *
      * \param[out] iwork an integer array, dimension ($8\{n}$)
      * \param[out] info
@@ -2959,7 +2959,7 @@ public:
 
     /*! §dlaln2 solves a 1 by 1 or 2 by 2 linear system of equations of the specified form.
      *
-     * §dlaln2 solves a system of the form  $(c A - w D ) X = s B$ or $(c A^T - w D) X = s B$ with
+     * §dlaln2 solves a system of the form  $(c A - w D) X = s B$ or $(c A^T - w D) X = s B$ with
      * possible scaling ($s$) and perturbation of $A$. ($A^T$ means $A$-transpose.)\n
      * $A$ is an §na by §na real matrix, $c$ is a real scalar, $D$ is an §na by §na real diagonal
      * matrix, $w$ is a real or complex value, and $X$ and $B$ are §na by 1 matrices -- real if §w
@@ -2987,7 +2987,7 @@ public:
      * \param[in] smin
      *     The desired lower bound on the singular values of $A$. This should be a safe distance
      *     away from underflow or overflow, say, between (underflow/machine precision) and
-     *     (machine precision * overflow ). (See §bignum and §ulp.)
+     *     (machine precision * overflow). (See §bignum and §ulp.)
      *
      * \param[in] ca  The coefficient $c$, which $A$ is multiplied by.
      * \param[in] A   an array, dimension (§lda,§na)\n The §na by §na matrix $A$.
@@ -12684,6 +12684,1162 @@ public:
             }
         }
         work[0] = lwkopt;
+    }
+
+    /*! §dtrevc3
+     *
+     * §dtrevc3 computes some or all of the right and/or left eigenvectors of a real upper
+     * quasi-triangular matrix $T$. Matrices of this type are produced by the Schur factorization
+     * of a real general matrix: $A = Q T Q^T$, as computed by §dhseqr.\n
+     * The right eigenvector $x$ and the left eigenvector $y$ of $T$ corresponding to an eigenvalue
+     * $w$ are defined by:\n
+     *     $T x = w x$, &emsp; $y^HT = wy^H$\n
+     * where $y^H$ denotes the conjugate transpose of $y$. The eigenvalues are not input to this
+     * routine, but are read directly from the diagonal blocks of $T$.\n
+     * This routine returns the matrices $X$ and/or $Y$ of right and left eigenvectors of $T$, or
+     * the products $Q X$ and/or $Q Y$, where $Q$ is an input matrix. If $Q$ is the orthogonal
+     * factor that reduces a matrix $A$ to Schur form $T$, then $Q X$ and $Q Y$ are the matrices of
+     * right and left eigenvectors of $A$.\n
+     * This uses a Level 3 BLAS version of the back transformation.
+     * \param[in] side
+     *     = 'R': compute right eigenvectors only;\n
+     *     = 'L': compute left eigenvectors only;\n
+     *     = 'B': compute both right and left eigenvectors.
+     *
+     * \param[in] howmny
+     *     = 'A': compute all right and/or left eigenvectors;\n
+     *     = 'B': compute all right and/or left eigenvectors, backtransformed by the matrices in
+     *            §Vr and/or §Vl;\n
+     *     = 'S': compute selected right and/or left eigenvectors, as indicated by the logical
+     *            array §select.
+     *
+     * \param[in,out] select
+     *     a boolean array, dimension (§n)\n
+     *     If §howmny = 'S', §select specifies the eigenvectors to be computed.
+     *     If $\{w}[j]$ is a real eigenvalue, the corresponding real eigenvector is computed if
+     *     $\{select}[j]$ is §true. If $\{w}[j]$ and $\{w}[j+1]$ are the real and imaginary parts
+     *     of a complex eigenvalue, the corresponding complex eigenvector is computed if either
+     *     $\{select}[j]$ or $\{select}[j+1]$ is §true, and on exit $\{select}[j]$ is set to §true
+     *     and $\{select}[j+1]$ is set to §false. \n Not referenced if §howmny = 'A' or 'B'.
+     *
+     * \param[in] n The order of the matrix $T$. $\{n}\ge 0$.
+     * \param[in] T
+     *      an array, dimension (§ldt,§n)\n
+     *      The upper quasi-triangular matrix $T$ in Schur canonical form.
+     *
+     * \param[in] ldt
+     *     The leading dimension of the array $T$. $\{ldt} \ge max(1,n)$.
+     *
+     * \param[in,out] Vl
+     *     an array, dimension (§ldvl,§mm)\n
+     *     On entry, if §side = 'L' or 'B' and §howmny = 'B', §Vl must contain an §n by §n matrix
+     *     $Q$ (usually the orthogonal matrix $Q$ of Schur vectors returned by §dhseqr).\n
+     *     On exit, if §side = 'L' or 'B', §Vl contains:
+     *     \li if §howmny = 'A', the matrix $Y$ of left eigenvectors of $T$;
+     *     \li if §howmny = 'B', the matrix $Q Y$;
+     *     \li if §howmny = 'S', the left eigenvectors of $T$ specified by §select, stored
+     *                           consecutively in the columns of §Vl, in the same order as their
+     *                           eigenvalues.
+     *
+     *     A complex eigenvector corresponding to a complex eigenvalue is stored in two consecutive
+     *     columns, the first holding the real part, and the second the imaginary part.\n
+     *     Not referenced if §side = 'R'.
+     *
+     * \param[in] ldvl
+     *     The leading dimension of the array §Vl. \n
+     *     $\{ldvl}\ge 1$, and if §side = 'L' or 'B', $\{ldvl}\ge\{n}$.
+     *
+     * \param[in,out] Vr
+     *     an array, dimension (§ldvr,§mm)\n
+     *     On entry, if §side = 'R' or 'B' and §howmny = 'B', §Vr must contain an §n by §n matrix
+     *     $Q$ (usually the orthogonal matrix $Q$ of Schur vectors returned by §dhseqr). \n
+     *     On exit, if §side = 'R' or 'B', §Vr contains:
+     *     \li if §howmny = 'A', the matrix $X$ of right eigenvectors of $T$;
+     *     \li if §howmny = 'B', the matrix $Q X$;
+     *     \li if §howmny = 'S', the right eigenvectors of $T$ specified by §select, stored
+     *                           consecutively in the columns of §Vr, in the same order as their
+     *                           eigenvalues.
+     *
+     *     A complex eigenvector corresponding to a complex eigenvalue is stored in two consecutive
+     *     columns, the first holding the real part and the second the imaginary part.\n
+     *     Not referenced if §side = 'L'.
+     *
+     * \param[in] ldvr
+     *     The leading dimension of the array §Vr.\n
+     *     $\{ldvr}\ge 1$, and if §side = 'R' or 'B', $\{ldvr}\ge\{n}$.
+     *
+     * \param[in] mm
+     *     The number of columns in the arrays §Vl and/or §Vr. $\{mm}\ge\{m}$.
+     *
+     * \param[out] m
+     *     The number of columns in the arrays §Vl and/or §Vr actually used to store the
+     *     eigenvectors. If §howmny = 'A' or 'B', §m is set to §n. Each selected real eigenvector
+     *     occupies one column and each selected complex eigenvector occupies two columns.
+     *
+     * \param[out] work  an array, dimension ($\max(1,\{lwork})$)
+     * \param[in]  lwork
+     *     The dimension of array §work. $\{lwork}\ge\max(1,3\{n})$.\n
+     *     For optimum performance, $\{lwork}\ge\{n}+2\{n}\ \{nb}$, where §nb is the optimal
+     *     blocksize.\n
+     *     If §lwork = -1, then a workspace query is assumed; the routine only calculates the
+     *     optimal size of the §work array, returns this value as the first entry of the §work
+     *     array, and no error message related to §lwork is issued by §xerbla.
+     *
+     * \param[out] info
+     *     = 0: successful exit\n
+     *     < 0: if §info = $-i$, the $i$-th argument had an illegal value
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date November 2017
+     * \remark
+     *     The algorithm used in this program is basically backward (forward) substitution, with
+     *     scaling to make the the code robust against possible overflow.\n
+     *     Each eigenvector is normalized so that the element of largest magnitude has magnitude 1;
+     *     here the magnitude of a complex number ($x$,$y$) is taken to be $|x| + |y|$.          */
+    static void dtrevc3(char const* side, char const* howmny, bool* select, int n, real const* T,
+                        int ldt, real* Vl, int ldvl, real* Vr, int ldvr, int mm, int& m,
+                        real* work, int lwork, int& info)
+    {
+        const int NBMIN=8, NBMAX=128;
+        // Decode and test the input parameters
+        char upside = std::toupper(side[0]);
+        bool bothv  = (upside=='B');
+        bool rightv = (upside=='R' || bothv);
+        bool leftv  = (upside=='L' || bothv);
+        char uphowmny = std::toupper(howmny[0]);
+        bool allv  = (uphowmny=='A');
+        bool over  = (uphowmny=='B');
+        bool somev = (uphowmny=='S');
+        info = 0;
+        int nb;
+        {
+            char def[3];
+            def[0] = upside;
+            def[1] = uphowmny;
+            def[2] = '\0';
+            nb = ilaenv(1, "DTREVC", def, n, -1, -1, -1);
+        }
+        work[0] = real(n + 2*n*nb); // maxwork
+        bool lquery = (lwork==-1);
+        int i, j;
+        if (!rightv && !leftv)
+        {
+            info = -1;
+        }
+        else if (!allv && !over && !somev)
+        {
+            info = -2;
+        }
+        else if (n<0)
+        {
+            info = -4;
+        }
+        else if (ldt<std::max(1, n))
+        {
+            info = -6;
+        }
+        else if (ldvl<1 || (leftv && ldvl<n))
+        {
+            info = -8;
+        }
+        else if (ldvr<1 || (rightv && ldvr<n))
+        {
+            info = -10;
+        }
+        else if (lwork<std::max(1, 3*n) && !lquery)
+        {
+            info = -14;
+        }
+        else
+        {
+            // Set m to the number of columns required to store the selected eigenvectors,
+            // standardize the array select if necessary, and test mm.
+            if (somev)
+            {
+                m = 0;
+                bool pair = false;
+                for (j=0; j<n; j++)
+                {
+                    if (pair)
+                    {
+                        pair = false;
+                        select[j] = false;
+                    }
+                    else
+                    {
+                        if (j<n-1)
+                        {
+                            if (T[j+1+ldt*j]==ZERO)
+                            {
+                                if (select[j])
+                                {
+                                    m++;
+                                }
+                            }
+                            else
+                            {
+                                pair = true;
+                                if (select[j] || select[j+1])
+                                {
+                                    select[j] = true;
+                                    m += 2;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            if (select[n-1])
+                            {
+                                m++;
+                            }
+                        }
+                    }
+                }
+            }
+            else
+            {
+                m = n;
+            }
+            if (mm<m)
+            {
+                info = -11;
+            }
+        }
+        if (info!=0)
+        {
+            xerbla("DTREVC3", -info);
+            return;
+        }
+        else if (lquery)
+        {
+            return;
+        }
+        // Quick return if possible.
+        if (n==0)
+        {
+            return;
+        }
+        // Use blocked version of back-transformation if sufficient workspace.
+        // Zero-out the workspace to avoid potential NaN propagation.
+        if (over && lwork >= n + 2*n*NBMIN)
+        {
+            nb = (lwork-n) / (2*n);
+            nb = std::min(nb, NBMAX);
+            dlaset("F", n, 1+2*nb, ZERO, ZERO, work, n);
+        }
+        else
+        {
+            nb = 1;
+        }
+        // Set the constants to control overflow.
+        real unfl = dlamch("Safe minimum");
+        real ovfl = ONE / unfl;
+        dlabad(unfl, ovfl);
+        real ulp = dlamch("Precision");
+        real smlnum = unfl * (n/ulp);
+        real bignum = (ONE-ulp) / smlnum;
+        // Compute 1-norm of each column of strictly upper triangular part of T to control overflow
+        // in triangular solver.
+        work[0] = ZERO;
+        int tcolki;
+        for (j=1; j<n; j++)
+        {
+            work[j] = ZERO;
+            tcolki = ldt * j;
+            for (i=0; i<j; i++)
+            {
+                work[j] += std::fabs(T[i+tcolki]);
+            }
+        }
+        /* Index ip is used to specify the real or complex eigenvalue:
+         * ip = 0, real eigenvalue,
+         *      1, first  of conjugate complex pair: (wr,wi)
+         *     -1, second of conjugate complex pair: (wr,wi)
+         * iscomplex array stores ip for each column in current block.                           */
+        int ierr, ii, ip, is, iv, ivpn, j1, j2, jnxt, k, ki, kip1, ki2, tcolj, tcol3, workcol;
+        real emax, rec, remax, scale, smin, wi, wr, xnorm;
+        real X[2*2];
+        int iscomplex[NBMAX];
+        if (rightv)
+        {
+            /* Compute right eigenvectors.
+             * iv is index of column in current block.
+             * For complex right vector, uses iv for real part and iv+1 for complex part.
+             * Non-blocked version always uses iv=1;
+             * blocked     version starts with iv=nb-1, goes down to 0 or 1.
+             * (Note the "-1-th" column is used for 1-norms computed above.)                     */
+            iv = 1;
+            if (nb>2)
+            {
+                iv = nb - 1;
+            }
+            ip = 0;
+            is = m - 1;
+            int ivn, jm1, kim1, tcolkim, vrcol, vrcolm;
+            ivn = iv * n;
+            ivpn = ivn + n;
+            for (ki=n-1; ki>=0; ki--)
+            {
+                kim1 = ki - 1;
+                kip1 = ki + 1;
+                tcolki = ldt * ki;
+                tcolkim = tcolki - ldt;
+                if (ip==-1)
+                {
+                    // previous iteration (ki+1) was second of conjugate pair,
+                    // so this ki is first of conjugate pair; skip to end of loop
+                    ip = 1;
+                    continue;
+                }
+                else if (ki==0)
+                {
+                    // last column, so this ki must be real eigenvalue
+                    ip = 0;
+                }
+                else if (T[ki+tcolkim]==ZERO)
+                {
+                    // zero on sub-diagonal, so this ki is real eigenvalue
+                    ip = 0;
+                }
+                else
+                {
+                    // non-zero on sub-diagonal, so this ki is second of conjugate pair
+                    ip = -1;
+                }
+                if (somev)
+                {
+                    if (ip==0)
+                    {
+                        if (!select[ki])
+                        {
+                            continue;
+                        }
+                    }
+                    else
+                    {
+                        if (!select[kim1])
+                        {
+                            continue;
+                        }
+                    }
+                }
+                // Compute the ki-th eigenvalue (wr,wi).
+                wr = T[ki+tcolki];
+                wi = ZERO;
+                if (ip!=0)
+                {
+                    wi = std::sqrt(std::fabs(T[ki+tcolkim]))
+                       * std::sqrt(std::fabs(T[kim1+tcolki]));
+                }
+                smin = std::max(ulp*(std::fabs(wr)+std::fabs(wi)), smlnum);
+                if (ip==0)
+                {
+                    // Real right eigenvector
+                    work[ki+ivpn] = ONE;
+                    // Form right-hand side.
+                    for (k=0; k<ki; k++)
+                    {
+                        work[k+ivpn] = -T[k+tcolki];
+                    }
+                    // Solve upper quasi-triangular system: [T[0:ki-1,0:ki-1] - wr]*X = scale*work.
+                    jnxt = kim1;
+                    for (j=kim1; j>=0; j--)
+                    {
+                        if (j>jnxt)
+                        {
+                            continue;
+                        }
+                        j1 = j;
+                        j2 = j;
+                        jm1 = j - 1;
+                        jnxt = jm1;
+                        tcolj = ldt * j;
+                        tcol3 = tcolj - ldt;
+                        if (j>0)
+                        {
+                            if (T[j+tcol3]!=ZERO)
+                            {
+                                j1   = jm1;
+                                jnxt = j - 2;
+                            }
+                        }
+                        if (j1==j2)
+                        {
+                            // 1-by-1 diagonal block
+                            dlaln2(false, 1, 1, smin, ONE, &T[j+tcolj], ldt, ONE, ONE,
+                                   &work[j+ivpn], n, wr, ZERO, X, 2, scale, xnorm, ierr);
+                            // Scale X[0,0] to avoid overflow when updating the right-hand side.
+                            if (xnorm>ONE)
+                            {
+                                if (work[j] > bignum/xnorm)
+                                {
+                                    X[0]  /= xnorm;
+                                    scale /= xnorm;
+                                }
+                            }
+                            // Scale if necessary
+                            if (scale!=ONE)
+                            {
+                                dscal(kip1, scale, &work[ivpn], 1);
+                            }
+                            work[j+ivpn] = X[0];
+                            // Update right-hand side
+                            Blas<real>::daxpy(j, -X[0], &T[tcolj], 1, &work[ivpn], 1);
+                        }
+                        else
+                        {
+                            // 2-by-2 diagonal block
+                            dlaln2(false, 2, 1, smin, ONE, &T[jm1+tcol3], ldt, ONE, ONE,
+                                   &work[jm1+ivpn], n, wr, ZERO, X, 2, scale, xnorm, ierr);
+                            // Scale X[0,0] and X[1,0] to avoid overflow when updating the
+                            // right-hand side.
+                            if (xnorm>ONE)
+                            {
+                                if (std::max(work[jm1], work[j]) > bignum/xnorm)
+                                {
+                                    X[0]  /= xnorm;
+                                    X[1]  /= xnorm;
+                                    scale /= xnorm;
+                                }
+                            }
+                            // Scale if necessary
+                            if (scale!=ONE)
+                            {
+                                dscal(kip1, scale, &work[ivpn], 1);
+                            }
+                            work[jm1+ivpn] = X[0];
+                            work[j  +ivpn] = X[1];
+                            // Update right-hand side
+                            Blas<real>::daxpy(jm1, -X[0], &T[tcol3], 1, &work[ivpn], 1);
+                            Blas<real>::daxpy(jm1, -X[1], &T[tcolj],     1, &work[ivpn], 1);
+                        }
+                    }
+                    // Copy the vector x or Q*x to Vr and normalize.
+                    if (!over)
+                    {
+                        // no back-transform: copy x to Vr and normalize.
+                        vrcol = ldvr * is;
+                        Blas<real>::dcopy(kip1, &work[ivpn], 1, &Vr[vrcol], 1);
+                        ii = Blas<real>::idamax(kip1, &Vr[vrcol], 1);
+                        remax = ONE / std::fabs(Vr[ii+vrcol]);
+                        Blas<real>::dscal(kip1, remax, &Vr[vrcol], 1);
+                        for (k=kip1; k<n; k++)
+                        {
+                            Vr[k+vrcol] = ZERO;
+                        }
+                    }
+                    else if (nb==1)
+                    {
+                        // version 1: back-transform each vector with GEMV, Q*x.
+                        vrcol = ldvr * ki;
+                        if (ki>0)
+                        {
+                            Blas<real>::dgemv("N", n, ki, ONE, Vr, ldvr, &work[ivpn], 1,
+                                              &work[ki+ivpn], &Vr[vrcol], 1);
+                        }
+                        ii = Blas<real>::idamax(n, &Vr[vrcol], 1);
+                        remax = ONE / std::fabs(Vr[ii+vrcol]);
+                        Blas<real>::dscal(n, remax, &Vr[vrcol], 1);
+                    }
+                    else
+                    {
+                        // version 2: back-transform block of vectors with GEMM
+                        // zero out below vector
+                        for (k=kip1; k<n; k++)
+                        {
+                            work[k+ivpn] = ZERO;
+                        }
+                        iscomplex[iv] = ip;
+                        // back-transform and normalization is done below
+                    }
+                }
+                else
+                {
+                    // Complex right eigenvector.
+                    // Initial solve
+                    // [ (T[ki-1,ki-1] T[ki-1,ki]) - (wr + i*wi) ]*X = 0.
+                    // [ (T[ki,ki-1]   T[ki,ki])                 ]
+                    if (std::fabs(T[kim1+tcolki]) >= std::fabs(T[ki+tcolkim]))
+                    {
+                        work[kim1+ivn]  = ONE;
+                        work[ki  +ivpn] = wi / T[kim1+tcolki];
+                    }
+                    else
+                    {
+                        work[kim1+ivn]  = -wi / T[ki+tcolkim];
+                        work[ki  +ivpn] = ONE;
+                    }
+                    work[ki + ivn]  = ZERO;
+                    work[kim1+ivpn] = ZERO;
+                    // Form right-hand side.
+                    for (k=0; k<kim1; k++)
+                    {
+                        work[k+ivn]  = -work[kim1+ivn]  * T[k+tcolkim];
+                        work[k+ivpn] = -work[ki + ivpn] * T[k+tcolki];
+                    }
+                    // Solve upper quasi-triangular system:
+                    // [ T[0:ki-2,0:ki-2] - (wr+i*wi) ]*X = scale*(work+i*WORK2)
+                    jnxt = ki - 2;
+                    for (j=ki-2; j>=0; j--)
+                    {
+                        if (j>jnxt)
+                        {
+                            continue;
+                        }
+                        j1   = j;
+                        j2   = j;
+                        jm1  = j - 1;
+                        jnxt = jm1;
+                        tcolj = ldt * j;
+                        tcol3 = tcolj - ldt;
+                        if (j>0)
+                        {
+                            if (T[j+tcol3]!=ZERO)
+                            {
+                                j1   = jm1;
+                                jnxt = j - 2;
+                            }
+                        }
+                        if (j1==j2)
+                        {
+                            // 1-by-1 diagonal block
+                            dlaln2(false, 1, 2, smin, ONE, &T[j+tcolj], ldt, ONE, ONE,
+                                   &work[j+ivn], n, wr, wi, X, 2, scale, xnorm, ierr);
+                            // Scale X[0,0] and X[0,1] to avoid overflow when updating the
+                            // right-hand side.
+                            if (xnorm>ONE)
+                            {
+                                if (work[j] > bignum/xnorm)
+                                {
+                                    X[0]  /= xnorm;
+                                    X[2]  /= xnorm;
+                                    scale /= xnorm;
+                                }
+                            }
+                            // Scale if necessary
+                            if (scale!=ONE)
+                            {
+                                Blas<real>::dscal(kip1, scale, work[ivn],  1);
+                                Blas<real>::dscal(kip1, scale, work[ivpn], 1);
+                            }
+                            work[j+ivn]  = X[0];
+                            work[j+ivpn] = X[2];
+                            // Update the right-hand side
+                            Blas<real>::daxpy(j, -X[0], &T[tcolj], 1, &work[ivn],  1);
+                            Blas<real>::daxpy(j, -X[2], &T[tcolj], 1, &work[ivpn], 1);
+                        }
+                        else
+                        {
+                            // 2 by 2 diagonal block
+                            dlaln2(false, 2, 2, smin, ONE, &T[jm1+tcol3], ldt, ONE, ONE,
+                                   &work[jm1+ivn], n, wr, wi, X, 2, scale, xnorm, ierr);
+                            // Scale X to avoid overflow when updating the right-hand side.
+                            if (xnorm>ONE)
+                            {
+                                if (std::max(work[jm1], work[j]) > bignum/xnorm)
+                                {
+                                    rec = ONE / xnorm;
+                                    X[0]  *= rec;
+                                    X[2]  *= rec;
+                                    X[1]  *= rec;
+                                    X[3]  *= rec;
+                                    scale *= rec;
+                                }
+                            }
+                            // Scale if necessary
+                            if (scale!=ONE)
+                            {
+                                Blas<real>::dscal(kip1, scale, work[ivn], 1);
+                                Blas<real>::dscal(kip1, scale, work[ivpn], 1);
+                            }
+                            work[jm1+ivn]  = X[0];
+                            work[j  +ivn]  = X[1];
+                            work[jm1+ivpn] = X[2];
+                            work[j  +ivpn] = X[3];
+                            // Update the right-hand side
+                            Blas<real>::daxpy(jm1, -X[0], &T[tcol3], 1, &work[ivn],  1);
+                            Blas<real>::daxpy(jm1, -X[1], &T[tcolj],     1, &work[ivn],  1);
+                            Blas<real>::daxpy(jm1, -X[2], &T[tcol3], 1, &work[ivpn], 1);
+                            Blas<real>::daxpy(jm1, -X[3], &T[tcolj],     1, &work[ivpn], 1);
+                        }
+                    }
+                    // Copy the vector x or Q*x to Vr and normalize.
+                    if (!over)
+                    {
+                        // no back-transform: copy x to Vr and normalize.
+                        vrcol  = ldvr * is;
+                        vrcolm = vrcol - ldvr;
+                        Blas<real>::dcopy(kip1, &work[ivn],  1, &Vr[vrcolm], 1);
+                        Blas<real>::dcopy(kip1, &work[ivpn], 1, &Vr[vrcol],  1);
+                        emax = ZERO;
+                        for (k=0; k<=ki; k++)
+                        {
+                            emax = std::max(emax, std::fabs(Vr[k+vrcolm])+std::fabs(Vr[k+vrcol]));
+                        }
+                        remax = ONE / emax;
+                        Blas<real>::dscal(kip1, remax, &Vr[vrcolm], 1);
+                        Blas<real>::dscal(kip1, remax, &Vr[vrcol],  1);
+                        for (k=kip1; k<n; k++)
+                        {
+                            Vr[k+vrcolm] = ZERO;
+                            Vr[k+vrcol]  = ZERO;
+                        }
+                    }
+                    else if (nb==1)
+                    {
+                        // version 1: back-transform each vector with GEMV, Q*x.
+                        vrcol  = ldvr * ki;
+                        vrcolm = vrcol - ldvr;
+                        if (ki>1)
+                        {
+                            Blas<real>::dgemv("N", n, kim1, ONE, Vr, ldvr, &work[ivn],  1,
+                                              work[kim1+ivn], &Vr[vrcolm], 1);
+                            Blas<real>::dgemv("N", n, kim1, ONE, Vr, ldvr, &work[ivpn], 1,
+                                              work[ki+ivpn],  &Vr[vrcol],  1);
+                        }
+                        else
+                        {
+                            Blas<real>::dscal(n, work[kim1+ivn],  &Vr[vrcolm], 1);
+                            Blas<real>::dscal(n, work[ki + ivpn], &Vr[vrcol],  1);
+                        }
+                        emax = ZERO;
+                        for (k=0; k<n; k++)
+                        {
+                            emax = std::max(emax, std::fabs(Vr[k+vrcolm])+std::fabs(Vr[k+vrcol]));
+                        }
+                        remax = ONE / emax;
+                        Blas<real>::dscal(n, remax, &Vr[vrcolm], 1);
+                        Blas<real>::dscal(n, remax, &Vr[vrcol],  1);
+                    }
+                    else
+                    {
+                        // version 2: back-transform block of vectors with GEMM
+                        // zero out below vector
+                        for (k=kip1; k<n; k++)
+                        {
+                            work[k+ivn]  = ZERO;
+                            work[k+ivpn] = ZERO;
+                        }
+                        iscomplex[iv-1] = -ip;
+                        iscomplex[iv]   =  ip;
+                        iv--;
+                        ivn  = iv * n;
+                        ivpn = ivn + n;
+                        // back-transform and normalization is done below
+                    }
+                }
+                if (nb>1)
+                {
+                    // Blocked version of back-transform
+                    // For complex case, ki2 includes both vectors (ki-1 and ki)
+                    if (ip==0)
+                    {
+                        ki2 = ki;
+                    }
+                    else
+                    {
+                        ki2 = kim1;
+                    }
+                    // Columns iv+1:nb-1 of work are valid vectors.
+                    // When the number of vectors stored reaches nb-1 or nb, or if this was last
+                    // vector, do the GEMM
+                    if (iv<=1 || ki2==0)
+                    {
+                        Blas<real>::dgemm("N", "N", n, nb-iv, ki2+nb-iv, ONE, Vr, ldvr,
+                                          &work[ivpn], n, ZERO, &work[(nb+iv+1)*n], n);
+                        // normalize vectors
+                        for (k=iv; k<nb; k++)
+                        {
+                            workcol = (nb+k+1) * n;
+                            if (iscomplex[k]==0)
+                            {
+                                // real eigenvector
+                                ii = Blas<real>::idamax(n, &work[workcol], 1);
+                                remax = ONE / std::fabs(work[ii+workcol]);
+                            }
+                            else if (iscomplex[k]==1)
+                            {
+                                // first eigenvector of conjugate pair
+                                emax = ZERO;
+                                for (ii=0; ii<n; ii++)
+                                {
+                                    emax = std::max(emax, std::fabs(work[ii+workcol])
+                                                         +std::fabs(work[ii+workcol+n]));
+                                }
+                                remax = ONE / emax;
+                            // }else if (iscomplex[k]==-1){
+                            // second eigenvector of conjugate pair reuse same remax as previous k
+                            }
+                            Blas<real>::dscal(n, remax, &work[workcol], 1);
+                        }
+                        Blas<real>::dlacpy("F", n, nb-iv, &work[(nb+iv+1)*n], n, &Vr[ldvr*ki2],
+                                           ldvr);
+                        iv = nb - 1;
+                    }
+                    else
+                    {
+                        iv--;
+                    }
+                    ivn = iv * n;
+                    ivpn = ivn + n;
+                }// blocked back-transform
+                is--;
+                if (ip!=0)
+                {
+                    is--;
+                }
+            }
+        }
+        if (leftv)
+        {
+            // Compute left eigenvectors.
+            // iv is index of column in current block.
+            // For complex left vector, uses iv for real part and iv+1 for complex part.
+            // Non-blocked version always uses iv=0;
+            // blocked     version starts with iv=0, goes up to nb-2 or nb-1.
+            // (Note the "-1-th" column is used for 1-norms computed above.)
+            int ivp2n, jp1, kip2, vlcol, vlcolp;
+            real temp, vcrit, vmax;
+            iv = 0;
+            ivpn = n;
+            ivp2n = n + n;
+            ip = 0;
+            is = 0;
+            for (ki=0; ki<n; ki++)
+            {
+                kip1 = ki + 1;
+                kip2 = ki + 2;
+                tcolki = ldt * ki;
+                if (ip==1)
+                {
+                    // previous iteration (ki-1) was first of conjugate pair,
+                    // so this ki is second of conjugate pair; skip to end of loop
+                    ip = -1;
+                    continue;
+                }
+                else if (ki==n-1)
+                {
+                    // last column, so this ki must be real eigenvalue
+                    ip = 0;
+                }
+                else if (T[kip1+tcolki]==ZERO)
+                {
+                    // zero on sub-diagonal, so this ki is real eigenvalue
+                    ip = 0;
+                }
+                else
+                {
+                    // non-zero on sub-diagonal, so this ki is first of conjugate pair
+                    ip = 1;
+                }
+                if (somev)
+                {
+                    if (!select[ki])
+                    {
+                        continue;
+                    }
+                }
+                // Compute the ki-th eigenvalue (wr,wi).
+                wr = T[ki+tcolki];
+                wi = ZERO;
+                if (ip!=0)
+                {
+                    wi = std::sqrt(std::fabs(T[ki+tcolki+ldt]))
+                       * std::sqrt(std::fabs(T[kip1+tcolki]));
+                }
+                smin = std::max(ulp*(std::fabs(wr)+std::fabs(wi)), smlnum);
+                if (ip==0)
+                {
+                    // Real left eigenvector
+                    work[ki+ivpn] = ONE;
+                    // Form right-hand side.
+                    for (k=kip1; k<n; k++)
+                    {
+                        work[k+ivpn] = -T[ki+ldt*k];
+                    }
+                    // Solve transposed quasi-triangular system:
+                    // [ T[ki+1:n-1,ki+1:n-1] - wr ]^T * X = scale*work
+                    vmax = ONE;
+                    vcrit = bignum;
+                    jnxt = kip1;
+                    for (j=kip1; j<n; j++)
+                    {
+                        if (j<jnxt)
+                        {
+                            continue;
+                        }
+                        j1 = j;
+                        j2 = j;
+                        jp1 = j + 1;
+                        jnxt = jp1;
+                        tcolj = ldt * j;
+                        if (j<n-1)
+                        {
+                            if (T[jp1+tcolj]!=ZERO)
+                            {
+                                j2 = jp1;
+                                jnxt = j + 2;
+                            }
+                        }
+                        if (j1==j2)
+                        {
+                            // 1 by 1 diagonal block
+                            // Scale if necessary to avoid overflow when forming the right-hand
+                            // side.
+                            if (work[j]>vcrit)
+                            {
+                                rec = ONE / vmax;
+                                Blas<real>::dscal(n-ki, rec, &work[ki+ivpn], 1);
+                                vmax = ONE;
+                                vcrit = bignum;
+                            }
+                            work[j+ivpn] -= Blas<real>::ddot(j-kip1, &T[kip1+tcolj], 1,
+                                                             &work[kip1+ivpn], 1);
+                            // Solve [ T[j,j] - wr ]^T * X = work
+                            dlaln2(false, 1, 1, smin, ONE, &T[j+tcolj], ldt, ONE, ONE,
+                                   &work[j+ivpn], n, wr, ZERO, X, 2, scale, xnorm, ierr);
+                            // Scale if necessary
+                            if (scale!=ONE)
+                            {
+                                Blas<real>::dscal(n-ki, scale, &work[ki+ivpn], 1);
+                            }
+                            work[j+ivpn] = X[0];
+                            vmax = std::max(std::fabs(work[j+ivpn]), vmax);
+                            vcrit = bignum / vmax;
+                        }
+                        else
+                        {
+                            // 2 by 2 diagonal block
+                            // Scale if necessary to avoid overflow when forming the right-hand
+                            // side.
+                            if (std::max(work[j], work[jp1]) > vcrit)
+                            {
+                                rec = ONE / vmax;
+                                Blas<real>::dscal(n-ki, rec, &work[ki+ivpn], 1);
+                                vmax = ONE;
+                                vcrit = bignum;
+                            }
+                            work[j + ivpn] -= Blas<real>::ddot(j-kip1, &T[kip1+tcolj],     1,
+                                                               &work[kip1+ivpn], 1);
+                            work[jp1+ivpn] -= Blas<real>::ddot(j-kip1, &T[kip1+tcolj+ldt], 1,
+                                                               &work[kip1+ivpn], 1);
+                            // Solve
+                            // [ T[j,j]-wr   T[j,j+1]      ]^T * X = scale*(WORK1)
+                            // [ T[j+1,j]    T[j+1,j+1]-wr ]               (WORK2)
+                            dlaln2(true, 2, 1, smin, ONE, &T[j+tcolj], ldt, ONE, ONE,
+                                   &work[j+ivpn], n, wr, ZERO, X, 2, scale, xnorm, ierr);
+                            // Scale if necessary
+                            if (scale!=ONE)
+                            {
+                                Blas<real>::dscal(n-ki, scale, &work[ki+ivpn], 1);
+                            }
+                            work[j+ivpn] = X[0];
+                            work[jp1+ivpn] = X[1];
+                            temp = std::max(std::fabs(work[j+ivpn]), std::fabs(work[jp1+ivpn]));
+                            if (temp>vmax)
+                            {
+                                vmax = temp;
+                            }
+                            vcrit = bignum / vmax;
+                        }
+                    }
+                    // Copy the vector x or Q*x to Vl and normalize.
+                    if (!over)
+                    {
+                        // no back-transform: copy x to Vl and normalize.
+                        vlcol = ldvl * is;
+                        Blas<real>::dcopy(n-ki, &work[ki+ivpn], 1, &Vl[ki+vlcol], 1);
+                        ii = Blas<real>::idamax(n-ki, &Vl[ki+vlcol], 1) + ki;
+                        remax = ONE / std::fabs(Vl[ii+vlcol]);
+                        Blas<real>::dscal(n-ki, remax, &Vl[ki+vlcol], 1);
+                        for (k=0; k<ki; k++)
+                        {
+                            Vl[k+vlcol] = ZERO;
+                        }
+                    }
+                    else if (nb==1)
+                    {
+                        // version 1: back-transform each vector with GEMV, Q*x.
+                        vlcol = ldvl * ki;
+                        if (ki<n-1)
+                        {
+                            Blas<real>::dgemv("N", n, n-kip1, ONE, &Vl[vlcol+ldvl], ldvl,
+                                              &work[kip1+ivpn], 1, work[ki+ivpn], &Vl[vlcol], 1);
+                        }
+                        ii = Blas<real>::idamax(n, &Vl[vlcol], 1);
+                        remax = ONE / std::fabs(Vl[ii+vlcol]);
+                        Blas<real>::dscal(n, remax, &Vl[vlcol], 1);
+                    }
+                    else
+                    {
+                        // version 2: back-transform block of vectors with GEMM zero out above
+                        // vector could go from ki-nv+2 to ki
+                        for (k=0; k<ki; k++)
+                        {
+                            work[k+ivpn] = ZERO;
+                        }
+                        iscomplex[iv] = ip;
+                        // back-transform and normalization is done below
+                    }
+                }
+                else
+                {
+                    // Complex left eigenvector.
+                    // Initial solve:
+                    // [ (T[ki,ki]   T[ki,ki+1])^T - (wr - i* wi) ]*X = 0.
+                    // [ (T[ki+1,ki] T[ki+1,ki+1])                ]
+                    if (std::fabs(T[ki+tcolki+ldt])>=std::fabs(T[kip1+tcolki]))
+                    {
+                        work[ki  +ivpn]  = wi / T[ki+tcolki+ldt];
+                        work[kip1+ivp2n] = ONE;
+                    }
+                    else
+                    {
+                        work[ki  +ivpn]  = ONE;
+                        work[kip1+ivp2n] = -wi / T[kip1+tcolki];
+                    }
+                    work[kip1+ivpn]  = ZERO;
+                    work[ki  +ivp2n] = ZERO;
+                    // Form right-hand side.
+                    for (k=kip2; k<n; k++)
+                    {
+                        work[k+ivpn]  = -work[ki  +ivpn] *T[ki  +ldt*k];
+                        work[k+ivp2n] = -work[kip1+ivp2n]*T[kip1+ldt*k];
+                    }
+                    // Solve transposed quasi-triangular system:
+                    // [ T[ki+2:n-1,ki+2:n-1]^T - (wr-i*wi) ]*X = WORK1+i*WORK2
+                    vmax = ONE;
+                    vcrit = bignum;
+                    jnxt = kip2;
+                    for (j=kip2; j<n; j++)
+                    {
+                        if (j<jnxt)
+                        {
+                            continue;
+                        }
+                        j1 = j;
+                        j2 = j;
+                        jp1 = j + 1;
+                        jnxt = jp1;
+                        tcolj = ldt * j;
+                        if (j<n-1)
+                        {
+                            if (T[jp1+tcolj]!=ZERO)
+                            {
+                                j2 = jp1;
+                                jnxt = j + 2;
+                            }
+                        }
+                        if (j1==j2)
+                        {
+                            // 1-by-1 diagonal block
+                            // Scale if necessary to avoid overflow when forming the right-hand
+                            // side elements.
+                            if (work[j]>vcrit)
+                            {
+                                rec = ONE / vmax;
+                                Blas<real>::dscal(n-ki, rec, &work[ki+ivpn], 1);
+                                Blas<real>::dscal(n-ki, rec, &work[ki+ivp2n], 1);
+                                vmax = ONE;
+                                vcrit = bignum;
+                            }
+                            work[j+ivpn] -= Blas<real>::ddot(j-kip2, &T[kip2+tcolj], 1,
+                                                             &work[kip2+ivpn], 1);
+                            work[j+ivp2n] -= Blas<real>::ddot(j-kip2, &T[kip2+tcolj], 1,
+                                                              &work[kip2+ivp2n], 1);
+                            // Solve [ T[j,j]-(wr-i*wi) ]*(X11+i*X12)= WK+i*WK2.
+                            dlaln2(false, 1, 2, smin, ONE, &T[j+tcolj], ldt, ONE, ONE,
+                                   &work[j+ivpn], n, wr, -wi, X, 2, scale, xnorm, ierr);
+                            // Scale if necessary
+                            if (scale!=ONE)
+                            {
+                                Blas<real>::dscal(n-ki, scale, &work[ki+ivpn],  1);
+                                Blas<real>::dscal(n-ki, scale, &work[ki+ivp2n], 1);
+                            }
+                            work[j+ivpn]  = X[0];
+                            work[j+ivp2n] = X[2];
+                            temp = std::max(std::fabs(work[j+ivpn]), std::fabs(work[j+ivp2n]));
+                            if (temp>vmax)
+                            {
+                                vmax = temp;
+                            }
+                            vcrit = bignum / vmax;
+                        }
+                        else
+                        {
+                            // 2-by-2 diagonal block
+                            // Scale if necessary to avoid overflow when forming the right-hand
+                            // side elements.
+                            if (std::max(work[j], work[jp1]) > vcrit)
+                            {
+                                rec = ONE / vmax;
+                                Blas<real>::dscal(n-ki, rec, &work[ki+ivpn],  1);
+                                Blas<real>::dscal(n-ki, rec, &work[ki+ivp2n], 1);
+                                vmax = ONE;
+                                vcrit = bignum;
+                            }
+                            work[j+ivpn]    -= Blas<real>::ddot(j-kip2, &T[kip2+tcolj],     1,
+                                                                &work[kip2+ivpn],  1);
+                            work[j+ivp2n]   -= Blas<real>::ddot(j-kip2, &T[kip2+tcolj],     1,
+                                                                &work[kip2+ivp2n], 1);
+                            work[jp1+ivpn]  -= Blas<real>::ddot(j-kip2, &T[kip2+tcolj+ldt], 1,
+                                                                &work[kip2+ivpn],  1);
+                            work[jp1+ivp2n] -= Blas<real>::ddot(j-kip2, &T[kip2+tcolj+ldt], 1,
+                                                                &work[kip2+ivp2n], 1);
+                            // Solve 2-by-2 complex linear equation
+                            // [ (T[j,j]   T[j,j+1])^T - (wr-i*wi)*i ]*X = scale*B
+                            // [ (T[j+1,j] T[j+1,j+1])               ]
+                            dlaln2(true, 2, 2, smin, ONE, &T[j+tcolj], ldt, ONE, ONE,
+                                   &work[j+ivpn], n, wr, -wi, X, 2, scale, xnorm, ierr);
+                            // Scale if necessary
+                            if (scale!=ONE)
+                            {
+                                Blas<real>::dscal(n-ki, scale, &work[ki+ivpn],  1);
+                                Blas<real>::dscal(n-ki, scale, &work[ki+ivp2n], 1);
+                            }
+                            work[j  +ivpn]  = X[0];
+                            work[j  +ivp2n] = X[2];
+                            work[jp1+ivpn]  = X[1];
+                            work[jp1+ivp2n] = X[3];
+                            temp = std::max(std::max(std::fabs(X[0]), std::fabs(X[2])),
+                                            std::max(std::fabs(X[1]), std::fabs(X[3])));
+                            if (temp>vmax)
+                            {
+                                vmax = temp;
+                            }
+                            vcrit = bignum / vmax;
+                        }
+                    }
+                    // Copy the vector x or Q*x to Vl and normalize.
+                    if (!over)
+                    {
+                        // no back-transform: copy x to Vl and normalize.
+                        vlcol  = ldvl * is;
+                        vlcolp = vlcol + ldvl;
+                        Blas<real>::dcopy(n-ki, &work[ki+ivpn],  1, &Vl[ki+vlcol],  1);
+                        Blas<real>::dcopy(n-ki, &work[ki+ivp2n], 1, &Vl[ki+vlcolp], 1);
+                        emax = ZERO;
+                        for (k=kip1; k<n; k++)
+                        {
+                            emax = std::max(emax, std::fabs(Vl[k+vlcol])+std::fabs(Vl[k+vlcolp]));
+                        }
+                        remax = ONE / emax;
+                        Blas<real>::dscal(n-ki, remax, &Vl[ki+vlcol],  1);
+                        Blas<real>::dscal(n-ki, remax, &Vl[ki+vlcolp], 1);
+                        for (k=0; k<ki; k++)
+                        {
+                            Vl[k+vlcol]  = ZERO;
+                            Vl[k+vlcolp] = ZERO;
+                        }
+                    }
+                    else if (nb==1)
+                    {
+                        // version 1: back-transform each vector with GEMV, Q*x.
+                        vlcol  = ldvl * ki;
+                        vlcolp = vlcol + ldvl;
+                        if (ki<n-2)
+                        {
+                            Blas<real>::dgemv("N", n, n-kip2, ONE, &Vl[vlcolp+ldvl], ldvl,
+                                              &work[kip2+ivpn],  1, work[ki+ivpn],  &Vl[vlcol], 1);
+                            Blas<real>::dgemv("N", n, n-kip2, ONE, &Vl[vlcolp+ldvl], ldvl,
+                                              &work[kip2+ivp2n], 1, work[kip1+ivp2n], &Vl[vlcolp],
+                                              1);
+                        }
+                        else
+                        {
+                            Blas<real>::dscal(n, work[ki  +ivpn],  &Vl[vlcol],  1);
+                            Blas<real>::dscal(n, work[kip1+ivp2n], &Vl[vlcolp], 1);
+                        }
+                        emax = ZERO;
+                        for (k=0; k<n; k++)
+                        {
+                            emax = std::max(emax, std::fabs(Vl[k+vlcol])+std::fabs(Vl[k+vlcolp]));
+                        }
+                        remax = ONE / emax;
+                        Blas<real>::dscal(n, remax, &Vl[vlcol],  1);
+                        Blas<real>::dscal(n, remax, &Vl[vlcolp], 1);
+                    }
+                    else
+                    {
+                        // version 2: back-transform block of vectors with GEMM zero out above
+                        // vector could go from ki-nv+2 to ki
+                        for (k=0; k<ki; k++)
+                        {
+                            work[k+ivpn]  = ZERO;
+                            work[k+ivp2n] = ZERO;
+                        }
+                        iscomplex[iv]   =  ip;
+                        iscomplex[iv+1] = -ip;
+                        iv++;
+                        ivpn = ivp2n;//(iv+1) * n;
+                        ivp2n = ivpn + n;
+                        // back-transform and normalization is done below
+                    }
+                }
+                if (nb>1)
+                {
+                    // Blocked version of back-transform
+                    // For complex case, ki2 includes both vectors (ki and ki+1)
+                    if (ip==0)
+                    {
+                        ki2 = ki;
+                    }
+                    else
+                    {
+                        ki2 = kip1;
+                    }
+                    // Columns 0:iv of work are valid vectors.
+                    // When the number of vectors stored reaches nb-1 or nb,
+                    // or if this was last vector, do the GEMM
+                    if (iv>=nb-2 || ki2==n-1)
+                    {
+                        Blas<real>::dgemm("N", "N", n, iv+1, n-ki2+iv, ONE, &Vl[ldvl*(ki2-iv)],
+                                          ldvl, &work[ki2-iv+n], n, ZERO, &work[(nb+1)*n], n);
+                        // normalize vectors
+                        for (k=0; k<=iv; k++)
+                        {
+                            workcol = (nb+k+1) * n;
+                            if (iscomplex[k]==0)
+                            {
+                                // real eigenvector
+                                ii = Blas<real>::idamax(n, &work[workcol], 1);
+                                remax = ONE / std::fabs(work[ii+workcol]);
+                            }
+                            else if (iscomplex[k]==1)
+                            {
+                                // first eigenvector of conjugate pair
+                                emax = ZERO;
+                                for (ii=0; ii<n; ii++)
+                                {
+                                    emax = std::max(emax,
+                                        std::fabs(work[ii+workcol])+std::fabs(work[ii+workcol+n]));
+                                }
+                                remax = ONE / emax;
+                            //}else if (iscomplex[k]==-1){
+                            //    // second eigenvector of conjugate pair
+                            //    // reuse same remax as previous k
+                            }
+                            Blas<real>::dscal(n, remax, &work[workcol], 1);
+                        }
+                        dlacpy("F", n, iv+1, &work[(nb+1)*n], n, &Vl[ldvl*(ki2-iv)], ldvl);
+                        iv = 0;
+                    }
+                    else
+                    {
+                        iv++;
+                    }
+                    ivpn = (iv+1) * n;
+                    ivp2n = ivpn + n;
+                }// blocked back-transform
+                is++;
+                if (ip!=0)
+                {
+                    is++;
+                }
+            }
+        }
     }
 
     /*! §ieeeck

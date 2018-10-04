@@ -29,6 +29,40 @@ public:
     virtual ~Testing_eig(){}
 
     // LAPACK TESTING EIG (alphabetically)
+    /*! §alasum
+     *
+     * §alasum prints a summary of results from one of the §-chk- routines.
+     * \param[in] type  The LAPACK path name.
+     * \param[in] nout  The output stream to which results are to be printed.
+     * \param[in] nfail The number of tests which did not pass the threshold ratio.
+     * \param[in] nrun  The total number of tests.
+     * \param[in] nerrs The number of error messages recorded.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                       */
+    void alasum(char const* type, std::ostream& nout, int nfail, int nrun, int nerrs)
+    {
+        char typecopy[4];
+        std::strncpy(typecopy, type, 3);
+        typecopy[3] = '\0';
+        if (nfail>0)
+        {
+            nout << ' ' << typecopy << ": " << std::setw(6) << nfail << " out of " << std::setw(6)
+                 << nrun << " tests failed to pass the threshold\n";
+        }
+        else
+        {
+            nout << "\n All tests for " << typecopy << " routines passed the threshold ( "
+                 << std::setw(6) << nrun << " tests run)\n";
+        }
+        if (nerrs>0)
+        {
+            nout << "      " << std::setw(6) << nerrs << " error messages recorded\n";
+        }
+        nout.flush();
+    }
 
     /*! §dchkbl
      *

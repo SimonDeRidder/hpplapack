@@ -999,17 +999,17 @@ public:
     void alasum(char const* type, std::ostream& nout, int nfail, int nrun, int nerrs)
     {
         char typecopy[4];
-        strncpy(typecopy, type, 3);
+        std::strncpy(typecopy, type, 3);
         typecopy[3] = '\0';
         if (nfail>0)
         {
-            nout << ' ' << typecopy << ": " << std::setw(6) << nfail << " out of ";
-            nout << std::setw(6) << nrun << " tests failed to pass the threshold\n";
+            nout << ' ' << typecopy << ": " << std::setw(6) << nfail << " out of " << std::setw(6)
+                 << nrun << " tests failed to pass the threshold\n";
         }
         else
         {
-            nout << "\n All tests for " << typecopy << " routines passed the threshold ( ";
-            nout << std::setw(6) << nrun << " tests run)\n";
+            nout << "\n All tests for " << typecopy << " routines passed the threshold ( "
+                 << std::setw(6) << nrun << " tests run)\n";
         }
         if (nerrs>0)
         {

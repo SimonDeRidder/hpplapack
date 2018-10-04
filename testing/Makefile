@@ -1,5 +1,8 @@
 CC = g++
-CFLAGS = -Wall -g -std=c++0x -O2
+CFLAGS = -Wall -Wclobbered -Wempty-body -Wignored-qualifiers -Wimplicit-fallthrough=3\
+         -Wmissing-field-initializers -Wtype-limits -Wuninitialized -Wshift-negative-value\
+         -Wunused-but-set-parameter\
+         -std=c++0x -O2
 
 
 INCLUDES = -I..
