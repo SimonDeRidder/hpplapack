@@ -1996,6 +1996,115 @@ public:
         }
     }
 
+    /*! §dgehd2 reduces a general square matrix to upper Hessenberg form using an unblocked
+     *  algorithm.
+     *
+     * §dgehd2 reduces a real general matrix $A$ to upper Hessenberg form $H$ by an orthogonal
+     * similarity transformation: $Q^T A Q = H$.
+     * \param[in] n    The order of the matrix $A$. $\{n} \ge 0$.
+     * \param[in] ilo,
+     *            ihi
+     *     It is assumed that $A$ is already upper triangular in rows and columns §0:§ilo-1 and
+     *     §ihi+1:§n-1. §ilo and §ihi are normally set by a previous call to §dgebal; otherwise they
+     *     should be set to 0 and §n-1 respectively. See Remark.\n
+     *     $0 \le \{ilo} \le \{ihi} < \max(1,\{n})$.\n
+     *     Note: zero-based indices!
+     *
+     * \param[in,out] A
+     *     an array, dimension (§lda,§n)\n
+     *     On entry, the §n by §n general matrix to be reduced.\n
+     *     On exit, the upper triangle and the first subdiagonal of §A are overwritten with the
+     *     upper Hessenberg matrix $H$, and the elements below the first subdiagonal, with the
+     *     array §tau, represent the orthogonal matrix $Q$ as a product of elementary reflectors.
+     *     See Remark.
+     *
+     * \param[in]  lda The leading dimension of the array §A. $\{lda}\ge\max(1,\{n})$.
+     * \param[out] tau
+     *     an array, dimension (§n-1)\n
+     *     The scalar factors of the elementary reflectors (see Remark).
+     *
+     * \param[out] work an array, dimension (§n)
+     * \param[out] info
+     *     = 0: successful exit.\n
+     *     < 0: if §info = $-i$, the $i$-th argument had an illegal value.
+     * \authors Univ. of Tennessee
+     * \authors Univ. of California Berkeley
+     * \authors Univ. of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016
+     * \remark
+     *     The matrix $Q$ is represented as a product of (§ihi-§ilo) elementary reflectors\n
+     *         $Q = H(\{ilo}) H(\{ilo}+1) \ldots H(\{ihi}-1)$.\n
+     *     Each $H(i)$ has the form\n
+     *         $H(i) = I - \tau v v^T$\n
+     *     where $\tau$ is a real scalar, and $v$ is a real vector with $v[0:i] = 0$, $v[i+1] = 1$
+     *     and $v[\{ihi}+1:\{n}-1] = 0$; $v[i+2:\{ihi}]$ is stored on exit in $\{A}[i+2:\{ihi},i]$,
+     *     and $\tau$ in $\{tau}[i]$.\n
+     *     The contents of §A are illustrated by the following example, with $\{n} = 7$,
+     *     $\{ilo} = 1$ and $\{ihi} = 5$:\n
+     *     on entry,\n
+     *         $\b{bm} a & a & a & a & a & a & a \\
+     *                   & a & a & a & a & a & a \\
+     *                   & a & a & a & a & a & a \\
+     *                   & a & a & a & a & a & a \\
+     *                   & a & a & a & a & a & a \\
+     *                   & a & a & a & a & a & a \\
+     *                   &   &   &   &   &   & a \e{bm}$\n
+     *     on exit,\n
+     *         $\b{bm} a &  a  &  h  &  h  & h & h & a \\
+     *                   &  a  &  h  &  h  & h & h & a \\
+     *                   &  h  &  h  &  h  & h & h & h \\
+     *                   & v_1 &  h  &  h  & h & h & h \\
+     *                   & v_1 & v_2 &  h  & h & h & h \\
+     *                   & v_1 & v_2 & v_3 & h & h & h \\
+     *                   &     &     &     &   &   & a \e{bm}$\n
+     *     where $a$ denotes an element of the original matrix $A$, $h$ denotes a modified element
+     *     of the upper Hessenberg matrix $H$, and $v_i$ denotes an element of the vector defining
+     *     $H(i)$.                                                                               */
+    static void dgehd2(int n, int ilo, int ihi, real* A, int lda, real* tau, real* work, int& info)
+    {
+        // Test the input parameters
+        info = 0;
+        if (n<0)
+        {
+            info = -1;
+        }
+        else if (ilo<0 || ilo>=std::max(1, n))
+        {
+            info = -2;
+        }
+        else if (ihi<std::min(ilo, n-1) || ihi>=n)
+        {
+            info = -3;
+        }
+        else if (lda<std::max(1, n))
+        {
+            info = -5;
+        }
+        if (info!=0)
+        {
+            xerbla("DGEHD2", -info);
+            return;
+        }
+        real aii;
+        int acoli, acolip, ip1i;
+        for (int i=ilo; i<ihi; i++)
+        {
+            acoli = lda * i;
+            acolip = acoli + lda;
+            ip1i = i + 1 + acoli;
+            // Compute elementary reflector H(i) to annihilate A[i+2:ihi,i]
+            dlarfg(ihi-i, A[ip1i], &A[std::min(i+2, n-1)+acoli], 1, tau[i]);
+            aii = A[ip1i];
+            A[ip1i] = ONE;
+            // Apply H(i) to A[0:ihi,i+1:ihi] from the right
+            dlarf("Right", ihi+1, ihi-i, &A[ip1i], 1, tau[i], &A[acolip], lda, work);
+            // Apply H(i) to A[i+1:ihi,i+1:n-1] from the left
+            dlarf("Left", ihi-i, n-1-i, &A[ip1i], 1, tau[i], &A[i+1+acolip], lda, work);
+            A[ip1i] = aii;
+        }
+    }
+
     /*! §dgeqp3
      *
      * §dgeqp3 computes a QR factorization with column pivoting of a matrix $A$:
@@ -2258,7 +2367,7 @@ public:
     static void dgeqr2(int m, int n, real* A, int lda, real* tau, real* work, int& info)
     {
         int i, k, coli, icoli;
-        real AII;
+        real aii;
         // Test the input arguments
         info = 0;
         if (m<0)
@@ -2288,10 +2397,10 @@ public:
             if (i<(n-1))
             {
                 // Apply H[i] to A[i:m-1, i+1:n-1] from the left
-                AII = A[icoli];
+                aii = A[icoli];
                 A[icoli] = ONE;
                 dlarf("Left", m-i, n-i-1, &A[icoli], 1, tau[i], &A[icoli+lda], lda, work);
-                A[icoli] = AII;
+                A[icoli] = aii;
             }
         }
     }

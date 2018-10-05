@@ -29,6 +29,7 @@ public:
     virtual ~Testing_eig(){}
 
     // LAPACK TESTING EIG (alphabetically)
+
     /*! §alasum
      *
      * §alasum prints a summary of results from one of the §-chk- routines.
@@ -62,6 +63,142 @@ public:
             nout << "      " << std::setw(6) << nerrs << " error messages recorded\n";
         }
         nout.flush();
+    }
+
+    /*! §dbdt04
+     *
+     * §dbdt04 reconstructs a bidiagonal matrix $B$ from its (partial) SVD:\n
+     *     $S = U^T B V$\n
+     * where $U$ and $V$ are orthogonal matrices and $S$ is diagonal.\n
+     * The test ratio to test the singular value decomposition is\n
+     *     \f{equation*}{\{resid} = \frac{\| S - U^T B V \|}{\{n} \|B\| \{eps}}\f}\n
+     * where §Vt = $V^T$ and §eps is the machine precision.
+     * \param[in] uplo
+     *     Specifies whether the matrix $B$ is upper or lower bidiagonal.\n
+     *         = 'U': Upper bidiagonal\n
+     *         = 'L': Lower bidiagonal
+     *
+     * \param[in] n The order of the matrix $B$.
+     * \param[in] d
+     *     an array, dimension (§n)\n
+     *     The §n diagonal elements of the bidiagonal matrix $B$.
+     *
+     * \param[in] e
+     *     an array, dimension (§n-1)\n
+     *     The (§n-1) superdiagonal elements of the bidiagonal matrix $B$ if §uplo = 'U',\n
+     *     or the (§n-1) subdiagonal elements of                      $B$ if §uplo = 'L'.
+     *
+     * \param[in] s
+     *     an array, dimension (§ns)\n
+     *     The singular values from the (partial) SVD of $B$, sorted in decreasing order.
+     *
+     * \param[in] ns The number of singular values/vectors from the (partial) SVD of $B$.
+     * \param[in] U
+     *     an array, dimension (§ldu,§ns)\n
+     *     The §n by §ns orthogonal matrix $U$ in $S = U^T B V$.
+     *
+     * \param[in] ldu The leading dimension of the array §U. \n $\{ldu}\ge\max(1,\{n})$
+     * \param[in] Vt
+     *     an array, dimension (§ldvt,§n)\n
+     *     The §n by §ns orthogonal matrix $V$ in $S = U^T B V$.
+     *
+     * \param[in]  ldvt The leading dimension of the array §Vt.
+     * \param[out] work an array, dimension ($2\{n}$)
+     * \param[out] resid The test ratio: $\| S - U^T B V\| / (\{n} \|B\| \{eps})$
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                       */
+    void dbdt04(char const* uplo, int n, real const* d, real const* e, real const* s,
+                       int ns, real const* U, int ldu, real const* Vt, int ldvt, real* work,
+                       real& resid)
+    {
+        const real ONE = real(1.0);
+        // Quick return if possible.
+        resid = ZERO;
+        if (n<=0 || ns<=0)
+        {
+            return;
+        }
+        real eps = this->dlamch("Precision");
+        // Compute S - U^t B V.
+        real bnorm = ZERO;
+        int i, j, k;
+        if (std::toupper(uplo[0])=='U')
+        {
+            // B is upper bidiagonal.
+            k = -1;
+            for (i=0; i<ns; i++)
+            {
+                for (j=0; j<n-1; j++)
+                {
+                    k++;
+                    work[k] = d[j]*Vt[i+ldvt*j] + e[j]*Vt[i+ldvt*(j+1)];
+                }
+                k++;
+                work[k] = d[n-1]*Vt[i+ldvt*(n-1)];
+            }
+            bnorm = std::fabs(d[0]);
+            for (i=1; i<n; i++)
+            {
+                bnorm = std::max(bnorm, std::fabs(d[i])+std::fabs(e[i-1]));
+            }
+        }
+        else
+        {
+            // B is lower bidiagonal.
+            k = -1;
+            for (i=0; i<ns; i++)
+            {
+                k++;
+                work[k] = d[0] * Vt[i];
+                for (j=0; j<n-1; j++)
+                {
+                    k++;
+                    work[k] = e[j]*Vt[i+ldvt*j] + d[j+1]*Vt[i+ldvt*(j+1)];
+                }
+            }
+            bnorm = std::fabs(d[n-1]);
+            for (i=0; i<n-1; i++)
+            {
+                bnorm = std::max(bnorm, std::fabs(d[i])+std::fabs(e[i]));
+            }
+        }
+        Blas<real>::dgemm("T", "N", ns, ns, n, -ONE, U, ldu, work, n, ZERO, &work[n*ns], ns);
+        // ||S - U^T B V||
+        k = n * ns;
+        for (i=0; i<ns; i++)
+        {
+            work[k+i] += s[i];
+            resid = std::max(resid, Blas<real>::dasum(ns, &work[k], 1));
+            k += ns;
+        }
+        if (bnorm<=ZERO)
+        {
+            if (resid!=ZERO)
+            {
+                resid = ONE / eps;
+            }
+        }
+        else
+        {
+            if (bnorm>=resid)
+            {
+                resid = (resid / bnorm) / (real(n)*eps);
+            }
+            else
+            {
+                if (bnorm<ONE)
+                {
+                    resid = (std::min(resid, real(n)*bnorm)/bnorm) / (real(n)*eps);
+                }
+                else
+                {
+                    resid = std::min(resid/bnorm, real(n)) / (real(n)*eps);
+                }
+            }
+        }
     }
 
     /*! §dchkbl
