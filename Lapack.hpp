@@ -2581,6 +2581,246 @@ public:
         }
     }
 
+    /*! §dlabrd reduces the first nb rows and columns of a general matrix to a bidiagonal form.
+     *
+     * §dlabrd reduces the first §nb rows and columns of a real general §m by §n matrix $A$ to
+     * upper or lower bidiagonal form by an orthogonal transformation $Q^T A P$, and returns the
+     * matrices $X$ and $Y$ which are needed to apply the transformation to the unreduced part of
+     * $A$.\n
+     * If $\{m}\ge\{n}$, $A$ is reduced to upper bidiagonal form;\n if $\{m}<\{n}$, to lower
+     * bidiagonal form.\n
+     * This is an auxiliary routine called by §dgebrd
+     * \param[in]     m  The number of rows in the matrix $A$.
+     * \param[in]     n  The number of columns in the matrix $A$.
+     * \param[in]     nb The number of leading rows and columns of $A$ to be reduced.
+     * \param[in,out] A
+     *     an array, dimension (§lda,§n)\n
+     *     On entry, the §m by §n general matrix to be reduced.\n
+     *     On exit, the first §nb rows and columns of the matrix are overwritten; the rest of the
+     *     array is unchanged.
+     *     \li If $\{m}\ge\{n}$, elements on and below the diagonal in the first §nb columns, with
+     *         the array §tauq, represent the orthogonal matrix $Q$ as a product of elementary
+     *         reflectors; and elements above the diagonal in the first §nb rows, with the array
+     *         §taup, represent the orthogonal matrix $P$ as a product of elementary reflectors.
+     *     \li If $\{m}<\{n}$, elements below the diagonal in the first §nb columns, with the array
+     *         §tauq, represent the orthogonal matrix $Q$ as a product of elementary reflectors,
+     *         and elements on and above the diagonal in the first §nb rows, with the array §taup,
+     *         represent the orthogonal matrix $P$ as a product of elementary reflectors.
+     *
+     *     See Remark.
+     *
+     * \param[in]  lda The leading dimension of the array §A. $\{lda}\ge\max(1,\{m})$.
+     * \param[out] d
+     *     an array, dimension (§nb)\n
+     *     The diagonal elements of the first §nb rows and columns of the reduced matrix.
+     *     $\{d}[i] = A[i,i]$.
+     *
+     * \param[out] e
+     *     an array, dimension (§nb)\n
+     *     The off-diagonal elements of the first §nb rows and columns of the reduced matrix.
+     *
+     * \param[out] tauq
+     *     an  array, dimension (§nb)\n
+     *     The scalar factors of the elementary reflectors which represent the orthogonal matrix
+     *     $Q$. See Remark.
+     *
+     * \param[out] taup
+     *     an array, dimension (§nb)\n
+     *     The scalar factors of the elementary reflectors which represent the orthogonal matrix
+     *     $P$. See Remark.
+     *
+     * \param[out] X
+     *     an array, dimension (§ldx,§nb)\n
+     *     The §m by §nb matrix $X$ required to update the unreduced part of $A$.
+     *
+     * \param[in]  ldx The leading dimension of the array §X. $\{ldx}\ge\max(1,\{m})$.
+     * \param[out] Y
+     *     an array, dimension (§ldy,§nb)\n
+     *     The §n by §nb matrix $Y$ required to update the unreduced part of $A$.
+     *
+     * \param[in] ldy The leading dimension of the array §Y. $\{ldy}\ge\max(1,\{n})$.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date June 2017
+     * \remark
+     *     The matrices $Q$ and $P$ are represented as products of elementary reflectors:\n
+     *         $Q = H(0) H(1) \ldots H(nb-1)$ and $P = G(0) G(1) \ldots G(nb-1)$\n
+     *     Each $H(i)$ and $G(i)$ has the form:\n
+     *         $H(i) = I - \tau_q v v^T$  and $G(i) = I - \tau_p u u^T$\n
+     *     where $\tau_q$ and $\tau_p$ are real scalars, and $v$ and $u$ are real vectors.
+     *     \li If $\{m}\ge\{n}$,\n $v[0:i-1] = 0$, $v[i] = 1$, and $v[i:\{m}-1]$ is stored on exit
+     *         in $\{A}[i:\{m}-1,i]$;\n $u[0:i] = 0$, $u[i+1] = 1$, and $u[i+1:\{n}-1]$ is stored
+     *         on exit in $\{A}[i,i+1:\{n}-1]$;\n $\tau_q$ is stored in $\{tauq}[i]$ and $\tau_p$
+     *         in $\{taup}[i]$.
+     *     \li If $\{m}<\{n}$,\n $v[0:i] = 0$, $v[i+1] = 1$, and $v[i+1:\{m}-1]$ is stored on exit
+     *         in $\{A}[i+2:\{m}-1,i]$;\n $u[0:i-1] = 0$, $u[i] = 1$, and $u[i:\{n}-1]$ is stored
+     *         on exit in $\{A}[i,i+1:\{n}-1]$;\n $\tau_q$ is stored in $\{tauq}[i]$ and $\tau_p$
+     *         in $\{taup}[i]$.
+     *
+     *     The elements of the vectors $v$ and $u$ together form the §m by §nb matrix $V$ and the
+     *     §nb by §n matrix $U^T$ which are needed, with $X$ and $Y$, to apply the transformation
+     *     to the unreduced part of the matrix, using a block update of the form:
+     *         $A = A - V Y^T - X U^T$.\n
+     *     The contents of §A on exit are illustrated by the following examples with $\{nb} = 2$:\n
+     *     $\{m} = 6$ and $\{n} = 5$ ($\{m}>\{n}$):\n
+     *         $\b{bm} 1  &  1  & u_1 & u_1 & u_1 \\
+     *                v_1 &  1  &  1  & u_2 & u_2 \\
+     *                v_1 & v_2 &  a  &  a  &  a  \\
+     *                v_1 & v_2 &  a  &  a  &  a  \\
+     *                v_1 & v_2 &  a  &  a  &  a  \\
+     *                v_1 & v_2 &  a  &  a  &  a  \e{bm}$\n
+     *     $\{m} = 5$ and $\{n} = 6$ ($\{m}<\{n}$):\n
+     *         $\b{bm} 1  & u_1 & u_1 & u_1 & u_1 & u_1 \\
+     *                 1  &  1  & u_2 & u_2 & u_2 & u_2 \\
+     *                v_1 &  1  &  a  &  a  &  a  &  a  \\
+     *                v_1 & v_2 &  a  &  a  &  a  &  a  \\
+     *                v_1 & v_2 &  a  &  a  &  a  &  a  \e{bm}$\n
+     *     where $a$ denotes an element of the original matrix which is unchanged, $v_i$ denotes an
+     *     element of the vector defining $H(i)$, and $u_i$ an element of the vector defining
+     *     $G(i)$.                                                                               */
+    static void dlabrd(int m, int n, int nb, real* A, int lda, real* d, real* e, real* tauq,
+                       real* taup, real* X, int ldx, real* Y, int ldy)
+    {
+        // Quick return if possible
+        if (m<=0 || n<=0)
+        {
+            return;
+        }
+        int i, ildai, ip, ipldxi, ipldyi, ldai, ldaip, ldxi, ldyi, mmip, nmip;
+        int nm = n - 1;
+        int mm = m - 1;
+        if (m>=n)
+        {
+            int ildaip, mmi;
+            // Reduce to upper bidiagonal form
+            for (i=0; i<nb; i++)
+            {
+                ldai   = lda * i;
+                ildai  =  i  + ldai;
+                ip     =  i  + 1;
+                ldyi   = ldy * i;
+                ipldyi = ip  + ldyi;
+                mmi    =  m  - i;
+                // Update A[i:m-1,i]
+                Blas<real>::dgemv("No transpose", mmi, i, -ONE, &A[i], lda, &Y[i], ldy, ONE,
+                                  &A[ildai], 1);
+                Blas<real>::dgemv("No transpose", mmi, i, -ONE, &X[i], ldx, &A[ldai], 1, ONE,
+                                  &A[ildai], 1);
+                // Generate reflection Q(i) to annihilate A[i+1:m-1,i]
+                dlarfg(mmi, A[ildai], &A[std::min(ip, mm)+ldai], 1, tauq[i]);
+                d[i] = A[ildai];
+                if (i<nm)
+                {
+                    ldaip  = lda * ip;
+                    ildaip =  i  + ldaip;
+                    ldxi   = ldx * i;
+                    ipldxi = ip  + ldxi;
+                    mmip   = mm  - i;
+                    nmip   = nm  - i;
+                    A[ildai] = ONE;
+                    // Compute Y[i+1:n-1,i]
+                    Blas<real>::dgemv("Transpose", mmi, nmip, ONE, &A[ildaip], lda, &A[ildai], 1,
+                                      ZERO, &Y[ipldyi], 1);
+                    Blas<real>::dgemv("Transpose", mmi, i, ONE, &A[i], lda, &A[ildai], 1, ZERO,
+                                      &Y[ldyi], 1);
+                    Blas<real>::dgemv("No transpose", nmip, i, -ONE, &Y[ip], ldy, &Y[ldyi], 1, ONE,
+                                      &Y[ipldyi], 1);
+                    Blas<real>::dgemv("Transpose", mmi, i, ONE, &X[i], ldx, &A[ildai], 1, ZERO,
+                                      &Y[ldyi], 1);
+                    Blas<real>::dgemv("Transpose", i, nmip, -ONE, &A[ldaip], lda, &Y[ldyi], 1, ONE,
+                                      &Y[ipldyi], 1);
+                    Blas<real>::dscal(nmip, tauq[i], &Y[ipldyi], 1);
+                    // Update A[i,i+1:n-1]
+                    Blas<real>::dgemv("No transpose", nmip, ip, -ONE, &Y[ip], ldy, &A[i], lda, ONE,
+                                      &A[ildaip], lda);
+                    Blas<real>::dgemv("Transpose", i, nmip, -ONE, &A[ldaip], lda, &X[i], ldx, ONE,
+                                      &A[ildaip], lda);
+                    // Generate reflection P(i) to annihilate A[i,i+2:n-1]
+                    dlarfg(nmip, A[ildaip], &A[i+lda*std::min(i+2, nm)], lda, taup[i]);
+                    e[i] = A[ildaip];
+                    A[ildaip] = ONE;
+                    // Compute X[i+1:m-1,i]
+                    Blas<real>::dgemv("No transpose", mmip, nmip, ONE, &A[1+ildaip], lda,
+                                      &A[ildaip], lda, ZERO, &X[ipldxi], 1);
+                    Blas<real>::dgemv("Transpose", nmip, ip, ONE, &Y[ip], ldy, &A[ildaip], lda,
+                                      ZERO, &X[ldxi], 1);
+                    Blas<real>::dgemv("No transpose", mmip, ip, -ONE, &A[ip], lda, &X[ldxi], 1,
+                                      ONE, &X[ipldxi], 1);
+                    Blas<real>::dgemv("No transpose", i, nmip, ONE, &A[ldaip], lda, &A[ildaip],
+                                      lda, ZERO, &X[ldxi], 1);
+                    Blas<real>::dgemv("No transpose", mmip, i, -ONE, &X[ip], ldx, &X[ldxi], 1, ONE,
+                                      &X[ipldxi], 1);
+                    Blas<real>::dscal(mmip, taup[i], &X[ipldxi], 1);
+                }
+            }
+        }
+        else
+        {
+            int ipldai, nmi;
+            // Reduce to lower bidiagonal form
+            for (i=0; i<nb; i++)
+            {
+                ldai  = lda * i;
+                ildai =  i  + ldai;
+                ip    =  i  + 1;
+                nmi   =  n  - i;
+                // Update A[i,i:n-1]
+                Blas<real>::dgemv("No transpose", nmi, i, -ONE, &Y[i], ldy, &A[i], lda, ONE,
+                                  &A[ildai], lda);
+                Blas<real>::dgemv("Transpose", i, nmi, -ONE, &A[ldai], lda, &X[i], ldx, ONE,
+                                  &A[ildai], lda);
+                // Generate reflection P(i) to annihilate A[i,i+1:n-1]
+                dlarfg(nmi, A[ildai], &A[i+lda*std::min(ip, nm)], lda, taup[i]);
+                d[i] = A[ildai];
+                if (i<mm)
+                {
+                    ipldai = ip  + ldai;
+                    ldaip  = lda * ip;
+                    ldxi   = ldx * i;
+                    ldyi   = ldy * i;
+                    mmip   = mm  - i;
+                    nmip   = nm  - i;
+                    A[ildai] = ONE;
+                    // Compute X[i+1:m-1,i]
+                    Blas<real>::dgemv("No transpose", mmip, nmi, ONE, &A[ipldai], lda, &A[ildai],
+                                      lda, ZERO, &X[ipldxi], 1);
+                    Blas<real>::dgemv("Transpose", nmi, i, ONE, &Y[i], ldy, &A[ildai], lda, ZERO,
+                                      &X[ldxi], 1);
+                    Blas<real>::dgemv("No transpose", mmip, i, -ONE, &A[ip], lda, &X[ldxi], 1, ONE,
+                                      &X[ipldxi], 1);
+                    Blas<real>::dgemv("No transpose", i, nmi, ONE, &A[ldai], lda, &A[ildai], lda,
+                                      ZERO, &X[ldxi], 1);
+                    Blas<real>::dgemv("No transpose", mmip, i, -ONE, &X[ip], ldx, &X[ldxi], 1, ONE,
+                                      &X[ipldxi], 1);
+                    Blas<real>::dscal(mmip, taup[i], &X[ipldxi], 1);
+                    // Update A[i+1:m-1,i]
+                    Blas<real>::dgemv("No transpose", mmip, i, -ONE, &A[ip], lda, &Y[i], ldy, ONE,
+                                      &A[ipldai], 1);
+                    Blas<real>::dgemv("No transpose", mmip, ip, -ONE, &X[ip], ldx, &A[ldai], 1,
+                                      ONE, &A[ipldai], 1);
+                    // Generate reflection Q(i) to annihilate A[i+2:m-1,i]
+                    dlarfg(mmip, A[ipldai], &A[std::min(i+2, mm)+ldai], 1, tauq[i]);
+                    e[i] = A[ipldai];
+                    A[ipldai] = ONE;
+                    // Compute Y[i+1:n-1,i]
+                    Blas<real>::dgemv("Transpose", mmip, nmip, ONE, &A[ip+ldaip], lda, &A[ipldai],
+                                      1, ZERO, &Y[ipldyi], 1);
+                    Blas<real>::dgemv("Transpose", mmip, i, ONE, &A[ip], lda, &A[ipldai], 1, ZERO,
+                                      &Y[ldyi], 1);
+                    Blas<real>::dgemv("No transpose", nmip, i, -ONE, &Y[ip], ldy, &Y[ldyi], 1, ONE,
+                                      &Y[ipldyi], 1);
+                    Blas<real>::dgemv("Transpose", mmip, ip, ONE, &X[ip], ldx, &A[ipldai], 1, ZERO,
+                                      &Y[ldyi], 1);
+                    Blas<real>::dgemv("Transpose", ip, nmip, -ONE, &A[ldaip], lda, &Y[ldyi], 1,
+                                      ONE, &Y[ipldyi], 1);
+                    Blas<real>::dscal(nmip, tauq[i], &Y[ipldyi], 1);
+                }
+            }
+        }
+    }
+
     /*! §dlacpy copies all or part of one two-dimensional array to another.
      *
      * §dlacpy copies all or part of a two-dimensional matrix $A$ to another matrix $B$.
@@ -3064,6 +3304,155 @@ public:
         {
             tau *= sclinv;
         }
+    }
+
+    /*! §dlahr2 reduces the specified number of first columns of a general rectangular matrix $A$
+     *  so that elements below the specified subdiagonal are zero, and returns auxiliary matrices
+     *  which are needed to apply the transformation to the unreduced part of $A$.
+     *
+     * §dlahr2 reduces the first §nb columns of a real general §n by (§n-k+1) matrix $A$ so that
+     * elements below the §k -th subdiagonal are zero. The reduction is performed by an orthogonal
+     * similarity transformation $Q^T A Q$. The routine returns the matrices $V$ and $T$ which
+     * determine $Q$ as a block reflector $I - V T V^T$, and also the matrix $Y = A V T$.\n
+     * This is an auxiliary routine called by §dgehrd.
+     * \param[in] n The order of the matrix $A$.
+     * \param[in] k
+     *     The offset for the reduction. Elements below the §k -th subdiagonal in the first §nb
+     *     columns are reduced to zero. $\{k} < \{n}$.
+     *
+     * \param[in]     nb The number of columns to be reduced.
+     * \param[in,out] A
+     *     an array, dimension (§lda,§n-k+1)\n
+     *     On entry, the §n by (§n-k+1) general matrix $A$.\n
+     *     On exit, the elements on and above the §k -th subdiagonal in the first §nb columns are
+     *     overwritten with the corresponding elements of the reduced matrix; the elements below
+     *     the §k -th subdiagonal, with the array §tau, represent the matrix $Q$ as a product of
+     *     elementary reflectors. The other columns of §A are unchanged. See Remark.
+     *
+     * \param[in]  lda The leading dimension of the array §A. $\{lda}\ge\max(1,\{n})$.
+     * \param[out] tau
+     *     an array, dimension (§nb)\n
+     *     The scalar factors of the elementary reflectors. See Remark.
+     *
+     * \param[out] T   an array, dimension (§ldt,§nb)\n The upper triangular matrix $T$.
+     * \param[in]  ldt The leading dimension of the array $T$. $\{ldt}\ge\{nb}$.
+     * \param[out] Y   an array, dimension (§ldy,§nb)\n The §n by §nb matrix $Y$.
+     * \param[in]  ldy The leading dimension of the array §Y. $\{ldy}\ge\{n}$.
+     * \authors Univ. of Tennessee
+     * \authors Univ. of California Berkeley
+     * \authors Univ. of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016
+     * \remark
+     *     The matrix $Q$ is represented as a product of §nb elementary reflectors\n
+     *         $Q = H(0) H(1) \ldots H(nb-1)$.\n
+     *     Each $H(i)$ has the form\n
+     *         $H(i) = I - \tau v v^T$\n.
+     *     where $\tau$ is a real scalar, and $v$ is a real vector with $v[0:i+k-1] = 0$,
+     *     $v[i+k] = 1$; $v[i+k+1:n-1]$ is stored on exit in $\{A}[i+k+1:n-1,i]$, and $\tau$ in
+     *     $\{tau}[i]$.\n
+     *     The elements of the vectors $v$ together form the (§n-k+1) by §nb matrix $V$ which is
+     *     needed, with $T$ and $Y$, to apply the transformation to the unreduced part of the
+     *     matrix, using an update of the form:\n
+     *         $A = (I - V T V^T) (A - Y V^T)$.\n
+     *     The contents of §A on exit are illustrated by the following example with $\{n} = 7$,
+     *     $\{k} = 3$ and $\{nb} = 2$:\n
+     *         $\b{bm} a  &  a  & a & a & a \\
+     *                 a  &  a  & a & a & a \\
+     *                 a  &  a  & a & a & a \\
+     *                 h  &  h  & a & a & a \\
+     *                v_1 &  h  & a & a & a \\
+     *                v_1 & v_2 & a & a & a \\
+     *                v_1 & v_2 & a & a & a \e{bm}$\n
+     *     where $a$ denotes an element of the original matrix $A$, $h$ denotes a modified element
+     *     of the upper Hessenberg matrix $H$, and $v_i$ denotes an element of the vector defining
+     *     $H(i)$.\n
+     *     This subroutine is a slight modification of LAPACK-3.0's §dlahrd incorporating
+     *     improvements proposed by Quintana-Orti and Van de Gejin. Note that the entries of
+     *     $\{A}[0:k-1,1:\{nb}-1]$ differ from those returned by the original LAPACK-3.0's §dlahrd
+     *     routine. (This subroutine is not backward compatible with LAPACK-3.0's §dlahrd.)\n\n
+     *     References:\n
+     *         Gregorio Quintana-Orti and Robert van de Geijn, "Improving the performance of
+     *         reduction to Hessenberg form," ACM Transactions on Mathematical Software,
+     *         32(2):180-194, June 2006.                                                         */
+    static void dlahr2(int n, int k, int nb, real* A, int lda, real* tau, real* T, int ldt,
+                       real* Y, int ldy)
+    {
+        // Quick return if possible
+        if (n<=1)
+        {
+            return;
+        }
+        real ei;
+        int nbm = nb - 1;
+        int tnbm = ldt * nbm;
+        int nmk = n - k;
+        int kpi, ldai, nmki, kcoli, kpicoli, ldti, yind;
+        for (int i=0; i<nb; i++)
+        {
+            kpi = k + i;
+            ldai = lda * i;
+            kpicoli = kpi + ldai;
+            nmki = nmk - i;
+            if (i>0)
+            {
+                kcoli = k + ldai;
+                // Update A[k:n-1,i]
+                // Update i-th column of A - Y * V^T
+                Blas<real>::dgemv("NO TRANSPOSE", nmk, i, -ONE, &Y[k], ldy, &A[kpi-1], lda, ONE,
+                                  &A[kcoli], 1);
+                // Apply I - V * T^T * V^T to this column (call it b) from the left,
+                // using the last column of T as workspace
+                // Let  V = (V1)   and   b = (b1)   (first i rows)
+                //          (V2)             (b2)
+                // where V1 is unit lower triangular
+                // w := V1^T * b1
+                Blas<real>::dcopy(i, &A[kcoli], 1, &T[tnbm], 1);
+                Blas<real>::dtrmv("Lower", "Transpose", "UNIT", i, &A[k], lda, &T[tnbm], 1);
+                // w := w + V2^T * b2
+                Blas<real>::dgemv("Transpose", nmki, i, ONE, &A[kpi], lda, &A[kpicoli], 1, ONE,
+                                  &T[tnbm], 1);
+                // w := T^T * w
+                Blas<real>::dtrmv("Upper", "Transpose", "NON-UNIT", i, T, ldt, &T[tnbm], 1);
+                // b2 := b2 - V2*w
+                Blas<real>::dgemv("NO TRANSPOSE", nmki, i, -ONE, &A[kpi], lda, &T[tnbm], 1, ONE,
+                                  &A[kpicoli], 1);
+                // b1 := b1 - V1*w
+                Blas<real>::dtrmv("Lower", "NO TRANSPOSE", "UNIT", i, &A[k], lda, &T[tnbm], 1);
+                Blas<real>::daxpy(i, -ONE, &T[tnbm], 1, &A[kcoli], 1);
+                A[kpi-1+ldai-lda] = ei;
+            }
+            // Generate the elementary reflector H(i) to annihilate A[k+i+1:n-1,i]
+            dlarfg(nmki, A[kpicoli], &A[std::min(kpi+1, n-1)+ldai], 1, tau[i]);
+            ei = A[kpicoli];
+            A[kpicoli] = ONE;
+            // Compute  Y[k:n-1,i]
+            yind = k + ldy*i;
+            ldti = ldt * i;
+            Blas<real>::dgemv("NO TRANSPOSE", nmk, nmki, ONE, &A[k+ldai+lda], lda, &A[kpicoli], 1,
+                              ZERO, &Y[yind], 1);
+            Blas<real>::dgemv("Transpose", nmki, i, ONE, &A[kpi], lda, &A[kpicoli], 1, ZERO,
+                              &T[ldti], 1);
+            Blas<real>::dgemv("NO TRANSPOSE", nmk, i, -ONE, &Y[k], ldy, &T[ldti], 1, ONE, &Y[yind],
+                              1);
+            Blas<real>::dscal(nmk, tau[i], &Y[yind], 1);
+            // Compute T[0:i,i]
+            Blas<real>::dscal(i, -tau[i], &T[ldti], 1);
+            Blas<real>::dtrmv("Upper", "No Transpose", "NON-UNIT", i, T, ldt, &T[ldti], 1);
+            T[i+ldti] = tau[i];
+        }
+        A[k+nbm+lda*nbm] = ei;
+        // Compute Y[0:k-1,0:nb-1]
+        dlacpy("ALL", k, nb, &A[lda], lda, Y, ldy);
+        Blas<real>::dtrmm("RIGHT", "Lower", "NO TRANSPOSE", "UNIT", k, nb, ONE, &A[k], lda, Y,
+                          ldy);
+        if (n>k+nb)
+        {
+            Blas<real>::dgemm("NO TRANSPOSE", "NO TRANSPOSE", k, nb, nmk-nb, ONE, &A[lda*(nb+1)],
+                              lda, &A[k+nb], lda, ONE, Y, ldy);
+        }
+        Blas<real>::dtrmm("RIGHT", "Upper", "NO TRANSPOSE", "NON-UNIT", k, nb, ONE, T, ldt, Y,
+                          ldy);
     }
 
     /*! §dlaln2 solves a 1 by 1 or 2 by 2 linear system of equations of the specified form.
@@ -3625,7 +4014,7 @@ public:
         }
         else if (upNorm=='M')
         {
-            //Find max(abs(A(i,j))).
+            //Find max(abs(A[i,j])).
             dlange = ZERO;
             for (j=0; j<n; j++)
             {
