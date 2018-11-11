@@ -1996,6 +1996,224 @@ public:
         }
     }
 
+    /*! §dgebrd
+     *
+     * §dgebrd reduces a general real §m by §n matrix $A$ to upper or lower bidiagonal form $B$ by
+     * an orthogonal transformation: $Q^T A P = B$.\n
+     * If $\{m}\ge\{n}$, $B$ is upper bidiagonal; if $\{m}<\{n}$, $B$ is lower bidiagonal.
+     * \param[in]     m The number of rows in the matrix $A$. $\{m}\ge 0$.
+     * \param[in]     n The number of columns in the matrix $A$. $\{n}\ge 0$.
+     * \param[in,out] A
+     *     an array, dimension (§lda,§n)\n
+     *     On entry, the §m by §n general matrix to be reduced.\n
+     *     On exit,
+     *     \li if $\{m}\ge\{n}$, the diagonal and the first superdiagonal are overwritten with the
+     *         upper bidiagonal matrix $B$; the elements below the diagonal, with the array §tauq,
+     *         represent the orthogonal matrix $Q$ as a product of elementary reflectors, and the
+     *         elements above the first superdiagonal, with the array §taup, represent the
+     *         orthogonal matrix $P$ as a product of elementary reflectors;
+     *     \li if $\{m}<\{n}$, the diagonal and the first subdiagonal are overwritten with the
+     *         lower bidiagonal matrix $B$; the elements below the first subdiagonal, with the
+     *         array §tauq, represent the orthogonal matrix $Q$ as a product of elementary
+     *         reflectors, and the elements above the diagonal, with the array §taup, represent the
+     *         orthogonal matrix $P$ as a product of elementary reflectors.
+     *
+     *     See Remark.
+     *
+     * \param[in]  lda The leading dimension of the array §A. $\{lda}\ge\max(1,\{m})$.
+     * \param[out] d
+     *     an array, dimension ($\min(\{m},\{n})$)\n
+     *     The diagonal elements of the bidiagonal matrix $B$: $\{d}[i] = \{A}[i,i]$.
+     *
+     * \param[out] e
+     *     an array, dimension ($\min(\{m},\{n})-1$)\n
+     *     The off-diagonal elements of the bidiagonal matrix $B$:\n
+     *     \li if $\{m}\ge\{n}$, $\{e}[i] = \{A}[i,i+1]$ for $i=0,1,\ldots,\{n}-2$;
+     *     \li if $\{m}<\{n}$,   $\{e}[i] = \{A}[i+1,i]$ for $i=0,1,\ldots,\{m}-2$.
+     *
+     * \param[out] tauq
+     *     an array, dimension ($\min(\{m},\{n})$)\n
+     *     The scalar factors of the elementary reflectors which represent the orthogonal matrix
+     *     $Q$. See Remark.
+     *
+     * \param[out] taup
+     *     an array, dimension ($\min(\{m},\{n})$)\n
+     *     The scalar factors of the elementary reflectors which represent the orthogonal matrix
+     *     $P$. See Remark.
+     *
+     * \param[out] work
+     *     an array, dimension ($\max(1,\{lwork})$)\n
+     *     On exit, if $\{info}=0$, $\{work}[0]$ returns the optimal §lwork.
+     *
+     * \param[in] lwork
+     *     The length of the array §work. $\{lwork}\ge\max(1,\{m},\{n})$.\n
+     *     For optimum performance $\{lwork}\ge(\{m}+\{n})\{nb}$, where §nb is the optimal
+     *     blocksize.\n
+     *     If $\{lwork}=-1$, then a workspace query is assumed; the routine only calculates the
+     *     optimal size of the §work array, returns this value as the first entry of the §work
+     *     array, and no error message related to §lwork is issued by §xerbla.
+     *
+     * \param[out] info
+     *     =0: successful exit\n
+     *     <0: if $\{info}=-i$, the $i$-th argument had an illegal value.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date November 2017
+     * \remark
+     *     The matrices $Q$ and $P$ are represented as products of elementary reflectors:\n
+     *     If $\{m}\ge\{n}$,\n
+     *         $Q = H(0) H(1) \ldots H(\{n}-1)$ and $P = G(0) G(1) \ldots G(\{n}-2)$\n
+     *     Each $H(i)$ and $G(i)$ has the form:\n
+     *         $H(i) = I - \tau_q v v^T$ and $G(i) = I - \tau_p u u^T$\n
+     *     where $\tau_q$ and $\tau_p$ are real scalars, and $v$ and $u$ are real vectors;\n
+     *     $v[0:i-1]=0$, $v[i]=1$, and $v[i+1:m-1]$ is stored on exit in $\{A}[i+1:m-1,i]$;\n
+     *     $u[0:i]=0$, $u[i+1]=1$, and $u[i+2:n-1]$ is stored on exit in $\{A}[i,i+2:n-1]$;\n
+     *     $\tau_q$ is stored in $\{tauq}[i]$ and $\tau_p$ in $\{taup}[i]$.\n
+     *     \n
+     *     If $\{m}<\{n}$,\n
+     *         $Q = H(0) H(1) \ldots H(\{m}-2)$ and $P = G(0) G(1) \ldots G(\{m}-1)$\n
+     *     Each $H(i)$ and $G(i)$ has the form:\n
+     *         $H(i) = I - \tau_q v v^T$ and $G(i) = I - \tau_p u u^T$\n
+     *     where $\tau_q$ and $\tau_p$ are real scalars, and $v$ and $u$ are real vectors;\n
+     *     $v[0:i]=0$, $v[i+1]=1$, and $v[i+2:m-1]$ is stored on exit in $\{A}[i+2:m-1,i]$;\n
+     *     $u[0:i-1]=0$, $u[i]=1$, and $u[i+1:n-1]$ is stored on exit in $\{A}[i,i+1:n-1]$;\n
+     *     $\tau_q$ is stored in $\{tauq}[i]$ and $\tau_p$ in $\{taup}[i]$.\n
+     *     The contents of §A on exit are illustrated by the following examples:\n
+     *     \li $\{m}=6$ and $\{n}=5$ ($\{m}>\{n}$):\n
+     *         $\b{bm} d  &  e  & u_1 & u_1 & u_1 \\
+     *                v_1 &  d  &  e  & u_2 & u_2 \\
+     *                v_1 & v_2 &  d  &  e  & u_3 \\
+     *                v_1 & v_2 & v_3 &  d  &  e  \\
+     *                v_1 & v_2 & v_3 & v_4 &  d  \\
+     *                v_1 & v_2 & v_3 & v_4 & v_5 \e{bm}$
+     *     \li $\{m}=5$ and $\{n}=6$ ($\{m}<\{n}$):\n
+     *         $\b{bm} d  & u_1 & u_1 & u_1 & u_1 & u_1 \\
+     *                 e  &  d  & u_2 & u_2 & u_2 & u_2 \\
+     *                v_1 &  e  &  d  & u_3 & u_3 & u_3 \\
+     *                v_1 & v_2 &  e  &  d  & u_4 & u_4 \\
+     *                v_1 & v_2 & v_3 &  e  &  d  & u_5 \e{bm}$
+     *
+     *     where $d$ and $e$ denote diagonal and off-diagonal elements of $B$, $v_i$ denotes an
+     *     element of the vector defining $H(i)$, and $u_i$ an element of the vector defining
+     *     $G(i)$.                                                                               */
+    static void dgebrd(int m, int n, real* A, int lda, real* d, real* e, real* tauq, real* taup,
+                       real* work, int lwork, int& info)
+    {
+        // Test the input parameters
+        info = 0;
+        int nb = std::max(1, ilaenv(1, "DGEBRD", " ", m, n, -1, -1));
+        int lwkopt = (m+n) * nb;
+        work[0] = real(lwkopt);
+        bool lquery = (lwork==-1);
+        if (m<0)
+        {
+            info = -1;
+        }
+        else if (n<0)
+        {
+            info = -2;
+        }
+        else if (lda<std::max(1, m))
+        {
+            info = -4;
+        }
+        else if ((lwork<1 || lwork<std::max(m, n)) && !lquery)
+        {
+            info = -10;
+        }
+        if (info<0)
+        {
+            xerbla("DGEBRD", -info);
+            return;
+        }
+        else if (lquery)
+        {
+            return;
+        }
+        // Quick return if possible
+        int minmn = std::min(m, n);
+        if (minmn==0)
+        {
+            work[0] = 1;
+            return;
+        }
+        int ws = std::max(m, n);
+        int ldwrkx = m;
+        int ldwrky = n;
+        int nbmin, nx;
+        if (nb>1 && nb<minmn)
+        {
+            // Set the crossover point nx.
+            nx = std::max(nb, ilaenv(3, "DGEBRD", " ", m, n, -1, -1));
+            // Determine when to switch from blocked to unblocked code.
+            if (nx<minmn)
+            {
+                ws = (m+n) * nb;
+                if (lwork<ws)
+                {
+                    // Not enough work space for the optimal nb,
+                    // consider using a smaller block size.
+                    nbmin = ilaenv(2, "DGEBRD", " ", m, n, -1, -1);
+                    if (lwork>=(m+n)*nbmin)
+                    {
+                        nb = lwork / (m+n);
+                    }
+                    else
+                    {
+                        nb = 1;
+                        nx = minmn;
+                    }
+                }
+            }
+        }
+        else
+        {
+            nx = minmn;
+        }
+        int i, j, ildai, inbldainb, jldaj;
+        for (i=0; i<minmn-nx; i+=nb)
+        {
+            ildai = i + lda*i;
+            inbldainb = nb + ildai + lda*nb;
+            // Reduce rows and columns i:i+nb-1 to bidiagonal form and return the matrices X and Y
+            // which are needed to update the unreduced part of the matrix
+            dlabrd(m-i, n-i, nb, &A[ildai], lda, &d[i], &e[i], &tauq[i], &taup[i], work, ldwrkx,
+                   &work[ldwrkx*nb], ldwrky);
+            // Update the trailing submatrix A[i+nb:m-1,i+nb:n-1],
+            // using an update of the form A := A - V*Y^T - X*U^T
+            Blas<real>::dgemm("No transpose", "Transpose", m-i-nb, n-i-nb, nb, -ONE,
+                              &A[nb+ildai], lda, &work[ldwrkx*nb+nb], ldwrky, ONE, &A[inbldainb],
+                              lda);
+            Blas<real>::dgemm("No transpose", "No transpose", m-i-nb, n-i-nb, nb, -ONE,
+                              &work[nb], ldwrkx, &A[ildai+lda*nb], lda, ONE, &A[inbldainb], lda);
+            // Copy diagonal and off-diagonal elements of B back into A
+            if (m>=n)
+            {
+                for (j=i; j<i+nb; j++)
+                {
+                    jldaj = j + lda*j;
+                    A[jldaj]     = d[j];
+                    A[jldaj+lda] = e[j];
+                }
+            }
+            else
+            {
+                for (j=i; j<i+nb; j++)
+                {
+                    jldaj = j + lda*j;
+                    A[jldaj]   = d[j];
+                    A[1+jldaj] = e[j];
+                }
+            }
+        }
+        // Use unblocked code to reduce the remainder of the matrix
+        int iinfo;
+        dgebd2(m-i, n-i, &A[i+lda*i], lda, &d[i], &e[i], &tauq[i], &taup[i], work, iinfo);
+        work[0] = ws;
+    }
+
     /*! §dgehd2 reduces a general square matrix to upper Hessenberg form using an unblocked
      *  algorithm.
      *
@@ -2103,6 +2321,219 @@ public:
             dlarf("Left", ihi-i, n-1-i, &A[ip1i], 1, tau[i], &A[i+1+acolip], lda, work);
             A[ip1i] = aii;
         }
+    }
+
+    /*! §dgehrd
+     *
+     * §dgehrd reduces a real general matrix $A$ to upper Hessenberg form $H$ by an orthogonal
+     * similarity transformation: $Q^T A Q = H$.
+     * \param[in] n   The order of the matrix $A$. $\{n} \ge 0$.
+     * \param[in] ilo,
+     *            ihi It is assumed that $A$ is already upper triangular in rows and columns
+     *            $0:\{ilo}-1$ and $\{ihi}+1:\{n}-1$. §ilo and §ihi are normally set by a
+     *            previous call to §dgebal; otherwise they should be set to 0 and $\{n}-1$
+     *            respectively.\n
+     *            See Remark.\n
+     *            $0 \le \{ilo} \le \{ihi} < \{n}$, if $\{n} > 0$;\n
+     *            $\{ilo} = 0$ and $\{ihi} = -1$,   if $\{n} = 0$.\n
+     *            NOTE: zero-based indices!
+     *
+     * \param[in,out] A
+     *     an array, dimension (§lda,§n)\n
+     *     On entry, the §n by §n general matrix to be reduced.\n
+     *     On exit, the upper triangle and the first subdiagonal of §A are overwritten with the
+     *     upper Hessenberg matrix $H$, and the elements below the first subdiagonal, with the
+     *     array §tau, represent the orthogonal matrix $Q$ as a product of elementary reflectors.\n
+     *     See Remark.
+     *
+     * \param[in]  lda The leading dimension of the array §A. $\{lda} \ge \max(1,\{n})$.
+     * \param[out] tau
+     *     an array, dimension (§n-1)\n
+     *     The scalar factors of the elementary reflectors (see Remark).
+     *     Elements $0:\{ilo}-1$ and $\{ihi}:\{n}-2$ of §tau are set to zero.
+     *
+     * \param[out] work
+     *     an array, dimension (§lwork)\n
+     *     On exit, if $\{info}=0$, $\{work}[0]$ returns the optimal §lwork.
+     *
+     * \param[in] lwork
+     *     The length of the array §work. $\{lwork}\ge\max(1,\{n})$.\n
+     *     For good performance, §lwork should generally be larger.\n
+     *     If §lwork = -1, then a workspace query is assumed; the routine only calculates the
+     *     optimal size of the work array, returns this value as the first entry of the §work
+     *     array, and no error message related to §lwork is issued by §xerbla.
+     *
+     * \param[out] info
+     *     = 0: successful exit\n
+     *     < 0: if §info = $-i$, the $i$-th argument had an illegal value.
+     * \authors Univ. of Tennessee
+     * \authors Univ. of California Berkeley
+     * \authors Univ. of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016
+     * \remark
+     *     The matrix $Q$ is represented as a product of (§ihi-§ilo) elementary reflectors\n
+     *         $Q = H(\{ilo}) H(\{ilo}+1) \ldots H(\{ihi}-1)$.\n
+     *     Each $H(i)$ has the form\n
+     *         $H(i) = I - \tau v v^T$\n
+     *     where $\tau$ is a real scalar, and $v$ is a real vector with $v[0:i]=0$, $v[i+1]=1$
+     *     and $v[\{ihi}+1:\{n}-1]=0$; $v[i+2:\{ihi}-1]$ is stored on exit in
+     *     $\{A}[i+2:\{ihi},i]$, and $\tau$ in $\{tau}[i]$.\n
+     *     The contents of §A are illustrated by the following example, with $\{n}=7$, $\{ilo}=1$
+     *     and $\{ihi}=5$:\n
+     *         on entry,\n
+     *         $\b{bm} a & a & a & a & a & a & a \\
+     *                   & a & a & a & a & a & a \\
+     *                   & a & a & a & a & a & a \\
+     *                   & a & a & a & a & a & a \\
+     *                   & a & a & a & a & a & a \\
+     *                   & a & a & a & a & a & a \\
+     *                   &   &   &   &   &   & a \e{bm}$\n
+     *         on exit,\n
+     *         $\b{bm} a &  a  &  h  &  h  & h & h & a \\
+     *                   &  a  &  h  &  h  & h & h & a \\
+     *                   &  h  &  h  &  h  & h & h & h \\
+     *                   & v_2 &  h  &  h  & h & h & h \\
+     *                   & v_2 & v_3 &  h  & h & h & h \\
+     *                   & v_2 & v_3 & v_4 & h & h & h \\
+     *                   &     &     &     &   &   & a \e{bm}$\n
+     *     where $a$ denotes an element of the original matrix $A$, $h$ denotes a modified element
+     *     of the upper Hessenberg matrix $H$, and $v_i$ denotes an element of the vector defining
+     *     $H(i)$.\n
+     *     This file is a slight modification of LAPACK-3.0's §dgehrd subroutine incorporating
+     *     improvements proposed by Quintana-Orti and Van de Geijn (2006). (See §dlahr2.)        */
+    static void dgehrd(int n, int ilo, int ihi, real* A, int lda, real* tau, real* work, int lwork,
+                       int info)
+    {
+        const int NBMAX = 64;
+        const int LDT = NBMAX + 1;
+        const int TSIZE = LDT * NBMAX;
+        // Test the input parameters
+        info = 0;
+        bool lquery = (lwork==-1);
+        if (n<0)
+        {
+            info = -1;
+        }
+        else if (ilo<0 || ilo>std::max(0, n-1))
+        {
+            info = -2;
+        }
+        else if (ihi<std::min(ilo, n-1) || ihi>=n)
+        {
+            info = -3;
+        }
+        else if (lda<std::max(1, n))
+        {
+            info = -5;
+        }
+        else if (lwork<std::max(1, n) && !lquery)
+        {
+            info = -8;
+        }
+        int lwkopt, nb;
+        if (info==0)
+        {
+            // Compute the workspace requirements
+            nb = std::min(NBMAX, ilaenv(1, "DGEHRD", " ", n, ilo+1, ihi+1, -1));
+            lwkopt = n*nb + TSIZE;
+            work[0] = lwkopt;
+        }
+        if (info!=0)
+        {
+            xerbla("DGEHRD", -info);
+            return;
+        }
+        else if (lquery)
+        {
+            return;
+        }
+        int i;
+        // Set elements 0:ilo-1 and ihi:n-1 of tau to zero
+        for (i=0; i<ilo; i++)
+        {
+            tau[i] = ZERO;
+        }
+        for (i=std::max(0, ihi); i<n-1; i++)
+        {
+            tau[i] = ZERO;
+        }
+        // Quick return if possible
+        int nh = ihi - ilo + 1;
+        if (nh<=1)
+        {
+            work[0] = 1;
+            return;
+        }
+        // Determine the block size
+        nb = std::min(NBMAX, ilaenv(1, "DGEHRD", " ", n, ilo+1, ihi+1, -1));
+        int nbmin = 2, nx = 0;
+        if (nb>1 && nb<nh)
+        {
+            // Determine when to cross over from blocked to unblocked code
+            // (last block is always handled by unblocked code)
+            nx = std::max(nb, ilaenv(3, "DGEHRD", " ", n, ilo+1, ihi+1, -1));
+            if (nx<nh)
+            {
+                // Determine if workspace is large enough for blocked code
+                if (lwork<n*nb+TSIZE)
+                {
+                    // Not enough workspace to use optimal nb: determine the minimum value of nb,
+                    // and reduce nb or force use of unblocked code
+                    nbmin = std::max(2, ilaenv(2, "DGEHRD", " ", n, ilo+1, ihi+1, -1));
+                    if (lwork>=(n*nbmin + TSIZE))
+                    {
+                        nb = (lwork-TSIZE) / n;
+                    }
+                    else
+                    {
+                        nb = 1;
+                    }
+                }
+            }
+        }
+        int ldwork = n;
+        if (nb<nbmin || nb>=nh)
+        {
+            // Use unblocked code below
+            i = ilo;
+        }
+        else
+        {
+            // Use blocked code
+            int iwt = n * nb;
+            int ib, j;
+            real ei;
+            for (i=ilo; i<ihi-nx; i+=nb)//40
+            {
+                ib = std::min(nb, ihi-i);
+                // Reduce columns i:i+ib-1 to Hessenberg form, returning the matrices V and T of
+                // the block reflector H = I - V*T*V^T which performs the reduction, and also the
+                // matrix Y = A*V*T
+                dlahr2(ihi+1, i+1, ib, &A[lda*i], lda, &tau[i], &work[iwt], LDT, work, ldwork);
+                // Apply the block reflector H to A[0:ihi,i+ib:ihi] from the right,
+                // computing  A := A - Y * V^T. V[i+ib,ib-2] must be set to 1
+                ei = A[i+ib+lda*(i+ib-1)];
+                A[i+ib+lda*(i+ib-1)] = ONE;
+                Blas<real>::dgemm("No transpose", "Transpose", ihi+1, ihi-i-ib+1, ib, -ONE, work,
+                                  ldwork, &A[i+ib+lda*i], lda, ONE, &A[lda*(i+ib)], lda);
+                A[i+ib+lda*(i+ib-1)] = ei;
+                // Apply the block reflector H to A[0:i,i+1:i+ib-1] from the right
+                Blas<real>::dtrmm("Right", "Lower", "Transpose", "Unit", i+1, ib-1, ONE, &A[i+1+lda*i],
+                                  lda, work, ldwork);
+                for (j=0; j<ib-1; j++)
+                {
+                    Blas<real>::daxpy(i+1, -ONE, &work[ldwork*j], 1, &A[lda*(i+1+j)], 1);
+                }
+                // Apply the block reflector H to A[i+1:ihi,i+ib:n-1] from the left
+                dlarfb("Left", "Transpose", "Forward", "Columnwise", ihi-i, n-i-ib, ib,
+                       &A[i+1+lda*i], lda, &work[iwt], LDT, &A[i+1+lda*(i+ib)], lda, work, ldwork);
+            }
+        }
+        // Use unblocked code to reduce the rest of the matrix
+        int iinfo;
+        dgehd2(n, i, ihi, A, lda, tau, work, iinfo);
+        work[0] = lwkopt;
     }
 
     /*! §dgeqp3
