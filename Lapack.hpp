@@ -4614,11 +4614,166 @@ public:
         return anorm;
     }
 
+    /*! §dlanv2 computes the Schur factorization of a real 2 by 2 nonsymmetric matrix in standard
+     *  form.
+     *
+     * §dlanv2 computes the Schur factorization of a real 2 by 2 nonsymmetric matrix in standard
+     * form:\n
+     *     $\b{bm} \{a} & \{b} \\
+     *             \{c} & \{d} \e{bm} = \b{bm} \{cs} & -\{sn} \\
+     *                                         \{sn} &  \{cs} \e{bm}
+     *                                     \b{bm} AA & BB \\
+     *                                            CC & DD \e{bm}\b{bm} \{cs} & \{sn} \\
+     *                                                                -\{sn} & \{cs} \e{bm}$\n
+     * where either
+     * \li $CC = 0$ so that $AA$ and $DD$ are real eigenvalues of the matrix, or
+     * \li $AA = DD$ and $BB * CC < 0$, so that $AA \pm \sqrt{BB * CC}$ are complex conjugate
+     *     eigenvalues.
+     *
+     * \param[in,out] a, b, c, d
+     *     On entry, the elements of the input matrix.\n
+     *     On exit, they are overwritten by the elements of the standardised Schur form.
+     *
+     * \param[out] rt1r, rt1i, rt2r, rt2i
+     *     The real and imaginary parts of the eigenvalues.
+     *     If the eigenvalues are a complex conjugate pair, $\{rt1i}>0$.
+     *
+     * \param[out] cs, sn Parameters of the rotation matrix.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016
+     * \remark
+     *     Modified by V. Sima, Research Institute for Informatics, Bucharest, Romania, to reduce
+     *     the risk of cancellation errors, when computing real eigenvalues, and to ensure,
+     *     if possible, that $|\{rt1r}| \ge |\{rt2r}|$.                                          */
+    static void dlanv2(real& a, real& b, real& c, real& d, real& rt1r, real& rt1i, real& rt2r,
+                       real& rt2i, real& cs, real& sn)
+    {
+        const real MULTPL = FOUR;
+        real aa, bb, bcmax, bcmis, cc, cs1, dd, eps, p, sab, sac, scale, sigma, sn1, tau, temp, z;
+        eps = dlamch("P");
+        if (c==ZERO)
+        {
+            cs = ONE;
+            sn = ZERO;
+        }
+        else if (b==ZERO)
+        {
+            // Swap rows and columns
+            cs   = ZERO;
+            sn   = ONE;
+            temp = d;
+            d    = a;
+            a    = temp;
+            b    = -c;
+            c    = ZERO;
+        }
+        else if ((a-d)==ZERO && std::copysign(ONE, b)!=std::copysign(ONE, c))
+        {
+            cs = ONE;
+            sn = ZERO;
+        }
+        else
+        {
+            temp  = a - d;
+            p     = HALF * temp;
+            bcmax = std::max(std::fabs(b), std::fabs(c));
+            bcmis = std::min(std::fabs(b), std::fabs(c))
+                    *std::copysign(ONE, b) * std::copysign(ONE, c);
+            scale = std::max(std::fabs(p), bcmax);
+            z     = (p/scale)*p + (bcmax/scale)*bcmis;
+            // If z is of the order of the machine accuracy,
+            // postpone the decision on the nature of eigenvalues
+            if (z>=MULTPL*eps)
+            {
+                // Real eigenvalues. Compute a and d.
+                z  = p + std::copysign(std::sqrt(scale)*std::sqrt(z), p);
+                a  = d + z;
+                d -= (bcmax/z) * bcmis;
+                // Compute b and the rotation matrix
+                tau = dlapy2(c, z);
+                cs  = z / tau;
+                sn  = c / tau;
+                b  -= c;
+                c   = ZERO;
+            }
+            else
+            {
+                // Complex eigenvalues, or real (almost) equal eigenvalues.
+                // Make diagonal elements equal.
+                sigma = b + c;
+                tau   = dlapy2(sigma, temp);
+                cs    = std::sqrt(HALF*(ONE+std::fabs(sigma)/tau));
+                sn    = -(p/(tau*cs)) * std::copysign(ONE, sigma);
+                // Compute [ AA  BB ] = [ a  b ] [ cs -sn ]
+                //         [ CC  DD ]   [ c  d ] [ sn  cs ]
+                aa =  a*cs + b*sn;
+                bb = -a*sn + b*cs;
+                cc =  c*cs + d*sn;
+                dd = -c*sn + d*cs;
+                // Compute [ a  b ] = [ cs  sn ] [ aa  bb ]
+                //         [ c  d ]   [-sn  cs ] [ cc  dd ]
+                a =  aa*cs + cc*sn;
+                b =  bb*cs + dd*sn;
+                c = -aa*sn + cc*cs;
+                d = -bb*sn + dd*cs;
+                temp = HALF * (a+d);
+                a    = temp;
+                d    = temp;
+                if (c!=ZERO)
+                {
+                    if (b!=ZERO)
+                    {
+                        if (std::copysign(ONE, b)==std::copysign(ONE, c))
+                        {
+                            // Real eigenvalues: reduce to upper triangular form
+                            sab  = std::sqrt(std::fabs(b));
+                            sac  = std::sqrt(std::fabs(c));
+                            p    = std::copysign(sab*sac, c);
+                            tau  = ONE / std::sqrt(std::fabs(b+c));
+                            a    = temp + p;
+                            d    = temp - p;
+                            b   -= c;
+                            c    = ZERO;
+                            cs1  = sab * tau;
+                            sn1  = sac * tau;
+                            temp = cs*cs1 - sn*sn1;
+                            sn   = cs*sn1 + sn*cs1;
+                            cs   = temp;
+                        }
+                    }
+                    else
+                    {
+                        b    = -c;
+                        c    = ZERO;
+                        temp = cs;
+                        cs   = -sn;
+                        sn   = temp;
+                    }
+                }
+            }
+        }
+        // Store eigenvalues in (rt1r,rt1i) and (rt2r,rt2i).
+        rt1r = a;
+        rt2r = d;
+        if (c==ZERO)
+        {
+            rt1i = ZERO;
+            rt2i = ZERO;
+        }
+        else
+        {
+            rt1i = std::sqrt(std::fabs(b))*std::sqrt(std::fabs(c));
+            rt2i = -rt1i;
+        }
+    }
+
     /*! §dlapy2 returns $\sqrt{x^2+y^2}$.
      *
      * §dlapy2 returns $\sqrt{x^2+y^2}$, taking care not to cause unnecessary overflow.
-     * \param[in] x
-     * \param[in] y §x and §y specify the values $x$ and $y$.
+     * \param[in] x, y §x and §y specify the values $x$ and $y$.
      * \return $\sqrt{x^2+y^2}$, or NaN if either §x or §y is NaN.
      * \authors Univ.of Tennessee
      * \authors Univ.of California Berkeley
@@ -13056,6 +13211,115 @@ public:
             for (j=0; j<i; j++)
             {
                 A[j+acoli] = ZERO;
+            }
+        }
+    }
+
+    /*! §dorgl2
+     *
+     * §dorgl2 generates an §m by §n real matrix $Q$ with orthonormal rows, which is defined as the
+     * first §m rows of a product of §k elementary reflectors of order §n \n
+     *     $Q = H(k-1) \ldots H(1) H(0)$\n
+     * as returned by §dgelqf.
+     * \param[in] m The number of rows of the matrix $Q$. ${m}\ge 0$.
+     * \param[in] n The number of columns of the matrix $Q$. $\{n}\ge\{m}$.
+     * \param[in] k
+     *     The number of elementary reflectors whose product defines the matrix $Q$.
+     *     $\{m}\ge\{k}\ge 0$.
+     *
+     * \param[in,out] A
+     *     an array, dimension (§lda,§n)\n
+     *     On entry, the $i$-th row must contain the vector which defines the elementary reflector
+     *     $H(i)$, for $i = 0,1,\ldots,\{k}$, as returned by §dgelqf in the first §k rows of its
+     *     array argument §A.\n
+     *     On exit, the §m by §n matrix $Q$.
+     *
+     * \param[in] lda The first dimension of the array §A. $\{lda}\ge\max(1,\{m})$.
+     * \param[in] tau
+     *     an array, dimension (§k)\n
+     *     $\{tau}[i]$ must contain the scalar factor of the elementary reflector $H(i)$,
+     *     as returned by §dgelqf.
+     *
+     * \param[out] work an array, dimension (§m)
+     * \param[out] info
+     *     = 0: successful exit\n
+     *     < 0: if $\{info}=-i$, the $i$-th argument has an illegal value
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                       */
+    static void dorgl2(int m, int n, int k, real* A, int lda, real const* tau, real* work,
+                       int& info)
+    {
+        // Test the input arguments
+        info = 0;
+        if (m<0)
+        {
+            info = -1;
+        }
+        else if (n<m)
+        {
+            info = -2;
+        }
+        else if (k<0 || k>m)
+        {
+            info = -3;
+        }
+        else if (lda<std::max(1, m))
+        {
+            info = -5;
+        }
+        if (info!=0)
+        {
+            xerbla("DORGL2", -info);
+            return;
+        }
+        // Quick return if possible
+        if (m<=0)
+        {
+            return;
+        }
+        int km = k - 1;
+        int l;
+        if (k<m)
+        {
+            // Initialise rows k:m-1 to rows of the unit matrix
+            int ldaj;
+            for (int j=0; j<n; j++)
+            {
+                ldaj = lda * j;
+                for (l=k; l<m; l++)
+                {
+                    A[l+ldaj] = ZERO;
+                }
+                if (j>km && j<m)
+                {
+                    A[j+ldaj] = ONE;
+                }
+            }
+        }
+        int ildai;
+        int nm = n - 1;
+        int mm = m - 1;
+        for (int i=km; i>=0; i--)
+        {
+            ildai = i + lda*i;
+            // Apply H(i) to A[i:m-1,i:n-1] from the right
+            if (i<nm)
+            {
+                if (i<mm)
+                {
+                    A[ildai] = ONE;
+                    dlarf("Right", mm-i, n-i, &A[ildai], lda, tau[i], &A[1+ildai], lda, work);
+                }
+                Blas<real>::dscal(nm-i, -tau[i], &A[ildai+lda], lda);
+            }
+            A[ildai] = ONE - tau[i];
+            // Set A[i,0:i-1] to zero
+            for (l=0; l<i; l++)
+            {
+                A[i+lda*l] = ZERO;
             }
         }
     }
