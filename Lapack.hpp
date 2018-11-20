@@ -3580,13 +3580,13 @@ public:
             scale = true;
             if (temp<=small2)
             {
-                // Scale up by power of radix nearest 1/SAFMIN^(2/3)
+                // Scale up by power of radix nearest 1/safmin^(2/3)
                 sclfac = sminv2;
                 sclinv = small2;
             }
             else
             {
-                // Scale up by power of radix nearest 1/SAFMIN^(1/3)
+                // Scale up by power of radix nearest 1/safmin^(1/3)
                 sclfac = sminv1;
                 sclinv = small1;
             }
@@ -3734,6 +3734,449 @@ public:
         if (scale)
         {
             tau *= sclinv;
+        }
+    }
+
+    /*! §dlahqr computes the eigenvalues and Schur factorization of an upper Hessenberg matrix,
+     *  using the double-shift/single-shift QR algorithm.
+     *
+     * §dlahqr is an auxiliary routine called by §dhseqr to update the eigenvalues and Schur
+     * decomposition already computed by §dhseqr, by dealing with the Hessenberg submatrix in rows
+     * and columns §ilo to §ihi.
+     * \param[in] wantt
+     *     = true:  the full Schur form $T$ is required;
+     *     = false: only eigenvalues are required.
+     *
+     * \param[in] wantz
+     *     = true:  the matrix of Schur vectors $Z$ is required;
+     *     = false: Schur vectors are not required.
+     *
+     * \param[in] n The order of the matrix $H$. $\{n}\ge 0$.
+     * \param[in] ilo, ihi
+     *     It is assumed that §H is already upper quasi-triangular in rows and columns
+     *     $\{ihi}+1:\{n}-1$, and that $\{H}[\{ilo},\{ilo}-1] = 0$ (unless $\{ilo} = 0$).
+     *     §dlahqr works primarily with the Hessenberg submatrix in rows and columns §ilo to §ihi,
+     *     but applies transformations to all of §H if §wantt is true.\n
+     *     $0\le\{ilo}\le\max(0,\{ihi})$; $\{ihi}<\{n}$.\n
+     *     NOTE: Zero-based indices!
+     *
+     * \param[in,out] H
+     *     an array, dimension (§ldh,§n)\n
+     *     On entry, the upper Hessenberg matrix $H$.\n
+     *     On exit, if §info is zero and if §wantt is true, §H is upper quasi-triangular in rows
+     *     and columns $\{ilo}:\{ihi}$, with any 2 by 2 diagonal blocks in standard form. If
+     *     §info is zero and §wantt is false, the contents of §H are unspecified on exit. The
+     *     output state of §H if §info is nonzero is given below in the description of §info.
+     *
+     * \param[in]  ldh The leading dimension of the array §H. $\{ldh}\ge\max(1,\{n})$.
+     * \param[out] wr, wi
+     *     arrays, dimension (§n)\n
+     *     The real and imaginary parts, respectively, of the computed eigenvalues §ilo to §ihi are
+     *     stored in the corresponding elements of §wr and §wi. If two eigenvalues are computed as
+     *     a complex conjugate pair, they are stored in consecutive elements of §wr and §wi, say
+     *     the $i$-th and $(i+1)$-th, with $\{wi}[i]>0$ and $\{wi}[i+1]<0$. If §wantt is true, the
+     *     eigenvalues are stored in the same order as on the diagonal of the Schur form returned
+     *     in §H, with $\{wr}[i]=\{H}[i,i]$, and, if $\{H}[i:i+1,i:i+1]$ is a 2 by 2 diagonal
+     *     block, $\{wi}[i]=\sqrt{\{H}[i+1,i]\{H}[i,i+1]}$ and $\{wi}[i+1]=-\{wi}[i]$.
+     *
+     * \param[in] iloz, ihiz
+     *     Specify the rows of $Z$ to which transformations must be applied if §wantz is true.
+     *     $0 \le \{iloz} \le \{ilo}$; $\{ihi} \le \{ihiz} < \{n}$.\n
+     *     NOTE: Zero-based indices!
+     *
+     * \param[in,out] Z
+     *     an array, dimension (§ldz,§n)\n
+     *     If §wantz is true, on entry §Z must contain the current matrix $Z$ of transformations
+     *     accumulated by §dhseqr, and on exit §Z has been updated; transformations are applied
+     *     only to the submatrix $\{Z}[\{iloz}:\{ihiz},\{ilo}:\{ihi}]$.\n
+     *     If §wantz is false, §Z is not referenced.
+     *
+     * \param[in]  ldz  The leading dimension of the array §Z. $\{ldz}\ge\max(1,\{n})$.
+     * \param[out] info
+     *     = 0: successful exit\n
+     *     > 0: If $\{info}=I$, §dlahqr failed to compute all the eigenvalues §ilo to §ihi in a
+     *          total of 30 iterations per eigenvalue; elements $I:\{ihi}$ of §wr and §wi contain
+     *          those eigenvalues which have been successfully computed.\n
+     *    &emsp;If $\{info}>0$ and §wantt is false, then on exit, the remaining unconverged
+     *          eigenvalues are the eigenvalues of the upper Hessenberg matrix rows and columns
+     *          §ilo thorugh $\{info}-1$ of the final, output value of §H.\n
+     *    &emsp;If $\{info}>0$ and §wantt is true, then on exit\n
+     *    &emsp;(*)&emsp;&emsp;$(\text{initial value of }\{H})U = U(\text{final value of }\{H})$\n
+     *    &emsp;where $U$ is an orthognal matrix. The final value of §H is upper Hessenberg and
+     *          triangular in rows and columns §info through §ihi.\n
+     *    &emsp;If $\{info}>0$ and §wantz is true, then on exit
+     *          $(\text{final value of }\{Z}) = (\text{initial value of }\{Z}) U$ where $U$ is the
+     *          orthogonal matrix in (*) (regardless of the value of §wantt.)
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016
+     * \remark
+     *     02-96 Based on modifications by David Day, Sandia National Laboratory, USA\n
+     *     12-04 Further modifications by Ralph Byers, University of Kansas, USA\n
+     *     This is a modified version of §dlahqr from LAPACK version 3.0.\n
+     *     It is \li more robust against overflow and underflow and \li adopts the more
+     *     conservative Ahues & Tisseur stopping criterion (LAWN 122, 1997).                     */
+    static void dlahqr(bool wantt, bool wantz, int n, int ilo, int ihi, real* H, int ldh, real* wr,
+                       real* wi, int iloz, int ihiz, real* Z, int ldz, int& info)
+    {
+        const real DAT1 = THREE / FOUR;
+        const real DAT2 = real(-0.4375);
+        info = 0;
+        // Quick return if possible
+        if (n==0)
+        {
+            return;
+        }
+        if (ilo==ihi)
+        {
+            wr[ilo] = H[ilo+ldh*ilo];
+            wi[ilo] = ZERO;
+            return;
+        }
+        // ==== clear out the trash ====
+        int j;
+        for (j=ilo; j<ihi-2; j++)
+        {
+            H[j+2+ldh*j] = ZERO;
+            H[j+3+ldh*j] = ZERO;
+        }
+        if (ilo<=ihi-2)
+        {
+            H[ihi+ldh*(ihi-2)] = ZERO;
+        }
+        int nh = ihi - ilo + 1;
+        int nz = ihiz - iloz + 1;
+        // Set machine-dependent constants for the stopping criterion.
+        real safmin = dlamch("SAFE MINIMUM");
+        real safmax = ONE / safmin;
+        dlabad(safmin, safmax);
+        real ulp    = dlamch("PRECISION");
+        real smlnum = safmin * (real(nh)/ulp);
+        // i1 and i2 are the indices of the first row and last column of H to which transformations
+        // must be applied. If eigenvalues only are being computed, i1 and i2 are set inside the
+        // main loop.
+        int i1, i2;
+        if (wantt)
+        {
+            i1 = 0;
+            i2 = n - 1;
+        }
+        // itmax is the total number of QR iterations allowed.
+        int itmax = 30 * std::max(10, nh);
+        // The main loop begins here. i is the loop index and decreases from ihi+1 to ilo+1 in steps of
+        // 1 or 2. Each iteration of the loop works with the active submatrix in rows and columns
+        // l to i. Eigenvalues i+1 to ihi have already converged. Either l = ilo or
+        // H[l,l-1] is negligible so that the matrix splits.
+        real aa, ab, ba, bb, cs, det, h11, h12, h21, h21s, h22, rt1i, rt1r, rt2i, rt2r, rtdisc, s,
+             sn, sum, t1, t2, t3, tr, tst, v2, v3;
+        int hind1, hind2, its, k, l, m, nr, zind;
+        real v[3];
+        int i = ihi;
+        bool conv;
+        while (i>=ilo)
+        {
+            l = ilo;
+            // Perform QR iterations on rows and columns ilo to i until a submatrix of order 1
+            // or 2 splits off at the bottom because a subdiagonal element has become negligible.
+            conv = false;
+            for (its=0; its<=itmax; its++)
+            {
+                // Look for a single small subdiagonal element.
+                for (k=i; k>l; k--)
+                {
+                    hind1 = k + ldh*k;
+                    hind2 = hind1 - ldh;
+                    if (std::fabs(H[hind2])<=smlnum)
+                    {
+                        break;
+                    }
+                    tst = std::fabs(H[hind2-1]) + std::fabs(H[hind1]);
+                    if (tst==ZERO)
+                    {
+                        if (k-2>=ilo)
+                        {
+                            tst += std::fabs(H[hind2-1-ldh]);
+                        }
+                        if (k<ihi)
+                        {
+                            tst += std::fabs(H[hind1+1]);
+                        }
+                    }
+                    // ==== The following is a conservative small subdiagonal deflation  criterion
+                    //      due to Ahues & Tisseur (LAWN 122, 1997). It has better mathematical
+                    //      foundation and improves accuracy in some cases.  ====
+                    if (std::fabs(H[hind2])<=ulp*tst)
+                    {
+                        ab = std::max(std::fabs(H[hind2]), std::fabs(H[hind1-1]));
+                        ba = std::min(std::fabs(H[hind2]), std::fabs(H[hind1-1]));
+                        aa = std::max(std::fabs(H[hind1]), std::fabs(H[hind2-1]-H[hind1]));
+                        bb = std::min(std::fabs(H[hind1]), std::fabs(H[hind2-1]-H[hind1]));
+                        s = aa + ab;
+                        if (ba*(ab/s) <= std::max(smlnum, ulp*(bb*(aa/s))))
+                        {
+                            break;
+                        }
+                    }
+                }
+                l = k;
+                if (l>ilo)
+                {
+                    // H[l,l-1] is negligible
+                    H[l+ldh*(l-1)] = ZERO;
+                }
+                // Exit from loop if a submatrix of order 1 or 2 has split off.
+                if (l+1>=i)
+                {
+                    conv = true;
+                    break;
+                }
+                // Now the active submatrix is in rows and columns l to i. If eigenvalues only are
+                // being computed, only the active submatrix need be transformed.
+                if (!wantt)
+                {
+                    i1 = l;
+                    i2 = i;
+                }
+                if (its==10)
+                {
+                    // Exceptional shift.
+                    s = std::fabs(H[l+1+ldh*l]) + std::fabs(H[l+2+ldh*(l+1)]);
+                    h11 = DAT1*s + H[l+ldh*l];
+                    h12 = DAT2*s;
+                    h21 = s;
+                    h22 = h11;
+                }
+                else if (its==20)
+                {
+                    // Exceptional shift.
+                    s = std::fabs(H[i+ldh*(i-1)]) + std::fabs(H[i-1+ldh*(i-2)]);
+                    h11 = DAT1*s + H[i+ldh*i];
+                    h12 = DAT2*s;
+                    h21 = s;
+                    h22 = h11;
+                }
+                else
+                {
+                    // Prepare to use Francis' double shift
+                    // (i.e. 2nd degree generalized Rayleigh quotient)
+                    h11 = H[i-1+ldh*(i-1)];
+                    h21 = H[i  +ldh*(i-1)];
+                    h12 = H[i-1+ldh*i];
+                    h22 = H[i  +ldh*i];
+                }
+                s = std::fabs(h11) + std::fabs(h12) + std::fabs(h21) + std::fabs(h22);
+                if (s==ZERO)
+                {
+                    rt1r = ZERO;
+                    rt1i = ZERO;
+                    rt2r = ZERO;
+                    rt2i = ZERO;
+                }
+                else
+                {
+                    h11 /= s;
+                    h21 /= s;
+                    h12 /= s;
+                    h22 /= s;
+                    tr = (h11+h22) / TWO;
+                    det = (h11-tr)*(h22-tr) - h12*h21;
+                    rtdisc = std::sqrt(std::fabs(det));
+                    if (det>=ZERO)
+                    {
+                        // ==== complex conjugate shifts ====
+                        rt1r = tr * s;
+                        rt2r = rt1r;
+                        rt1i = rtdisc * s;
+                        rt2i = -rt1i;
+                    }
+                    else
+                    {
+                        // ==== real shifts (use only one of them)  ====
+                        rt1r = tr + rtdisc;
+                        rt2r = tr - rtdisc;
+                        if (std::fabs(rt1r-h22)<=std::fabs(rt2r-h22))
+                        {
+                            rt1r *= s;
+                            rt2r  = rt1r;
+                        }
+                        else
+                        {
+                           rt2r *= s;
+                           rt1r = rt2r;
+                        }
+                        rt1i = ZERO;
+                        rt2i = ZERO;
+                    }
+                }
+                // Look for two consecutive small subdiagonal elements.
+                for (m=i-2; m>=l; m--)
+                {
+                    hind1 = m + ldh*m;
+                    // Determine the effect of starting the double-shift QR iteration at row m,
+                    // and see if this would make H[m,m-1] negligible.
+                    // (The following uses scaling to avoid overflows and most underflows.)
+                    h21s = H[hind1+1];
+                    s = std::fabs(H[hind1]-rt2r) + std::fabs(rt2i) + std::fabs(h21s);
+                    h21s = H[hind1+1] / s;
+                    v[0] = h21s*H[hind1+ldh] + (H[hind1]-rt1r)*((H[hind1]-rt2r)/s) - rt1i*(rt2i/s);
+                    v[1] = h21s * (H[hind1]+H[hind1+1+ldh]-rt1r-rt2r);
+                    v[2] = h21s * H[hind1+2+ldh];
+                    s = std::fabs(v[0]) + std::fabs(v[1]) + std::fabs(v[2]);
+                    v[0] /= s;
+                    v[1] /= s;
+                    v[2] /= s;
+                    if (m==l)
+                    {
+                        break;
+                    }
+                    if (std::fabs(H[hind1-ldh]) * (std::fabs(v[1])+std::fabs(v[2]))
+                        <= ulp * std::fabs(v[0])
+                           * (std::fabs(H[hind1-1-ldh])+std::fabs(H[hind1])
+                              +std::fabs(H[hind1+1+ldh])))
+                    {
+                        break;
+                    }
+                }
+                // Double-shift QR step
+                for (k=m; k<i; k++)
+                {
+                    hind1 = k + ldh*(k-1);
+                    // The first iteration of this loop determines a reflection G from the vector v
+                    // and applies it from left and right to H, thus creating a nonzero bulge below
+                    // the subdiagonal.
+                    // Each subsequent iteration determines a reflection G to restore the
+                    // Hessenberg form in the (k-1)-th column, and thus chases the bulge one step
+                    // toward the bottom of the active submatrix. nr is the order of G.
+                    nr = std::min(3, i-k+1);
+                    if (k>m)
+                    {
+                        Blas<real>::dcopy(nr, &H[hind1], 1, v, 1);
+                    }
+                    dlarfg(nr, v[0], &v[1], 1, t1);
+                    if (k>m)
+                    {
+                        H[hind1]   = v[0];
+                        H[hind1+1] = ZERO;
+                        if (k<=i)
+                        {
+                            H[hind1+2] = ZERO;
+                        }
+                    }
+                    else if (m>l)
+                    {
+                        // ==== Use the following instead of H[k,k-1] = -H[k,k-1]
+                        //             to avoid a bug when v(2) and v(3) underflow. ====
+                        H[hind1] *= ONE - t1;
+                    }
+                    v2 = v[1];
+                    t2 = t1 * v2;
+                    hind1 = ldh * k;
+                    hind2 = hind1 + ldh;
+                    zind = ldz * k;
+                    if (nr==3)
+                    {
+                        v3 = v[2];
+                        t3 = t1 * v3;
+                        // Apply G from the left to transform the rows of the matrix
+                        // in columns k to i2.
+                        for (j=k; j<=i2; j++)
+                        {
+                            sum = H[k+ldh*j] + v2*H[k+1+ldh*j] + v3*H[k+2+ldh*j];
+                            H[k+ldh*j]   -= sum * t1;
+                            H[k+1+ldh*j] -= sum * t2;
+                            H[k+2+ldh*j] -= sum * t3;
+                        }
+                        // Apply G from the right to transform the columns of the matrix
+                        // in rows i1 to min(k+3,i).
+                        for (j=i1; j<=std::min(k+3, i); j++)
+                        {
+                            sum = H[j+hind1] + v2*H[j+hind2] + v3*H[j+hind2+ldh];
+                            H[j+hind1]     -= sum * t1;
+                            H[j+hind2]     -= sum * t2;
+                            H[j+hind2+ldh] -= sum * t3;
+                        }
+                        if (wantz)
+                        {
+                            // Accumulate transformations in the matrix Z
+                            for (j=iloz; j<=ihiz; j++)
+                            {
+                                sum = Z[j+zind] + v2*Z[j+zind+ldz] + v3*Z[j+zind+2*ldz];
+                                Z[j+zind]       -= sum * t1;
+                                Z[j+zind+ldz]   -= sum * t2;
+                                Z[j+zind+2*ldz] -= sum * t3;
+                            }
+                        }
+                    }
+                    else if (nr==2)
+                    {
+                        // Apply G from the left to transform the rows of the matrix in columns
+                        // k to i2.
+                        for (j=k; j<=i2; j++)
+                        {
+                            sum = H[k+ldh*j] + v2*H[k+1+ldh*j];
+                            H[k+ldh*j]   -= sum * t1;
+                            H[k+1+ldh*j] -= sum * t2;
+                        }
+                        // Apply G from the right to transform the columns of the matrix in rows
+                        // i1 to min(k+3,i).
+                        for (j=i1; j<=i; j++)
+                        {
+                            sum = H[j+hind1] + v2*H[j+hind2];
+                            H[j+hind1] -= sum * t1;
+                            H[j+hind2] -= sum * t2;
+                        }
+                        if (wantz)
+                        {
+                            // Accumulate transformations in the matrix Z
+                            for (j=iloz; j<=ihiz; j++)
+                            {
+                                sum = Z[j+ldz*k] + v2*Z[j+zind+ldz];
+                                Z[j+zind]     -= sum * t1;
+                                Z[j+zind+ldz] -= sum * t2;
+                            }
+                        }
+                    }
+                }
+            }
+            if (!conv)
+            {
+                // Failure to converge in remaining number of iterations
+                info = i+1;
+                return;
+            }
+            hind1 = i + ldh*i;
+            if (l==i)
+            {
+                // H[i,i-1] is negligible: one eigenvalue has converged.
+                wr[i] = H[hind1];
+                wi[i] = ZERO;
+            }
+            else if (l==i-1)
+            {
+                // H[i-1,i-2] is negligible: a pair of eigenvalues have converged.
+                // Transform the 2 by 2 submatrix to standard Schur form, and compute and store the
+                // eigenvalues.
+                dlanv2(H[hind1-1-ldh], H[hind1-1], H[hind1-ldh], H[hind1], wr[i-1], wi[i-1], wr[i],
+                       wi[i], cs, sn);
+                if (wantt)
+                {
+                    // Apply the transformation to the rest of H.
+                    if (i2>i)
+                    {
+                        Blas<real>::drot(i2-i, &H[hind1-1+ldh], ldh, &H[hind1+ldh], ldh, cs, sn);
+                    }
+                    Blas<real>::drot(i-i1-1, &H[i1+ldh*(i-1)], 1, &H[i1+ldh*i], 1, cs, sn);
+                }
+                if (wantz)
+                {
+                    // Apply the transformation to Z.
+                    Blas<real>::drot(nz, &Z[iloz+ldz*(i-1)], 1, &Z[iloz+ldz*i], 1, cs, sn);
+                }
+            }
+            // return to start of the main loop with new value of i.
+            i = l - 1;
         }
     }
 
@@ -5766,7 +6209,7 @@ public:
                     beta *= rsafmin;
                     alpha *= rsafmin;
                 } while (std::fabs(beta)<safmin && knt<20);
-                // New beta is at most 1, at least SAFMIN
+                // New beta is at most 1, at least safmin
                 xnorm = Blas<real>::dnrm2(n-1, x, incx);
                 beta = -std::copysign(dlapy2(alpha, xnorm), alpha);
             }
@@ -13322,6 +13765,175 @@ public:
                 A[i+lda*l] = ZERO;
             }
         }
+    }
+
+    /*! §dorglq
+     *
+     * §dorglq generates an §m by §n real matrix $Q$ with orthonormal rows, which is defined as the
+     * first §m rows of a product of §k elementary reflectors of order §n \n
+     *     $Q = H(\{k}-1) \ldots H(1) H(0)$\n
+     * as returned by §dgelqf.
+     * \param[in] m The number of rows of the matrix $Q$. $\{m} \ge 0$.
+     * \param[in] n The number of columns of the matrix $Q$. $\{n}\ge\{m}$.
+     * \param[in] k
+     *     The number of elementary reflectors whose product defines the matrix $Q$.
+     *     $\{m}\ge\{k}\ge 0$.\n
+     *
+     * \param[in,out] A
+     *     an array, dimension (§lda,§n)\n
+     *     On entry, the $i$-th row must contain the vector which defines the elementary reflector
+     *     $H(i)$, for $i = 0,1,\ldots,\{k}$, as returned by §dgelqf in the first §k rows of its
+     *     array argument §A.\n
+     *     On exit, the §m by §n matrix $Q$.
+     *
+     * \param[in] lda The first dimension of the array §A. $\{lda}\ge\max(1,\{m})$.
+     * \param[in] tau
+     *     an array, dimension (§k)\n
+     *     $\{tau}[i]$ must contain the scalar factor of the elementary reflector $H(i)$, as
+     *     returned by §dgelqf.
+     *
+     * \param[out] work
+     *     an array, dimension ($\max(1,\{lwork})$)\n
+     *     On exit, if $\{info} = 0$, $\{work}[0]$ returns the optimal §lwork.
+     *
+     * \param[in] lwork
+     *     The dimension of the array §work. $\{lwork}\ge\max(1,\{m})$.\n
+     *     For optimum performance $\{lwork}\ge\{m}\{nb}$, where §nb is the optimal blocksize.\n
+     *     If $\{lwork}=-1$, then a workspace query is assumed; the routine only calculates the
+     *     optimal size of the §work array, returns this value as the first entry of the §work
+     *     array, and no error message related to §lwork is issued by §xerbla.
+     *
+     * \param[out] info
+     *     = 0: successful exit\n
+     *     < 0: if $\{info}=-i$, the $i$-th argument has an illegal value
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                       */
+    static void dorglq(int m, int n, int k, real* A, int lda, real const* tau, real* work,
+                       int lwork, int& info)
+    {
+        // Test the input arguments
+        info = 0;
+        int nb = ilaenv(1, "DORGLQ", " ", m, n, k, -1);
+        work[0] = std::max(1, m) * nb;
+        bool lquery = (lwork==-1);
+        if (m<0)
+        {
+            info = -1;
+        }
+        else if (n<m)
+        {
+            info = -2;
+        }
+        else if (k<0 || k>m)
+        {
+            info = -3;
+        }
+        else if (lda<std::max(1, m))
+        {
+            info = -5;
+        }
+        else if (lwork<std::max(1, m) && !lquery)
+        {
+            info = -8;
+        }
+        if (info!=0)
+        {
+            xerbla("DORGLQ", -info);
+            return;
+        }
+        else if (lquery)
+        {
+            return;
+        }
+        // Quick return if possible
+        if (m<=0)
+        {
+            work[0] = 1;
+            return;
+        }
+        int nbmin = 2;
+        int nx = 0;
+        int iws = m;
+        int ldwork;
+        if (nb>1 && nb<k)
+        {
+            // Determine when to cross over from blocked to unblocked code.
+            nx = std::max(0, ilaenv(3, "DORGLQ", " ", m, n, k, -1));
+            if (nx<k)
+            {
+                // Determine if workspace is large enough for blocked code.
+                ldwork = m;
+                iws = ldwork * nb;
+                if (lwork<iws)
+                {
+                    // Not enough workspace to use optimal nb:
+                    // reduce nb and determine the minimum value of nb.
+                    nb = lwork / ldwork;
+                    nbmin = std::max(2, ilaenv(2, "DORGLQ", " ", m, n, k, -1));
+                }
+            }
+        }
+        int ki, kk, i, j, ldaj;
+        if (nb>=nbmin && nb<k && nx<k)
+        {
+            // Use blocked code after the last block.
+            // The first kk rows are handled by the block method.
+            ki = ((k-nx-1)/nb) * nb;
+            kk = std::min(k, ki+nb);
+            // Set A[kk:m-1,0:kk-1] to zero.
+            for (j=0; j<kk; j++)
+            {
+                ldaj = lda * j;
+                for (i=kk; i<m; i++)
+                {
+                    A[i+ldaj] = ZERO;
+                }
+            }
+        }
+        else
+        {
+            kk = 0;
+        }
+        // Use unblocked code for the last or only block.
+        int iinfo;
+        if (kk<m)
+        {
+            dorgl2(m-kk, n-kk, k-kk, &A[kk+lda*kk], lda, &tau[kk], work, iinfo);
+        }
+        if (kk>0)
+        {
+            // Use blocked code
+            int ib, l, ildai;
+            for (i=ki; i>=0; i-=nb)
+            {
+                ib = std::min(nb, k-i);
+                ildai = i + lda*i;
+                if (i+ib<m)
+                {
+                    // Form the triangular factor of the block reflector
+                    // H = H(i) H(i+1) . . . H(i+ib-1)
+                    dlarft("Forward", "Rowwise", n-i, ib, &A[ildai], lda, &tau[i], work, ldwork);
+                    // Apply H^T to A[i+ib:m-1,i:n-1] from the right
+                    dlarfb("Right", "Transpose", "Forward", "Rowwise", m-i-ib, n-i, ib, &A[ildai],
+                           lda, work, ldwork, &A[ib+ildai], lda, &work[ib], ldwork);
+                }
+                // Apply H^T to columns i:n-1 of current block
+                dorgl2(ib, n-i, ib, &A[ildai], lda, &tau[i], work, iinfo);
+                // Set columns 0:i-1 of current block to zero
+                for (j=0; j<i; j++)
+                {
+                    ldaj = lda * j;
+                    for (l=i; l<i+ib; l++)
+                    {
+                        A[l+ldaj] = ZERO;
+                    }
+                }
+            }
+        }
+        work[0] = iws;
     }
 
     /*! §dorgqr
