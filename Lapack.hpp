@@ -18,7 +18,9 @@
  * \brief A template class containing LAPACK routines.
  * Lapack contains the LAPACK routines as static members.
  * Any routine can be called using Lapack<type>::routine(...).
- * The template type is meant to be double, but can be any floating point type                   */
+ * The template type is meant to be double, but can be any floating point type
+ *
+ * \author Simon De Ridder                                                                       */
 template<class real>
 class Lapack
 {
@@ -5560,6 +5562,73 @@ public:
             // vectors with norm below the value of sqrt(dlamch("S"))
             vn2[lsticc] = vn1[lsticc];
             lsticc = itemp;
+        }
+    }
+
+    /*! §dlaqr1 sets a scalar multiple of the first column of the product of a 2 by 2 or 3 by 3
+     *  matrix H and specified shifts.
+     *
+     * Given a 2 by 2 or 3 by 3 matrix $H$, §dlaqr1 sets §v to a scalar multiple of the first
+     * column of the product\n
+     *     (*)&emsp;&emsp; $K = (H - (\{sr1} + i*\{si1})I) (H - (\{sr2} + i\{si2})I)$\n
+     * scaling to avoid overflows and most underflows. It is assumed that either\n
+     *     1) $\{sr1}=\{sr2}$ and $\{si1}=-\{si2}$\n
+     * or\n
+     *     2) $\{si1}=\{si2}=0$.\n
+     * This is useful for starting double implicit shift bulges in the QR algorithm.
+     * \param[in] n   Order of the matrix $H$. §n must be either 2 or 3.
+     * \param[in] H   an array, dimension (§ldh,§n)\n The 2 by 2 or 3 by 3 matrix $H$ in (*).
+     * \param[in] ldh
+     *     The leading dimension of §H as declared in the calling procedure. $\{ldh}\ge\{n}$
+     *
+     * \param[in]  sr1, si1, sr2, si2 The shifts in (*).
+     * \param[out] v
+     *     an array, dimension (§n)\n
+     *     A scalar multiple of the first column of the matrix $K$ in (*).
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date June 2017
+     * \remark
+     *     Contributors:\n
+     *     Karen Braman and Ralph Byers, Department of Mathematics, University of Kansas, USA    */
+    static void dlaqr1(int n, real const* H, int ldh, real sr1, real si1, real sr2, real si2,
+                       real* v)
+    {
+        real H21S, H31S, S;
+        if (n==2)
+        {
+            S = std::fabs(H[0]-sr2) + std::fabs(si2) + std::fabs(H[1]);
+            if (S==ZERO)
+            {
+                v[0] = ZERO;
+                v[1] = ZERO;
+            }
+            else
+            {
+                H21S = H[1] / S;
+                v[0] = H21S*H[ldh] + (H[0]-sr1)*((H[0]-sr2)/S) - si1*(si2/S);
+                v[1] = H21S * (H[0]+H[1+ldh]-sr1-sr2);
+            }
+        }
+        else
+        {
+            S = std::fabs(H[0]-sr2) + std::fabs(si2) + std::fabs(H[1]) + std::fabs(H[2]);
+            if (S==ZERO)
+            {
+                v[0] = ZERO;
+                v[1] = ZERO;
+                v[2] = ZERO;
+            }
+            else
+            {
+                H21S = H[1] / S;
+                H31S = H[2] / S;
+                v[0] = (H[0]-sr1)*((H[0]-sr2)/S) - si1*(si2/S) + H[ldh]*H21S + H[ldh*2]*H31S;
+                v[1] = H21S*(H[0]+H[1+ldh]-sr1-sr2) + H[1+ldh*2]*H31S;
+                v[2] = H31S*(H[0]+H[2+ldh*2]-sr1-sr2) + H21S*H[2+ldh];
+            }
         }
     }
 
@@ -13656,6 +13725,231 @@ public:
                 A[j+acoli] = ZERO;
             }
         }
+    }
+
+    /*! §dorgbr
+     *
+     * §dorgbr generates one of the real orthogonal matrices $Q$ or $P^T$ determined by §dgebrd
+     * when reducing a real matrix $A$ to bidiagonal form: $A = Q B P^T$. $Q$ and $P^T$ are defined
+     * as products of elementary reflectors $H(i)$ or $G(i)$ respectively.
+     * \li If §vect = 'Q', $A$ is assumed to have been an §m by §k matrix, and $Q$ is of order
+     *     §m: \n
+     *         if $\{m}\ge\{k}$, $Q = H(0) H(1) \ldots H(\{k}-1)$ and §dorgbr returns the first §n
+     *         columns of $Q$, where $\{m}\ge\{n}\ge\{k}$;\n
+     *         if $\{m}<\{k}$, $Q = H(0) H(1) \ldots H(\{m}-2)$ and §dorgbr returns $Q$ as an
+     *         §m by §m matrix.\n
+     * \li If §vect = 'P', $A$ is assumed to have been a §k by §n matrix, and $P^T$ is of order §n:
+     *         \n if $\{k}<\{n}$, $P^T = G(\{k}-1) \ldots G(1) G(0)$ and §dorgbr returns the first
+     *         §m rows of $P^T$, where $\{n}\ge\{m}\ge\{k}$;\n
+     *         if $\{k}\ge\{n}$, $P^T = G(\{n}-2) \ldots G(1) G(0)$ and §dorgbr returns $P^T$ as an
+     *         §n by §n matrix.
+     * \param[in] vect
+     *     Specifies whether the matrix $Q$ or the matrix $P^T$ is required, as defined in the
+     *     transformation applied by §dgebrd: \n
+     *     = 'Q': generate $Q$; \n
+     *     = 'P': generate $P^T$.
+     *
+     * \param[in] m The number of rows of the matrix $Q$ or $P^T$ to be returned. $\{m}\ge 0$.
+     * \param[in] n
+     *     The number of columns of the matrix $Q$ or $P^T$ to be returned. $\{n}\ge 0$.\n
+     *     If §vect = 'Q', $\{m}\ge\{n}\ge\min(\{m},\{k})$;\n
+     *     if §vect = 'P', $\{n}\ge\{m}\ge\min(\{n},\{k})$.
+     *
+     * \param[in] k
+     *     If §vect = 'Q', the number of columns in the original §m by §k matrix reduced by
+     *         §dgebrd.\n
+     *     If §vect = 'P', the number of rows in the original §k by §n matrix reduced by §dgebrd.\n
+     *     $\{k}\ge 0$.
+     *
+     * \param[in,out] A
+     *     an array, dimension (§lda,§n)\n
+     *     On entry, the vectors which define the elementary reflectors, as returned by §dgebrd.\n
+     *     On exit, the §m by §n matrix $Q$ or $P^T$.
+     *
+     * \param[in] lda The leading dimension of the array §A. $\{lda}\ge\max(1,\{m})$.
+     * \param[in] tau
+     *     an array, dimension\n $\min(\{m},\{k})$ if §vect = 'Q'\n
+     *                           $\min(\{n},\{k})$ if §vect = 'P'\n
+     *     $\{tau}[i]$ must contain the scalar factor of the elementary reflector $H(i)$ or $G(i)$,
+     *     which determines $Q$ or $P^T$, as returned by §dgebrd in its array argument §TAUQ or
+     *     §TAUP.
+     *
+     * \param[out] work
+     *     an array, dimension ($\max(1,\{lwork})$)\n
+     *     On exit, if $\{info}=0$, $\{work}[0]$ returns the optimal §lwork.
+     *
+     * \param[in] lwork
+     *     The dimension of the array §work. $\{lwork}\ge\max(1,\min(\{m},\{n}))$.\n
+     *     For optimum performance $\{lwork}\ge\min(\{m},\{n})\{nb}$, where §nb is the optimal
+     *     blocksize.\n\n
+     *     If $\{lwork}=-1$, then a workspace query is assumed; the routine only calculates the
+     *     optimal size of the §work array, returns this value as the first entry of the §work
+     *     array, and no error message related to §lwork is issued by §xerbla.
+     *
+     * \param[out] info
+     *     = 0: successful exit\n
+     *     < 0: if $\{info}=-i$, the $i$-th argument had an illegal value
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date April 2012                                                                          */
+    static void dorgbr(char const* vect, int m, int n, int k, real* A, int lda, real const* tau,
+                       real* work, int lwork, int& info)
+    {
+        // Test the input arguments
+        info = 0;
+        bool wantq = std::toupper(vect[0])=='Q';
+        int mn = std::min(m, n);
+        bool lquery = (lwork==-1);
+        if (!wantq && std::toupper(vect[0])!='P')
+        {
+            info = -1;
+        }
+        else if (m<0)
+        {
+            info = -2;
+        }
+        else if (n<0 || (wantq && (n>m || n<std::min(m, k)))
+                     || (!wantq && (m>n || m<std::min(n, k))))
+        {
+            info = -3;
+        }
+        else if (k<0)
+        {
+            info = -4;
+        }
+        else if (lda<std::max(1, m))
+        {
+            info = -6;
+        }
+        else if (lwork<std::max(1, mn) && !lquery)
+        {
+            info = -9;
+        }
+        int iinfo, lwkopt;
+        if (info==0)
+        {
+            work[0] = 1;
+            if (wantq)
+            {
+                if (m>=k)
+                {
+                    dorgqr(m, n, k, A, lda, tau, work, -1, iinfo);
+                }
+                else
+                {
+                    if (m>1)
+                    {
+                        dorgqr(m-1, m-1, m-1, &A[1+lda], lda, tau, work, -1, iinfo);
+                    }
+                }
+            }
+            else
+            {
+                if (k<n)
+                {
+                    dorglq(m, n, k, A, lda, tau, work, -1, iinfo);
+                }
+                else
+                {
+                    if (n>1)
+                    {
+                        dorglq(n-1, n-1, n-1, &A[1+lda], lda, tau, work, -1, iinfo);
+                    }
+                }
+            }
+            lwkopt = work[0];
+            lwkopt = std::max(lwkopt, mn);
+        }
+        if (info!=0)
+        {
+            xerbla("DORGBR", -info);
+            return;
+        }
+        else if (lquery)
+        {
+            work[0] = lwkopt;
+            return;
+        }
+        // Quick return if possible
+        if (m==0 || n==0)
+        {
+            work[0] = 1;
+            return;
+        }
+        int i, j, ldaj, ldajm;
+        if (wantq)
+        {
+            // Form Q, determined by a call to dgebrd to reduce an m by k matrix
+            if (m>=k)
+            {
+                // If m >= k, assume m >= n >= k
+                dorgqr(m, n, k, A, lda, tau, work, lwork, iinfo);
+            }
+            else
+            {
+                // If m < k, assume m = n
+                // Shift the vectors which define the elementary reflectors one column to the
+                // right, and set the first row and column of Q to those of the unit matrix
+                for (j=m-1; j>=1; j--)
+                {
+                    ldaj  = lda * j;
+                    ldajm = ldaj - lda;
+                    A[ldaj] = ZERO;
+                    for (i=j+1; i<m; i++)
+                    {
+                        A[i+ldaj] = A[i+ldajm];
+                    }
+                }
+                A[0] = ONE;
+                for (i=1; i<m; i++)
+                {
+                    A[i] = ZERO;
+                }
+                if (m>1)
+                {
+                    // Form Q(2:m,2:m)
+                    dorgqr(m-1, m-1, m-1, &A[1+lda], lda, tau, work, lwork, iinfo);
+                }
+            }
+        }
+        else
+        {
+            // Form P^T, determined by a call to dgebrd to reduce a k by n matrix
+            if (k<n)
+            {
+                // If k < n, assume k <= m <= n
+                dorglq(m, n, k, A, lda, tau, work, lwork, iinfo);
+            }
+            else
+            {
+                // If k >= n, assume m = n
+                // Shift the vectors which define the elementary reflectors one row downward, and
+                // set the first row and column of P^T to those of the unit matrix
+                A[0] = ONE;
+                for (i=1; i<n; i++)
+                {
+                    A[i] = ZERO;
+                }
+                for (j=1; j<n; j++)
+                {
+                    ldaj = lda * j;
+                    ldajm = ldaj - 1;
+                    for (i=j-1; i>=1; i--)
+                    {
+                        A[i+ldaj] = A[i+ldajm];
+                    }
+                    A[ldaj] = ZERO;
+                }
+                if (n>1)
+                {
+                    // Form P^T(2:n,2:n)
+                    dorglq(n-1, n-1, n-1, &A[1+lda], lda, tau, work, lwork, iinfo);
+                }
+            }
+        }
+        work[0] = lwkopt;
     }
 
     /*! §dorgl2
