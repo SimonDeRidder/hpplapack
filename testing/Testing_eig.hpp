@@ -24,6 +24,7 @@ private:
     // constants
 
     const real ZERO = real(0.0); //!< A constant zero (0.0) value
+    const real ONE  = real(1.0); //!< A constant one  (1.0) value
 
 public:
     virtual ~Testing_eig(){}
@@ -63,6 +64,161 @@ public:
             nout << "      " << std::setw(6) << nerrs << " error messages recorded\n";
         }
         nout.flush();
+    }
+
+    /*! §dbdt03
+     *
+     * §dbdt03 reconstructs a bidiagonal matrix $B$ from its SVD:\n
+     *     $S = U^T B V$\n
+     * where $U$ and $V$ are orthogonal matrices and $S$ is diagonal.\n
+     * The test ratio to test the singular value decomposition is\n
+     *     $\{resid}=\frac{\|B - U S V^T\|}{\{n} \|B\| \epsilon}$\n
+     * where $\epsilon$ is the machine precision.
+     * \param[in] uplo
+     *     Specifies whether the matrix $B$ is upper or lower bidiagonal.\n
+     *     = 'U': Upper bidiagonal\n
+     *     = 'L': Lower bidiagonal
+     *
+     * \param[in] n The order of the matrix $B$.
+     * \param[in] kd
+     *     The bandwidth of the bidiagonal matrix $B$. If $\{kd}=1$, the matrix $B$ is bidiagonal,
+     *     and if $\{kd}=0$, $B$ is diagonal and §E is not referenced. If §kd is greater than 1, it
+     *     is assumed to be 1, and if §kd is less than 0, it is assumed to be 0.
+     *
+     * \param[in] d
+     *     an array, dimension (§n)\n The §n diagonal elements of the bidiagonal matrix $B$.
+     *
+     * \param[in] e
+     *     an array, dimension ($\{n}-1$)\n
+     *     The $\{n}-1$ superdiagonal elements of the bidiagonal matrix $B$ if §uplo = 'U', or the
+     *     $\{n}-1$ subdiagonal elements of $B$ if §uplo = 'L'.
+     *
+     * \param[in] U
+     *     an array, dimension (§ldu,§n)\n
+     *     The §n by §n orthogonal matrix $U$ in the reduction $B = U^T A P$.
+     *
+     * \param[in] ldu The leading dimension of the array §U. $\{ldu}\ge\max(1,\{n})$
+     * \param[in] s
+     *     an array, dimension (§n)\n
+     *     The singular values from the SVD of $B$, sorted in decreasing order.
+     *
+     * \param[in] Vt
+     *     an array, dimension (§ldvt,§n)\n
+     *     The §n by §n orthogonal matrix $V^T$ in the reduction $B = U S V^T$.
+     *
+     * \param[in]  ldvt  The leading dimension of the array §Vt.
+     * \param[out] work  an array, dimension ($2\{n}$)
+     * \param[out] resid The test ratio: $\frac{\|B - U S V^T\|}{\{n} \|A\| \epsilon}$
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                       */
+    void dbdt03(char const* uplo, int n, int kd, real const* d, real const* e, real const* U,
+                int ldu, real const* s, real const* Vt, int ldvt, real* work, real& resid)
+    {
+        // Quick return if possible
+        resid = ZERO;
+        if (n<=0)
+        {
+            return;
+        }
+        // Compute B - U * S * V^T one column at a time.
+        int i, j;
+        real bnorm = ZERO;
+        if (kd>=1)
+        {
+            // B is bidiagonal.
+            if (std::toupper(uplo[0])=='U')
+            {
+                // B is upper bidiagonal.
+                for (j=0; j<n; j++)
+                {
+                    for (i=0; i<n; i++)
+                    {
+                        work[n+i] = s[i] * Vt[i+ldvt*j];
+                    }
+                    Blas<real>::dgemv("No transpose", n, n, -ONE, U, ldu, &work[n], 1, ZERO, work, 1);
+                    work[j] += d[j];
+                    if (j>0)
+                    {
+                        work[j-1] += e[j-1];
+                        bnorm = std::max(bnorm, std::fabs(d[j])+std::fabs(e[j-1]));
+                    }
+                    else
+                    {
+                        bnorm = std::max(bnorm, std::fabs(d[j]));
+                    }
+                    resid = std::max(resid, Blas<real>::dasum(n, work, 1));
+                }
+            }
+            else
+            {
+                // B is lower bidiagonal.
+                for (j=0; j<n; j++)
+                {
+                    for (i=0; i<n; i++)
+                    {
+                        work[n+i] = s[i] * Vt[i+ldvt*j];
+                    }
+                    Blas<real>::dgemv("No transpose", n, n, -ONE, U, ldu, &work[n], 1, ZERO, work, 1);
+                    work[j] += d[j];
+                    if (j<n-1)
+                    {
+                        work[j+1] += e[j];
+                        bnorm = std::max(bnorm, std::fabs(d[j])+std::fabs(e[j]));
+                    }
+                    else
+                    {
+                        bnorm = std::max(bnorm, std::fabs(d[j]));
+                    }
+                    resid = std::max(resid, Blas<real>::dasum(n, work, 1));
+                }
+            }
+        }
+        else
+        {
+            // B is diagonal.
+            for (j=0; j<n; j++)
+            {
+                for (i=0; i<n; i++)
+                {
+                    work[n+i] = s[i] * Vt[i+ldvt*j];
+                }
+                Blas<real>::dgemv("No transpose", n, n, -ONE, U, ldu, &work[n], 1, ZERO, work, 1);
+                work[j] += d[j];
+                resid = std::max(resid, Blas<real>::dasum(n, work, 1));
+            }
+            j = Blas<real>::idamax(n, d, 1);
+            bnorm = std::fabs(d[j]);
+        }
+        // Compute norm(B - U * S * V^T) / (n * norm(B) * eps)
+        real eps = this->dlamch("Precision");
+        if (bnorm<=ZERO)
+        {
+            if (resid!=ZERO)
+            {
+                resid = ONE / eps;
+            }
+        }
+        else
+        {
+            if (bnorm>=resid)
+            {
+                resid = (resid/bnorm) / (real(n)*eps);
+            }
+            else
+            {
+                if (bnorm<ONE)
+                {
+                    resid = (std::min(resid, real(n)*bnorm)/bnorm) / (real(n)*eps);
+                }
+                else
+                {
+                    resid = std::min(resid/bnorm, real(n)) / (real(n)*eps);
+                }
+            }
+        }
     }
 
     /*! §dbdt04
@@ -114,7 +270,6 @@ public:
                        int ns, real const* U, int ldu, real const* Vt, int ldvt, real* work,
                        real& resid)
     {
-        const real ONE = real(1.0);
         // Quick return if possible.
         resid = ZERO;
         if (n<=0 || ns<=0)
