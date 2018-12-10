@@ -3837,7 +3837,7 @@ public:
             wi[ilo] = ZERO;
             return;
         }
-        // ==== clear out the trash ====
+        // clear out the trash
         int j;
         for (j=ilo; j<ihi-2; j++)
         {
@@ -3906,9 +3906,9 @@ public:
                             tst += std::fabs(H[hind1+1]);
                         }
                     }
-                    // ==== The following is a conservative small subdiagonal deflation  criterion
-                    //      due to Ahues & Tisseur (LAWN 122, 1997). It has better mathematical
-                    //      foundation and improves accuracy in some cases.  ====
+                    // The following is a conservative small subdiagonal deflation criterion due to
+                    // Ahues & Tisseur (LAWN 122, 1997). It has better mathematical foundation and
+                    // improves accuracy in some cases.
                     if (std::fabs(H[hind2])<=ulp*tst)
                     {
                         ab = std::max(std::fabs(H[hind2]), std::fabs(H[hind1-1]));
@@ -3987,7 +3987,7 @@ public:
                     rtdisc = std::sqrt(std::fabs(det));
                     if (det>=ZERO)
                     {
-                        // ==== complex conjugate shifts ====
+                        // complex conjugate shifts
                         rt1r = tr * s;
                         rt2r = rt1r;
                         rt1i = rtdisc * s;
@@ -3995,7 +3995,7 @@ public:
                     }
                     else
                     {
-                        // ==== real shifts (use only one of them)  ====
+                        // real shifts (use only one of them)
                         rt1r = tr + rtdisc;
                         rt2r = tr - rtdisc;
                         if (std::fabs(rt1r-h22)<=std::fabs(rt2r-h22))
@@ -4068,8 +4068,8 @@ public:
                     }
                     else if (m>l)
                     {
-                        // ==== Use the following instead of H[k,k-1] = -H[k,k-1]
-                        //             to avoid a bug when v(2) and v(3) underflow. ====
+                        // Use the following instead of H[k,k-1] = -H[k,k-1] to avoid a bug when
+                        // v[1] and v[2] underflow.
                         H[hind1] *= ONE - t1;
                     }
                     v2 = v[1];
@@ -5628,6 +5628,671 @@ public:
                 v[0] = (H[0]-sr1)*((H[0]-sr2)/S) - si1*(si2/S) + H[ldh]*H21S + H[ldh*2]*H31S;
                 v[1] = H21S*(H[0]+H[1+ldh]-sr1-sr2) + H[1+ldh*2]*H31S;
                 v[2] = H31S*(H[0]+H[2+ldh*2]-sr1-sr2) + H21S*H[2+ldh];
+            }
+        }
+    }
+
+    /*! §dlaqr5 performs a single small-bulge multi-shift QR sweep.
+     *
+     * §dlaqr5, called by §dlaqr0, performs a single small-bulge multi-shift QR sweep.
+     * \param[in] wantt
+     *     §wantt = §true if the quasi-triangular Schur factor is being computed.\n
+     *     §wantt is set to §false otherwise.
+     *
+     * \param[in] wantz
+     *     §wantz = §true if the orthogonal Schur factor is being computed.\n
+     *     §wantz is set to §false otherwise.
+     *
+     * \param[in] kacc22
+     *     integer with value 0, 1, or 2.\n
+     *     Specifies the computation mode of far-from-diagonal orthogonal updates.\n
+     *     =0: §dlaqr5 does not accumulate reflections and does not use matrix-matrix multiply to
+     *         update far-from-diagonal matrix entries.\n
+     *     =1: §dlaqr5 accumulates reflections and uses matrix-matrix multiply to update the
+     *         far-from-diagonal matrix entries.\n
+     *     =2: §dlaqr5 accumulates reflections, uses matrix-matrix multiply to update the
+     *         far-from-diagonal matrix entries, and takes advantage of 2-by-2 block structure
+     *         during matrix multiplies.
+     *
+     * \param[in] n
+     *     §n is the order of the Hessenberg matrix $H$ upon which this subroutine operates.
+     *
+     * \param[in] ktop, kbot
+     *     These are the first and last rows and columns of an isolated diagonal block upon which
+     *     the QR sweep is to be applied. It is assumed without a check that\n
+     *     &emsp;  either $\{ktop}=0$      or $H[\{ktop},\{ktop}-1]=0$\n
+     *     and\n
+     *     &emsp;  either $\{kbot}=\{n}-1$ or $H[\{kbot}+1,\{kbot}]=0$.\n
+     *     NOTE: zero-based indices!
+     *
+     * \param[in] nshfts
+     *     §nshfts gives the number of simultaneous shifts. §nshfts must be positive and even.
+     *
+     * \param[in,out] sr, si
+     *     arrays, dimension (§nshfts)\n
+     *     §sr contains the real parts and §si contains the imaginary parts of the §nshfts shifts
+     *     of origin that define the multi-shift QR sweep.\n
+     *     On output §sr and §si may be reordered.
+     *
+     * \param[in,out] H
+     *     an array, dimension (§ldh,§n)\n
+     *     On input §H contains a Hessenberg matrix.\n
+     *     On output a multi-shift QR sweep with shifts $\{sr}[j]+i\{si}[j]$ is applied to the
+     *     isolated diagonal block in rows and columns §ktop through §kbot.
+     *
+     * \param[in] ldh
+     *     §ldh is the leading dimension of §H just as declared in the calling procedure.
+     *     $\{ldh}\ge\max(1,\{n})$.
+     *
+     * \param[in] iloz, ihiz
+     *     Specify the rows of §Z to which transformations must be applied if §wantz is §true. \n
+     *     $0\le\{iloz}\le\{ihiz}<\{n}$\n
+     *     NOTE: zero-based indices!
+     *
+     * \param[in,out] Z
+     *     an array, dimension (§ldz,§ihiz)\n
+     *     If §wantz = §true, then the QR Sweep orthogonal similarity transformation is accumulated
+     *     into $\{Z}[\{iloz}:\{ihiz},\{iloz}:\{ihiz}]$ from the right.\n
+     *     If §wantz = §false, then §Z is unreferenced.
+     *
+     * \param[in] ldz
+     *     §LDA is the leading dimension of §Z just as declared in the calling procedure.
+     *     $\{ldz}\ge\{n}$.
+     *
+     * \param[out] V   an array, dimension (§ldv,$\{nshfts}/2$)
+     * \param[in]  ldv
+     *     §ldv is the leading dimension of §V as declared in the calling procedure. $\{ldv}\ge 3$.
+     *
+     * \param[out] U   an array, dimension (§ldu,$3\{nshfts}-3$)
+     * \param[in]  ldu
+     *     §ldu is the leading dimension of §U just as declared in the in the calling subroutine.
+     *     $\{ldu}\ge 3\{nshfts}-3$.
+     *
+     * \param[in]  nv   §nv is the number of rows in §Wv agailable for workspace. $\{nv}\ge 1$.
+     * \param[out] Wv   an array, dimension (§ldwv,$3\{nshfts}-3$)
+     * \param[in]  ldwv
+     *     &ldwv is the leading dimension of §Wv as declared in the in the calling subroutine.
+     *     $\{ldwv}\ge\{nv}$.
+     *
+     * \param[in] nh
+     *     §nh is the number of columns in array §Wh available for workspace. $\{nh}\ge 1$.
+     *
+     * \param[out] Wh   an array, dimension (§ldwh,§nh)
+     * \param[in]  ldwh
+     *     Leading dimension of §Wh just as declared in the calling procedure.
+     *     $\{ldwh}\ge 3\{nshfts}-3$.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date June 2016
+     * \remark
+     *     Contributors:\n
+     *     Karen Braman and Ralph Byers, Department of Mathematics, University of Kansas, USA\n\n
+     *     References:\n
+     *     K. Braman, R. Byers and R. Mathias, The Multi-Shift QR Algorithm Part I: Maintaining
+     *     Well Focused Shifts, and Level 3 Performance, SIAM Journal of Matrix Analysis,
+     *     volume 23, pages 929--947, 2002.                                                      */
+    static void dlaqr5(bool wantt, bool wantz, int kacc22, int n, int ktop, int kbot, int nshfts,
+                       real* sr, real* si, real* H, int ldh, int iloz, int ihiz, real* Z, int ldz,
+                       real* V, int ldv, real* U, int ldu, int nv, real* Wv, int ldwv, int nh,
+                       real* Wh, int ldwh)
+    {
+        // If there are no shifts, then there is nothing to do.
+        if (nshfts<2)
+        {
+            return;
+        }
+        // If the active block is empty or 1 by 1, then there is nothing to do.
+        if (ktop>=kbot)
+        {
+            return;
+        }
+        // Shuffle shifts into pairs of real shifts and pairs of complex conjugate shifts assuming
+        // complex conjugate shifts are already adjacent to one another.
+        real swap;
+        for (int i=0; i<nshfts-2; i+=2)
+        {
+            if (si[i]!=-si[i+1])
+            {
+                swap    = sr[i];
+                sr[i]   = sr[i+1];
+                sr[i+1] = sr[i+2];
+                sr[i+2] = swap;
+                swap    = si[i];
+                si[i]   = si[i+1];
+                si[i+1] = si[i+2];
+                si[i+2] = swap;
+            }
+        }
+        // nshfts is supposed to be even, but if it is odd, then simply reduce it by one. The
+        // shuffle above ensures that the dropped shift is real and that the remaining shifts are
+        // paired.
+        int ns = nshfts - (nshfts%2);
+        // Machine constants for deflation
+        real safmin = dlamch("SAFE MINIMUM");
+        real safmax = ONE / safmin;
+        dlabad(safmin, safmax);
+        real ulp = dlamch("PRECISION");
+        real smlnum = safmin * (real(n)/ulp);
+        // Use accumulated reflections to update far-from-diagonal entries?
+        bool accum = (kacc22==1) || (kacc22==2);
+        // If so, exploit the 2 by 2 block structure?
+        bool blk22 = (ns>2) && (kacc22==2);
+        // clear trash
+        int hktop = ktop + ldh*ktop;
+        if (ktop+2<=kbot)
+        {
+            H[hktop+2] = ZERO;
+        }
+        // nbmps = number of 2-shift bulges in the chain
+        int nbmps = ns / 2;
+        // kdu = width of slab
+        int kdu = 6*nbmps - 3;
+        // Create and chase chains of nbmps bulges
+        real alpha, beta, h11, h12, h21, h22, refsum, scl, tst1, tst2;
+        int hj, hk, hk1, hk2, hk3, i2, i4, incol, j, j2, j4, jbot, jcol, jlen, jrow, jtop, k, k1,
+            kms, knz, krcol, kzs, m, m22, mbot, mend, mstart, mtop, ndcol, nu, uind1, uind2, uind3,
+            vm, vm22, wvi2, wvkzs, zind1, zind2, zind3;
+        bool bmp22;
+        real vt[3];
+        for (incol=3*(1-nbmps)+ktop; incol<=kbot+1; incol+=3*nbmps-2)
+        {
+            ndcol = incol + kdu - 1;
+            if (accum)
+            {
+                dlaset("ALL", kdu, kdu, ZERO, ONE, U, ldu);
+            }
+            /* Near-the-diagonal bulge chase. The following loop performs the near-the-diagonal
+             * part of a small bulge multi-shift QR sweep. Each 6*nbmps-2 column diagonal chunk
+             * extends from column incol to column ndcol (including both column incol and column
+             * ndcol). The following loop chases a 3*nbmps column long chain of nbmps bulges
+             * 3*nbmps-2 columns to the right. (incol may be less than ktop and and ndcol may be
+             * greater than kbot indicating phantom columns from which to chase bulges before they
+             * are actually introduced or to which to chase bulges beyond column kbot.)          */
+            for (krcol=incol-1; krcol<std::min(incol+3*nbmps-3, kbot-1); krcol++)
+            {
+                /* Bulges number mtop to mbot are active double implicit shift bulges. There may or
+                 * may not also be small 2 by 2 bulge, if there is room. The inactive bulges
+                 * (if any) must wait until the active bulges have moved down the diagonal to make
+                 * room. The phantom matrix paradigm described above helps keep track.           */
+                mtop = std::max(0, (ktop-krcol+1)/3);
+                mbot = std::min(nbmps, (kbot-krcol)/3) - 1;
+                m22 = mbot + 1;
+                bmp22 = ((mbot<nbmps-1) && (krcol+3*m22)==(kbot-2));
+                // Generate reflections to chase the chain right one column.
+                // (The minimum value of k is ktop-1.)
+                for (m=mtop; m<=mbot; m++)
+                {
+                    k = krcol + 3*m;
+                    vm = ldv * m;
+                    if (k==ktop-1)
+                    {
+                        dlaqr1(3, &H[hktop], ldh, sr[2*m], si[2*m], sr[2*m+1], si[2*m+1], &V[vm]);
+                        alpha = V[vm];
+                        dlarfg(3, alpha, &V[1+vm], 1, V[vm]);
+                    }
+                    else
+                    {
+                        hk = k + ldh*k;
+                        hk1 = k + ldh*(k+1);
+                        hk2 = hk1 + ldh;
+                        beta    = H[hk+1];
+                        V[1+vm] = H[hk+2];
+                        V[2+vm] = H[hk+3];
+                        dlarfg(3, beta, &V[1+vm], 1, V[vm]);
+                        // A Bulge may collapse because of vigilant deflation or destructive
+                        // underflow.  In the underflow case, try the two-small-subdiagonals trick
+                        // to try to reinflate the bulge.
+                        if (H[hk+3]!=ZERO || H[3+hk1]!= ZERO || H[3+hk2]==ZERO)
+                        {
+                            // Typical case: not collapsed (yet).
+                            H[hk+1] = beta;
+                            H[hk+2] = ZERO;
+                            H[hk+3] = ZERO;
+                        }
+                        else
+                        {
+                            // Atypical case: collapsed. Attempt to reintroduce ignoring H[k+1,k]
+                            // and H[k+2,k]. If the fill resulting from the new reflector is too
+                            // large, then abandon it. Otherwise, use the new one.
+                            dlaqr1(3, &H[1+hk1], ldh, sr[2*m], si[2*m], sr[2*m+1], si[2*m+1], vt);
+                            alpha = vt[0];
+                            dlarfg(3, alpha, &vt[1], 1, vt[0]);
+                            refsum = vt[0] * (H[hk+1]+vt[1]*H[hk+2]);
+                            if (std::fabs(H[hk+2]-refsum*vt[1])+std::fabs(refsum*vt[2])
+                                > ulp*(std::fabs(H[hk])+std::fabs(H[1+hk1])+std::fabs(H[2+hk2])))
+                            {
+                                // Starting a new bulge here would create non-negligible fill.
+                                // Use the old one with trepidation.
+                                H[hk+1] = beta;
+                                H[hk+2] = ZERO;
+                                H[hk+3] = ZERO;
+                            }
+                            else
+                            {
+                                // Stating a new bulge here would create only negligible fill.
+                                // Replace the old reflector with the new one.
+                                H[hk+1] -= refsum;
+                                H[hk+2] = ZERO;
+                                H[hk+3] = ZERO;
+                                V[vm]   = vt[0];
+                                V[1+vm] = vt[1];
+                                V[2+vm] = vt[2];
+                            }
+                        }
+                    }
+                }
+                // Generate a 2 by 2 reflection, if needed.
+                k = krcol + 3*m22;
+                vm22 = ldv * m22;
+                if (bmp22)
+                {
+                    if (k==ktop-1)
+                    {
+                        dlaqr1(2, &H[k+1+ldh*(k+1)], ldh, sr[2*m22], si[2*m22], sr[2*m22+1],
+                               si[2*m22+1], &V[vm22]);
+                        beta = V[vm22];
+                        dlarfg(2, beta, &V[1+vm22], 1, V[vm22]);
+                    }
+                    else
+                    {
+                        hk = k + ldh*k;
+                        beta      = H[hk+1];
+                        V[1+vm22] = H[hk+2];
+                        dlarfg(2, beta, &V[1+vm22], 1, V[vm22]);
+                        H[hk+1] = beta;
+                        H[hk+2] = ZERO;
+                    }
+                }
+                // Multiply H by reflections from the left
+                if (accum)
+                {
+                    jbot = std::min(ndcol, kbot);
+                }
+                else if (wantt)
+                {
+                    jbot = n - 1;
+                }
+                else
+                {
+                    jbot = kbot;
+                }
+                for (j=std::max(ktop, krcol); j<=jbot; j++)
+                {
+                    mend = std::min(mbot, (j-krcol-1)/3);
+                    hj = ldh * j;
+                    for (m=mtop; m<=mend; m++)
+                    {
+                        k = krcol + 3*m;
+                        vm = ldv * m;
+                        refsum = V[vm] * (H[k+1+hj]+V[1+vm]*H[k+2+hj]+V[2+vm]*H[k+3+hj]);
+                        H[k+1+hj] -= refsum;
+                        H[k+2+hj] -= refsum*V[1+vm];
+                        H[k+3+hj] -= refsum*V[2+vm];
+                    }
+                }
+                if (bmp22)
+                {
+                    k = krcol + 3*m22;
+                    for (j=std::max(k+1, ktop); j<=jbot; j++)
+                    {
+                        hj = k + ldh*j;
+                        refsum = V[vm22] * (H[1+hj]+V[1+vm22]*H[2+hj]);
+                        H[1+hj] -= refsum;
+                        H[2+hj] -= refsum*V[1+vm22];
+                    }
+                }
+                // Multiply H by reflections from the right. Delay filling in the last row until
+                // the vigilant deflation check is complete.
+                if (accum)
+                {
+                    jtop = std::max(ktop, incol-1);
+                }
+                else if (wantt)
+                {
+                    jtop = 0;
+                }
+                else
+                {
+                    jtop = ktop;
+                }
+                for (m=mtop; m<=mbot; m++)
+                {
+                    vm = ldv * m;
+                    if (V[vm]!=ZERO)
+                    {
+                        k = krcol + 3*m;
+                        hk1 = ldh * (k+1);
+                        hk2 = hk1 + ldh;
+                        hk3 = hk2 + ldh;
+                        for (j=jtop; j<=std::min(kbot, k+3); j++)
+                        {
+                            refsum = V[vm] * (H[j+hk1]+V[1+vm]*H[j+hk2]+V[2+vm]*H[j+hk3]);
+                            H[j+hk1] -= refsum;
+                            H[j+hk2] -= refsum*V[1+vm];
+                            H[j+hk3] -= refsum*V[2+vm];
+                        }
+                        if (accum)
+                        {
+                            // Accumulate U. (If necessary, update Z later with with an efficient
+                            // matrix-matrix multiply.)
+                            kms = k - incol;
+                            uind1 = ldu * (kms+1);
+                            uind2 = uind1 + ldu;//ldu * (kms+2);
+                            uind3 = uind2 + ldu;//ldu * (kms+3);
+                            for (j=std::max(0, ktop-incol); j<kdu; j++)
+                            {
+                                refsum = V[vm]
+                                         * (U[j+uind1]+V[1+vm]*U[j+uind2]+V[2+vm]*U[j+uind3]);
+                                U[j+uind1] -= refsum;
+                                U[j+uind2] -= refsum*V[1+vm];
+                                U[j+uind3] -= refsum*V[2+vm];
+                            }
+                        }
+                        else if (wantz)
+                        {
+                            // U is not accumulated, so update Z now by multiplying by reflections
+                            // from the right.
+                            zind1 = ldz * (k+1);
+                            zind2 = zind1 + ldz;//ldz * (k+2);
+                            zind3 = zind2 + ldz;//ldz * (k+3);
+                            for (j=iloz; j<=ihiz; j++)
+                            {
+                                refsum = V[vm]
+                                         * (Z[j+zind1]+V[1+vm]*Z[j+zind2]+V[2+vm]*Z[j+zind3]);
+                                Z[j+zind1] -= refsum;
+                                Z[j+zind2] -= refsum*V[1+vm];
+                                Z[j+zind3] -= refsum*V[2+vm];
+                            }
+                        }
+                    }
+                }
+                // Special case: 2 by 2 reflection (if needed)
+                k = krcol + 3*m22;
+                hk1 = ldh * (k+1);
+                if (bmp22)
+                {
+                    if (V[vm22]!=ZERO)
+                    {
+                        hk2 = hk1 + ldh;
+                        for (j=jtop; j<=std::min(kbot, k+3); j++)
+                        {
+                            refsum = V[vm22] * (H[j+hk1]+V[1+vm22]*H[j+hk2]);
+                            H[j+hk1] -= refsum;
+                            H[j+hk2] -= refsum*V[1+vm22];
+                        }
+                        if (accum)
+                        {
+                            kms = k - incol;
+                            uind1 = ldu * (kms+1);
+                            uind2 = uind1 + ldu;//ldu * (kms+2);
+                            for (j=std::max(0, ktop-incol); j<kdu; j++)
+                            {
+                                refsum = V[vm22] * (U[j+uind1]+V[1+vm22]*U[j+uind2]);
+                                U[j+uind1] -= refsum;
+                                U[j+uind2] -= refsum*V[1+vm22];
+                            }
+                        }
+                        else if (wantz)
+                        {
+                            zind1 = ldz * (k+1);
+                            zind2 = zind1 + ldz;//ldz * (k+2);
+                            for (j=iloz; j<=ihiz; j++)
+                            {
+                                refsum = V[vm22] * (Z[j+zind1]+V[1+vm22]*Z[j+zind2]);
+                                Z[j+zind1] -= refsum;
+                                Z[j+zind2] -= refsum*V[1+vm22];
+                            }
+                        }
+                    }
+                }
+                // Vigilant deflation check
+                mstart = mtop;
+                if (krcol+3*mstart<ktop)
+                {
+                    mstart++;
+                }
+                mend = mbot;
+                if (bmp22)
+                {
+                    mend++;
+                }
+                if (krcol==kbot-2)
+                {
+                    mend++;
+                }
+                for (m=mstart; m<=mend; m++)
+                {
+                    k = std::min(kbot-1, krcol+3*m);
+                    hk = k + ldh*k;
+                    hk1 = k + ldh*(k+1);
+                    /* The following convergence test requires that the tradition small-compared-
+                     * to-nearby-diagonals criterion and the Ahues & Tisseur (LAWN 122, 1997)
+                     * criteria both be satisfied. The latter improves accuracy in some examples.
+                     * Falling back on an alternate convergence criterion when tst1 or tst2 is zero
+                     * (as done here) is traditional but probably unnecessary.                   */
+                    if (H[hk+1]!=ZERO)
+                    {
+                        tst1 = std::fabs(H[hk]) + std::fabs(H[1+hk1]);
+                        if (tst1==ZERO)
+                        {
+                            if (k>=ktop+1)
+                            {
+                                tst1 += std::fabs(H[k+ldh*(k-1)]);
+                            }
+                            if (k>=ktop+2)
+                            {
+                                tst1 += std::fabs(H[k+ldh*(k-2)]);
+                            }
+                            if (k>=ktop+3)
+                            {
+                                tst1 += std::fabs(H[k+ldh*(k-3)]);
+                            }
+                            if (k<=kbot-2)
+                            {
+                                tst1 += std::fabs(H[2+hk1]);
+                            }
+                            if (k<=kbot-3)
+                            {
+                                tst1 += std::fabs(H[3+hk1]);
+                            }
+                            if (k<=kbot-4)
+                            {
+                                tst1 += std::fabs(H[4+hk1]);
+                            }
+                        }
+                        if (std::fabs(H[hk+1])<=std::max(smlnum, ulp*tst1))
+                        {
+                            h12 = std::max(std::fabs(H[1+hk]),  std::fabs(H[hk1]));
+                            h21 = std::min(std::fabs(H[1+hk]),  std::fabs(H[hk1]));
+                            h11 = std::max(std::fabs(H[1+hk1]), std::fabs(H[hk]-H[1+hk1]));
+                            h22 = std::min(std::fabs(H[1+hk1]), std::fabs(H[hk]-H[1+hk1]));
+                            scl = h11 + h12;
+                            tst2 = h22 * (h11/scl);
+                            if (tst2==ZERO || h21*(h12/scl)<=std::max(smlnum, ulp*tst2))
+                            {
+                                H[1+hk] = ZERO;
+                            }
+                        }
+                    }
+                }
+                // Fill in the last row of each bulge.
+                mend = std::min(nbmps, (kbot-krcol-1)/3) - 1;
+                for (m=mtop; m<=mend; m++)
+                {
+                    k = krcol + 3*m;
+                    hk1 = k + 4 + ldh*(k+1);
+                    hk2 = hk1 + ldh;
+                    hk3 = hk2 + ldh;
+                    vm = ldv * m;
+                    refsum = V[vm] * V[2+vm] * H[hk3];
+                    H[hk1] = -refsum;
+                    H[hk2] = -refsum*V[1+vm];
+                    H[hk3] -= refsum*V[2+vm];
+                }
+                // End of near-the-diagonal bulge chase.
+            }
+            // Use U (if accumulated) to update far-from-diagonal entries in H.
+            // If required, use U to update Z as well.
+            if (accum)
+            {
+                if (wantt)
+                {
+                    jtop = 0;
+                    jbot = n - 1;
+                }
+                else
+                {
+                    jtop = ktop;
+                    jbot = kbot;
+                }
+                if ((!blk22) || (incol<=ktop) || (ndcol>kbot) || (ns<=2))
+                {
+                    /* Updates not exploiting the 2 by 2 block structure of U. k1 and nu keep track
+                     * of the location and size of U in the special cases of introducing bulges and
+                     * chasing bulges off the bottom. In these special cases and in case the number
+                     * of shifts is ns = 2, there is no 2 by 2 block structure to exploit.       */
+                    k1 = std::max(0, ktop-incol);
+                    uind1 = k1 + ldu*k1;
+                    nu = (kdu-std::max(0, ndcol-kbot)) - k1;
+                    // Horizontal Multiply
+                    hk1 = incol + k1;
+                    for (jcol=std::min(ndcol, kbot)+1; jcol<=jbot; jcol+=nh)
+                    {
+                        hk2 = hk1 + ldh*jcol;
+                        jlen = std::min(nh, jbot-jcol+1);
+                        Blas<real>::dgemm("C", "N", nu, jlen, nu, ONE, &U[uind1], ldu, &H[hk2],
+                                          ldh, ZERO, Wh, ldwh);
+                        dlacpy("ALL", nu, jlen, Wh, ldwh, &H[hk2], ldh);
+                    }
+                    // Vertical multiply
+                    hk1 = ldh * (incol+k1);
+                    for (jrow=jtop; jrow<std::max(ktop, incol-1); jrow+=nv)
+                    {
+                        hk2 = jrow + hk1;
+                        jlen = std::min(nv, std::max(ktop, incol-1)-jrow);
+                        Blas<real>::dgemm("N", "N", jlen, nu, nu, ONE, &H[hk2], ldh, &U[uind1],
+                                          ldu, ZERO, Wv, ldwv);
+                        dlacpy("ALL", jlen, nu, Wv, ldwv, &H[hk2], ldh);
+                    }
+                    // Z multiply (also vertical)
+                    if (wantz)
+                    {
+                        zind1 = ldz * (incol+k1);
+                        for (jrow=iloz; jrow<=ihiz; jrow+=nv)
+                        {
+                            zind2 = jrow + zind1;
+                            jlen = std::min(nv, ihiz-jrow+1);
+                            Blas<real>::dgemm("N", "N", jlen, nu, nu, ONE, &Z[zind2], ldz,
+                                              &U[uind1], ldu, ZERO, Wv, ldwv);
+                            dlacpy("ALL", jlen, nu, Wv, ldwv, &Z[zind2], ldz);
+                        }
+                    }
+                }
+                else
+                {
+                    // Updates exploiting U's 2 by 2 block structure.
+                    // (i2-1, i4-1, j2-1, j4-1 are the last rows and columns of the blocks.)
+                    i2 = (kdu+1) / 2;
+                    i4 = kdu;
+                    j2 = i4 - i2;
+                    j4 = kdu;
+                    // kzs and knz deal with the band of zeros along the diagonal of one of the
+                    // triangular blocks.
+                    kzs = (j4-j2) - (ns+1);
+                    knz = ns + 1;
+                    uind1 = j2 + ldu*kzs;
+                    uind2 = ldu * i2;
+                    uind3 = j2 + uind2;
+                    wvi2  = ldwv * i2;
+                    wvkzs = ldwv * kzs;
+                    // Horizontal multiply
+                    for (jcol=std::min(ndcol, kbot)+1; jcol<=jbot; jcol+=nh)
+                    {
+                        hk1 = incol + ldh*jcol;
+                        jlen = std::min(nh, jbot-jcol+1);
+                        // Copy bottom of H to top+kzs of scratch
+                        // (The first kzs rows get multiplied by zero.)
+                        dlacpy("ALL", knz, jlen, &H[j2+hk1], ldh, &Wh[kzs], ldwh);
+                        // Multiply by U21^T
+                        dlaset("ALL", kzs, jlen, ZERO, ZERO, Wh, ldwh);
+                        Blas<real>::dtrmm("L", "U", "C", "N", knz, jlen, ONE, &U[uind1], ldu,
+                                          &Wh[kzs], ldwh);
+                        // Multiply top of H by U11^T
+                        Blas<real>::dgemm("C", "N", i2, jlen, j2, ONE, U, ldu, &H[hk1], ldh, ONE,
+                                          Wh, ldwh);
+                        // Copy top of H to bottom of Wh
+                        dlacpy("ALL", j2, jlen, &H[hk1], ldh, &Wh[i2], ldwh);
+                        // Multiply by U21^T
+                        Blas<real>::dtrmm("L", "L", "C", "N", j2, jlen, ONE, &U[uind2], ldu,
+                                          &Wh[i2], ldwh);
+                        // Multiply by U22
+                        Blas<real>::dgemm("C", "N", i4-i2, jlen, j4-j2, ONE, &U[uind3], ldu,
+                                          &H[j2+hk1], ldh, ONE, &Wh[i2], ldwh);
+                        // Copy it back
+                        dlacpy("ALL", kdu, jlen, Wh, ldwh, &H[hk1], ldh);
+                    }
+                    // Vertical multiply
+                    hk1 = ldh * (incol+j2);
+                    hk2 = ldh * incol;
+                    for (jrow=jtop; jrow<std::max(incol-1, ktop); jrow+=nv)
+                    {
+                        hk3 = jrow + hk2;
+                        jlen = std::min(nv, std::max(incol-1, ktop)-jrow);
+                        // Copy right of H to scratch
+                        // (the first kzs columns get multiplied by zero)
+                        dlacpy("ALL", jlen, knz, &H[jrow+hk1], ldh, &Wv[wvkzs], ldwv);
+                        // Multiply by U21
+                        dlaset("ALL", jlen, kzs, ZERO, ZERO, Wv, ldwv);
+                        Blas<real>::dtrmm("R", "U", "N", "N", jlen, knz, ONE, &U[uind1], ldu,
+                                          &Wv[wvkzs], ldwv);
+                        // Multiply by U11
+                        Blas<real>::dgemm("N", "N", jlen, i2, j2, ONE, &H[hk3], ldh, U, ldu, ONE,
+                                          Wv, ldwv);
+                        // Copy left of H to right of scratch
+                        dlacpy("ALL", jlen, j2, &H[hk3], ldh, &Wv[wvi2], ldwv);
+                        // Multiply by U21
+                        Blas<real>::dtrmm("R", "L", "N", "N", jlen, i4-i2, ONE, &U[uind2], ldu,
+                                          &Wv[wvi2], ldwv);
+                        // Multiply by U22
+                        Blas<real>::dgemm("N", "N", jlen, i4-i2, j4-j2, ONE, &H[jrow+hk1], ldh,
+                                          &U[uind3], ldu, ONE, &Wv[wvi2], ldwv);
+                        // Copy it back
+                        dlacpy("ALL", jlen, kdu, Wv, ldwv, &H[hk3], ldh);
+                    }
+                    // Multiply Z (also vertical)
+                    if (wantz)
+                    {
+                        zind1 = ldz * (incol+j2);
+                        zind2 = ldz * incol;
+                        for (jrow=iloz; jrow<=ihiz; jrow+=nv)
+                        {
+                            zind3 = jrow + zind2;
+                            jlen = std::min(nv, ihiz-jrow+1);
+                            // Copy right of Z to left of scratch
+                            // (first kzs columns get multiplied by zero)
+                            dlacpy("ALL", jlen, knz, &Z[jrow+zind1], ldz, &Wv[wvkzs], ldwv);
+                            // Multiply by U12
+                            dlaset("ALL", jlen, kzs, ZERO, ZERO, Wv, ldwv);
+                            Blas<real>::dtrmm("R", "U", "N", "N", jlen, knz, ONE, &U[uind1], ldu,
+                                              &Wv[wvkzs], ldwv);
+                            // Multiply by U11
+                            Blas<real>::dgemm("N", "N", jlen, i2, j2, ONE, &Z[zind3], ldz, U, ldu,
+                                              ONE, Wv, ldwv);
+                            // Copy left of Z to right of scratch
+                            dlacpy("ALL", jlen, j2, &Z[zind3], ldz, &Wv[wvi2], ldwv);
+                            // Multiply by U21
+                            Blas<real>::dtrmm("R", "L", "N", "N", jlen, i4-i2, ONE, &U[uind2],
+                                              ldu, &Wv[wvi2], ldwv);
+                            // Multiply by U22
+                            Blas<real>::dgemm("N", "N", jlen, i4-i2, j4-j2, ONE, &Z[jrow+zind1],
+                                              ldz, &U[uind3], ldu, ONE, &Wv[wvi2], ldwv);
+                            // Copy the result back to Z
+                            dlacpy("ALL", jlen, kdu, Wv, ldwv, &Z[zind3], ldz);
+                        }
+                    }
+                }
             }
         }
     }
@@ -9702,11 +10367,11 @@ public:
         // Scale.
         real orgnrm = std::max(std::fabs(alpha), std::fabs(beta));
         d[nl] = ZERO;
-        for (int I=1; I<=n; I++)
+        for (int i=0; i<n; i++)
         {
-            if (std::fabs(d[I-1])>orgnrm)
+            if (std::fabs(d[i])>orgnrm)
             {
-                orgnrm = std::fabs(d[I-1]);
+                orgnrm = std::fabs(d[i]);
             }
         }
         dlascl("G", 0, 0, orgnrm, ONE, n, 1, d, n, info);
@@ -17073,7 +17738,7 @@ public:
         }
         else if (ispec==ISHFTS)
         {
-            // NSHFTS: The number of simultaneous shifts
+            // nshfts: The number of simultaneous shifts
             return ns;
         }
         else if (ispec==INWIN)
