@@ -5696,7 +5696,7 @@ public:
      *     If §wantz = §false, then §Z is unreferenced.
      *
      * \param[in] ldz
-     *     §LDA is the leading dimension of §Z just as declared in the calling procedure.
+     *     §ldz is the leading dimension of §Z just as declared in the calling procedure.
      *     $\{ldz}\ge\{n}$.
      *
      * \param[out] V   an array, dimension (§ldv,$\{nshfts}/2$)
@@ -15225,6 +15225,188 @@ public:
             dlarf(side, mi, ni, &A[aind], 1, tau[i], &C[ic+ldc*jc], ldc, work);
             A[aind] = aii;
         }
+    }
+
+    /*! §dormhr
+     *
+     * §dormhr overwrites the general real §m by §n matrix $C$ with\n
+     *     $\begin{tabular}{lll} & \{side} = `L' & \{side} = `R' \\
+     *           \{trans} = `N': & \(Q C\)       & \(C Q\)       \\
+     *           \{trans} = `T': & \(Q^T C\)     & \(C Q^T\)     \end{tabular}$\n
+     * where $Q$ is a real orthogonal matrix of order $n_q$, with $n_q=\{m}$ if §side = 'L' and
+     * $n_q = \{n}$ if §side = 'R'. $Q$ is defined as the product of $\{ihi}-\{ilo}$ elementary
+     * reflectors, as returned by §dgehrd: \n
+     *     $Q = H(\{ilo}) H(\{ilo}+1) \ldots H(\{ihi}-1)$.
+     * \param[in] side
+     *     = 'L': apply $Q$ or $Q^T$ from the Left;\n
+     *     = 'R': apply $Q$ or $Q^T$ from the Right.
+     *
+     * \param[in] trans
+     *     = 'N':  No transpose, apply $Q$;\n
+     *     = 'T':  Transpose, apply $Q^T$.
+     *
+     * \param[in] m        The number of rows of the matrix $C$. $\{m}\ge 0$.
+     * \param[in] n        The number of columns of the matrix $C$. $\{n}\ge 0$.
+     * \param[in] ilo, ihi
+     *     §ilo and §ihi must have the same values as in the previous call of §dgehrd. $Q$ is equal
+     *     to the unit matrix except in the submatrix $Q[\{ilo}+1:\{ihi},\{ilo}+1:\{ihi}]$.\n
+     *     If §side = 'L', then $0\le\{ilo}\le\{ihi}<\{m}$, if $\{m}>0$, and $\{ilo}=0$ and
+     *     $\{ihi}=-1$, if $\{m}=0$;\n
+     *     if §side = 'R', then $0\le\{ilo}\le\{ihi}<\{n}$, if $\{n}>0$, and $\{ilo}=0$ and
+     *     $\{ihi}=-1$, if $\{n}=0$.\n
+     *     NOTE: zero-base indices!
+     *
+     * \param[in] A
+     *     an array, dimension\n (§lda,§m) if §side = 'L'\n
+     *                           (§lda,§n) if §side = 'R'\n
+     *     The vectors which define the elementary reflectors, as returned by §dgehrd.
+     *
+     * \param[in] lda
+     *     The leading dimension of the array §A.\n
+     *     $\{lda}\ge\max(1,\{m})$ if §side = 'L';\n $\{lda}\ge\max(1,\{n})$ if §side = 'R'.
+     *
+     * \param[in] tau
+     *     an array, dimension\n ($\{m}-1$) if §side = 'L'\n
+     *                           ($\{n}-1$) if §side = 'R'\n
+     *     $\{tau}[i]$ must contain the scalar factor of the elementary reflector $H(i)$, as
+     *     returned by §dgehrd.
+     *
+     * \param[in,out] C
+     *     an array, dimension (§ldc,§n)\n
+     *     On entry, the §m by §n matrix $C$.\n
+     *     On exit, §C is overwritten by $QC$ or $Q^TC$ or $CQ^T$ or $CQ$.
+     *
+     * \param[in]  ldc The leading dimension of the array §C. $\{ldc}\ge\max(1,\{m})$.
+     * \param[out] work
+     *     an array, dimension ($\max(1,\{lwork})$)\n
+     *     On exit, if §info = 0, $\{work}[0]$ returns the optimal §lwork.
+     *
+     * \param[in] lwork
+     *     The dimension of the array §work.\n
+     *     If §side = 'L', $\{lwork}\ge\max(1,\{n})$;\n
+     *     if §side = 'R', $\{lwork}\ge\max(1,\{m})$.\n
+     *     For optimum performance\n $\{lwork}\ge\{n}\,\{nb}$ if §side = 'L', and\n
+     *     $\{lwork}\ge\{m}\,\{nb}$ if §side = 'R', where §nb is the optimal blocksize.\n
+     *     If $\{lwork}=-1$, then a workspace query is assumed; the routine only calculates the
+     *     optimal size of the §work array, returns this value as the first entry of the §work
+     *     array, and no error message related to §lwork is issued by §xerbla.
+     *
+     * \param[out] info
+     *     = 0:  successful exit\n
+     *     < 0:  if $\{info}=-i$, the $i$-th argument had an illegal value
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                       */
+    static void dormhr(char const* side, char const* trans, int m, int n, int ilo, int ihi,
+                       real const* A, int lda, real const* tau, real* C, int ldc, real* work,
+                       int lwork, int& info)
+    {
+        // Test the input arguments
+        info = 0;
+        int nh = ihi - ilo;
+        bool left = (std::toupper(side[0])=='L');
+        bool lquery = (lwork==-1);
+        // nq is the order of Q and nw is the minimum dimension of work
+        int nq, nw;
+        if (left)
+        {
+            nq = m;
+            nw = n;
+        }
+        else
+        {
+            nq = n;
+            nw = m;
+        }
+        if (!left && std::toupper(side[0])!='R')
+        {
+            info = -1;
+        }
+        else if (std::toupper(trans[0])!='N' && std::toupper(trans[0])!='T')
+        {
+            info = -2;
+        }
+        else if (m<0)
+        {
+            info = -3;
+        }
+        else if (n<0)
+        {
+            info = -4;
+        }
+        else if (ilo<0 || ilo>std::max(0, nq-1))
+        {
+            info = -5;
+        }
+        else if (ihi<std::min(ilo, nq-1) || ihi>=nq)
+        {
+            info = -6;
+        }
+        else if (lda<std::max(1, nq))
+        {
+            info = -8;
+        }
+        else if (ldc<std::max(1, m))
+        {
+            info = -11;
+        }
+        else if (lwork<std::max(1, nw) && !lquery)
+        {
+            info = -13;
+        }
+        int lwkopt, nb;
+        if (info==0)
+        {
+            char concat[3];
+            concat[0] = std::toupper(side[0]);
+            concat[1] = std::toupper(trans[0]);
+            concat[2] = '\0';
+            if (left)
+            {
+                nb = ilaenv(1, "DORMQR", concat, nh, n, nh, -1);
+            }
+            else
+            {
+                nb = ilaenv(1, "DORMQR", concat, m, nh, nh, -1);
+            }
+            lwkopt = std::max(1, nw) * nb;
+            work[0] = lwkopt;
+        }
+        if (info!=0)
+        {
+            xerbla("DORMHR", -info);
+            return;
+        }
+        else if (lquery)
+        {
+            return;
+        }
+        // Quick return if possible
+        if (m==0 || n==0 || nh==0)
+        {
+            work[0] = 1;
+            return;
+        }
+        int i1, i2, iinfo, mi, ni;
+        if (left)
+        {
+            mi = nh;
+            ni = n;
+            i1 = ilo + 1;
+            i2 = 0;
+        }
+        else
+        {
+            mi = m;
+            ni = nh;
+            i1 = 0;
+            i2 = ilo + 1;
+        }
+        dormqr(side, trans, mi, ni, nh, &A[ilo+1+lda*ilo], lda, &tau[ilo], &C[i1+ldc*i2], ldc,
+               work, lwork, iinfo);
+        work[0] = lwkopt;
     }
 
     /*! §dormqr

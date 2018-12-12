@@ -66,6 +66,174 @@ public:
         nout.flush();
     }
 
+    /*! §dbdt01
+     *
+     * §dbdt01 reconstructs a general matrix $A$ from its bidiagonal form\n
+     *     $A = Q B P^T$\n
+     * where $Q$ (§m by $\min(\{m},\{n})$) and $P^T$ ($\min(\{m},\{n})$ by §n) are orthogonal
+     * matrices and $B$ is bidiagonal.\n
+     * The test ratio to test the reduction is\n
+     *     $\{resid} = \frac{\|A - Q B P^T\|}{n \|A\| \epsilon}$\n
+     * where $\epsilon$ is the machine precision.
+     * \param[in] m  The number of rows of the matrices $A$ and $Q$.
+     * \param[in] n  The number of columns of the matrices $A$ and $P^T$.
+     * \param[in] kd
+     *     If $\{kd}=0$, $B$ is diagonal and the array §e is not referenced.\n
+     *     If $\{kd}=1$, the reduction was performed by §xgebrd; $B$ is upper bidiagonal if
+     *                   $\{m}\ge\{n}$, and lower bidiagonal if $\{m}<\{n}$.\n
+     *     If $\{kd}=-1$, the reduction was performed by §xgbbrd; $B$ is always upper bidiagonal.
+     *
+     * \param[in] A   an array, dimension (§lda,§n)\n The §m by §n matrix $A$.
+     * \param[in] lda The leading dimension of the array §A. $\{lda}\ge\max(1,\{m})$.
+     * \param[in] Q
+     *     an array, dimension (§ldq,§n)\n
+     *     The §m by $\min(\{m},\{n})$ orthogonal matrix $Q$ in the reduction $A = Q B P^T$.
+     *
+     * \param[in] ldq The leading dimension of the array §Q. $\{ldq}\ge\max(1,\{m})$.
+     * \param[in] d
+     *     an array, dimension ($\min(\{m},\{n})$)\n
+     *     The diagonal elements of the bidiagonal matrix $B$.
+     *
+     * \param[in] e
+     *     an array, dimension ($\min(\{m},\{n})-1$)\n
+     *     The superdiagonal elements of the bidiagonal matrix $B$ if $\{m}\ge\{n}$, or the
+     *     subdiagonal elements of $B$ if $\{m}<\{n}$.
+     *
+     * \param[in] Pt
+     *     an array, dimension (§ldpt,§n)\n
+     *     The $\min(\{m},\{n})$ by §n orthogonal matrix $P^T$ in the reduction $A = Q B P^T$.
+     *
+     * \param[in] ldpt
+     *     The leading dimension of the array §Pt.\n $\{ldpt}\ge\max(1,\min(\{m},\{n}))$.
+     *
+     * \param[out] work an array, dimension ($\{m}+\{n}$)
+     * \param[out] resid The test ratio: $\frac{\|A - Q B P^T\|}{n \|A\| \epsilon}$
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                       */
+    void dbdt01(int m, int n, int kd, real const* A, int lda, real const* Q, int ldq,
+                real const* d, real const* e, real const* Pt, int ldpt, real* work, real& resid)
+    {
+        // Quick return if possible
+        if (m<=0 || n<=0)
+        {
+            resid = ZERO;
+            return;
+        }
+        // Compute A - Q * B * P^T one column at a time.
+        resid = ZERO;
+        int i, j;
+        if (kd!=0)
+        {
+            // B is bidiagonal.
+            if (kd!=0 && m>=n)
+            {
+                // B is upper bidiagonal and m >= n.
+                for (j=0; j<n; j++)
+                {
+                    Blas<real>::dcopy(m, &A[lda*j], 1, work, 1);
+                    for (i=0; i<n-1; i++)
+                    {
+                        work[m+i] = d[i]*Pt[i+ldpt*j] + e[i]*Pt[i+1+ldpt*j];
+                    }
+                    work[m+n-1] = d[n-1] * Pt[n-1+ldpt*j];
+                    Blas<real>::dgemv("No transpose", m, n, -ONE, Q, ldq, &work[m], 1, ONE, work, 1);
+                    resid = std::max(resid, Blas<real>::dasum(m, work, 1));
+                }
+            }
+            else if (kd<0)
+            {
+                // B is upper bidiagonal and m < n.
+                for (j=0; j<n; j++)
+                {
+                    Blas<real>::dcopy(m, &A[lda*j], 1, work, 1);
+                    for (i=0; i<m-1; i++)
+                    {
+                        work[m+i] = d[i]*Pt[i+ldpt*j] + e[i]*Pt[i+1+ldpt*j];
+                    }
+                    work[m+m-1] = d[m-1] * Pt[m-1+ldpt*j];
+                    Blas<real>::dgemv("No transpose", m, m, -ONE, Q, ldq, &work[m], 1, ONE, work, 1);
+                    resid = std::max(resid, Blas<real>::dasum(m, work, 1));
+                }
+            }
+            else
+            {
+                // B is lower bidiagonal.
+                for (j=0; j<n; j++)
+                {
+                    Blas<real>::dcopy(m, &A[lda*j], 1, work, 1);
+                    work[m] = d[0] * Pt[ldpt*j];
+                    for (i=1; i<m; i++)
+                    {
+                        work[m+i] = e[i-1]*Pt[i-1+ldpt*j] + d[i]*Pt[i+ldpt*j];
+                    }
+                    Blas<real>::dgemv("No transpose", m, m, -ONE, Q, ldq, &work[m], 1, ONE, work, 1);
+                    resid = std::max(resid, Blas<real>::dasum(m, work, 1));
+                }
+            }
+        }
+        else
+        {
+            // B is diagonal.
+            if (m>=n)
+            {
+                for (j=0; j<n; j++)
+                {
+                    Blas<real>::dcopy(m, &A[lda*j], 1, work, 1);
+                    for (i=0; i<n; i++)
+                    {
+                        work[m+i] = d[i] * Pt[i+ldpt*j];
+                    }
+                    Blas<real>::dgemv("No transpose", m, n, -ONE, Q, ldq, &work[m], 1, ONE, work, 1);
+                    resid = std::max(resid, Blas<real>::dasum(m, work, 1));
+                }
+            }
+            else
+            {
+                for (j=0; j<n; j++)
+                {
+                    Blas<real>::dcopy(m, &A[lda*j], 1, work, 1);
+                    for (i=0; i<m; i++)
+                    {
+                        work[m+i] = d[i] * Pt[i+ldpt*j];
+                    }
+                    Blas<real>::dgemv("No transpose", m, m, -ONE, Q, ldq, &work[m], 1, ONE, work, 1);
+                    resid = std::max(resid, Blas<real>::dasum(m, work, 1));
+                }
+            }
+        }
+        // Compute norm(A - Q * B * P^T) / (n * norm(A) * eps)
+        real anorm = this->dlange("1", m, n, A, lda, work);
+        real eps = this->dlamch("Precision");
+        if (anorm<=ZERO)
+        {
+            if (resid!=ZERO)
+            {
+                resid = ONE / eps;
+            }
+        }
+        else
+        {
+            if (anorm>=resid)
+            {
+                resid = (resid/anorm) / (real(n)*eps);
+            }
+            else
+            {
+               if (anorm<ONE)
+               {
+                  resid = (std::min(resid, real(n)*anorm)/anorm) / (real(n)*eps);
+               }
+               else
+               {
+                  resid = std::min(resid/anorm, real(n)) / (real(n)*eps);
+               }
+            }
+        }
+    }
+
     /*! §dbdt03
      *
      * §dbdt03 reconstructs a bidiagonal matrix $B$ from its SVD:\n
@@ -82,7 +250,7 @@ public:
      * \param[in] n The order of the matrix $B$.
      * \param[in] kd
      *     The bandwidth of the bidiagonal matrix $B$. If $\{kd}=1$, the matrix $B$ is bidiagonal,
-     *     and if $\{kd}=0$, $B$ is diagonal and §E is not referenced. If §kd is greater than 1, it
+     *     and if $\{kd}=0$, $B$ is diagonal and §e is not referenced. If §kd is greater than 1, it
      *     is assumed to be 1, and if §kd is less than 0, it is assumed to be 0.
      *
      * \param[in] d
