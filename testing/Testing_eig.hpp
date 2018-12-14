@@ -73,8 +73,8 @@ public:
      * where $Q$ (§m by $\min(\{m},\{n})$) and $P^T$ ($\min(\{m},\{n})$ by §n) are orthogonal
      * matrices and $B$ is bidiagonal.\n
      * The test ratio to test the reduction is\n
-     *     $\{resid} = \frac{\|A - Q B P^T\|}{n \|A\| \epsilon}$\n
-     * where $\epsilon$ is the machine precision.
+     *     $\{resid} = \frac{\|A - Q B P^T\|}{n \|A\| \{eps}}$\n
+     * where §eps is the machine precision.
      * \param[in] m  The number of rows of the matrices $A$ and $Q$.
      * \param[in] n  The number of columns of the matrices $A$ and $P^T$.
      * \param[in] kd
@@ -107,7 +107,7 @@ public:
      *     The leading dimension of the array §Pt.\n $\{ldpt}\ge\max(1,\min(\{m},\{n}))$.
      *
      * \param[out] work an array, dimension ($\{m}+\{n}$)
-     * \param[out] resid The test ratio: $\frac{\|A - Q B P^T\|}{n \|A\| \epsilon}$
+     * \param[out] resid The test ratio: $\frac{\|A - Q B P^T\|}{n \|A\| \{eps}}$
      * \authors Univ.of Tennessee
      * \authors Univ.of California Berkeley
      * \authors Univ.of Colorado Denver
@@ -234,14 +234,86 @@ public:
         }
     }
 
+    /*! §dbdt02
+     *
+     * §dbdt02 tests the change of basis $C = U^T B$ by computing the residual\n
+     *     $\{resid} = \frac{\|B - U C\|}{\max(\{m},\{n}) \|B\| \{eps}}$,\n
+     * where $B$ and $C$ are §m by §n matrices, $U$ is an §m by §m orthogonal matrix, and §eps is
+     * the machine precision.
+     * \param[in] m
+     *     The number of rows of the matrices $B$ and $C$ and the order of the matrix $Q$.
+     *
+     * \param[in] n   The number of columns of the matrices $B$ and $C$.
+     * \param[in] B   an array, dimension (§ldb,§n)\n The §m by §n matrix $B$.
+     * \param[in] ldb The leading dimension of the array §B. $\{ldb}\ge\max(1,\{m})$.
+     * \param[in] C
+     *     an array, dimension (§ldc,§n)\n The §m by §n matrix $C$, assumed to contain $U^T B$.
+     *
+     * \param[in]  ldc   The leading dimension of the array §C. $\{ldc}\ge\max(1,\{m})$.
+     * \param[in]  U     an array, dimension (§ldu,§m)\n The §m by §m orthogonal matrix $U$.
+     * \param[in]  ldu   The leading dimension of the array §U. $\{ldu}\ge\max(1,\{m})$.
+     * \param[out] work  an array, dimension (§m)
+     * \param[out] resid $\{resid}=\frac{\|B - U C\|}{\max(\{m},\{n}) \|B\| \{eps}}$.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                       */
+    void dbdt02(int m, int n, real const* B, int ldb, real const* C, int ldc, real const* U,
+                int ldu, real* work, real& resid)
+    {
+        // Quick return if possible
+        resid = ZERO;
+        if (m<=0 || n<=0)
+        {
+            return;
+        }
+        real realmn = real(std::max(m, n));
+        real eps = this->dlamch("Precision");
+        // Compute norm(B - U * C)
+        for (int j=0; j<n; j++)
+        {
+            Blas<real>::dcopy(m, &B[ldb*j], 1, work, 1);
+            Blas<real>::dgemv("No transpose", m, m, -ONE, U, ldu, &C[ldc*j], 1, ONE, work, 1);
+            resid = std::max(resid, Blas<real>::dasum(m, work, 1));
+        }
+        // Compute norm of B.
+        real bnorm = this->dlange("1", m, n, B, ldb, work);
+        if (bnorm<=ZERO)
+        {
+            if (resid!=ZERO)
+            {
+                resid = ONE / eps;
+            }
+        }
+        else
+        {
+            if (bnorm>=resid)
+            {
+                resid = (resid/bnorm) / (realmn*eps);
+            }
+            else
+            {
+                if (bnorm<ONE)
+                {
+                    resid = (std::min(resid, realmn*bnorm)/bnorm) / (realmn*eps);
+                }
+                else
+                {
+                    resid = std::min(resid/bnorm, realmn) / (realmn*eps);
+                }
+            }
+        }
+    }
+
     /*! §dbdt03
      *
      * §dbdt03 reconstructs a bidiagonal matrix $B$ from its SVD:\n
      *     $S = U^T B V$\n
      * where $U$ and $V$ are orthogonal matrices and $S$ is diagonal.\n
      * The test ratio to test the singular value decomposition is\n
-     *     $\{resid}=\frac{\|B - U S V^T\|}{\{n} \|B\| \epsilon}$\n
-     * where $\epsilon$ is the machine precision.
+     *     $\{resid}=\frac{\|B - U S V^T\|}{\{n} \|B\| \{eps}}$\n
+     * where §eps is the machine precision.
      * \param[in] uplo
      *     Specifies whether the matrix $B$ is upper or lower bidiagonal.\n
      *     = 'U': Upper bidiagonal\n
@@ -276,7 +348,7 @@ public:
      *
      * \param[in]  ldvt  The leading dimension of the array §Vt.
      * \param[out] work  an array, dimension ($2\{n}$)
-     * \param[out] resid The test ratio: $\frac{\|B - U S V^T\|}{\{n} \|A\| \epsilon}$
+     * \param[out] resid The test ratio: $\frac{\|B - U S V^T\|}{\{n} \|A\| \{eps}}$
      * \authors Univ.of Tennessee
      * \authors Univ.of California Berkeley
      * \authors Univ.of Colorado Denver

@@ -7204,6 +7204,583 @@ public:
         }
     }
 
+    /*! §dlarfx applies an elementary reflector to a general rectangular matrix, with loop
+     *  unrolling when the reflector has order $\le 10$.
+     *
+     * §dlarfx applies a real elementary reflector $H$ to a real §m by §n matrix $C$, from either
+     * the left or the right. $H$ is represented in the form\n
+     *     $H = I - \tau v v^T$\n
+     * where $\tau$ is a real scalar and $v$ is a real vector.\n
+     * If $\tau=0$, then $H$ is taken to be the unit matrix.\n
+     * This version uses inline code if $H$ has order $<11$.
+     * \param[in] side
+     *     = 'L': form $H C$\n
+     *     = 'R': form $C H$
+     *
+     * \param[in] m The number of rows of the matrix $C$.
+     * \param[in] n The number of columns of the matrix $C$.
+     * \param[in] v
+     *     an array, dimension\n &emsp; (§m) if §side = 'L'\n
+     *                               or (§n) if §side = 'R'\n
+     *     The vector $v$ in the representation of $H$.
+     *
+     * \param[in]     tau The value $\tau$ in the representation of $H$.
+     * \param[in,out] C
+     *     an array, dimension (§ldc,§n)\n
+     *     On entry, the §m by §n matrix $C$.\n
+     *     On exit, §C is overwritten by the matrix $H C$ if §side = 'L', or $C H$ if §side = 'R'.
+     *
+     * \param[in]  ldc  The leading dimension of the array §C. $\{LDA}\ge\max(1,\{m})$.
+     * \param[out] work
+     *     an array, dimension\n &emsp; (§n) if §side = 'L'\n
+     *                               or (§m) if §side = 'R'\n
+     *     §work is not referenced if $H$ has order $<11$.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                       */
+    static void dlarfx(char const* side, int m, int n, real const* v, real tau, real* C, int ldc,
+                       real* work)
+    {
+        if (tau==ZERO)
+        {
+            return;
+        }
+        int j;
+        real sum, t0, t1, t2, t3, t4, t5, t6, t7, t8, t9, v0, v1, v2, v3, v4, v5, v6, v7, v8, v9;
+        if (std::toupper(side[0])=='L')
+        {
+            int cj;
+            // Form H * C, where H has order m.
+            switch (m)
+            {
+                default:
+                    // Code for general m
+                    dlarf(side, m, n, v, 1, tau, C, ldc, work);
+                    break;
+                case 1:
+                    // Special code for 1 x 1 Householder
+                    t0 = ONE - tau*v[0]*v[0];
+                    for (j=0; j<n; j++)
+                    {
+                        C[ldc*j] *= t0;
+                    }
+                    break;
+                case 2:
+                    // Special code for 2 x 2 Householder
+                    v0 = v[0];
+                    t0 = tau * v0;
+                    v1 = v[1];
+                    t1 = tau * v1;
+                    for (j=0; j<n; j++)
+                    {
+                        cj = ldc * j;
+                        sum = v0*C[cj] + v1*C[1+cj];
+                        C[  cj] -= sum * t0;
+                        C[1+cj] -= sum * t1;
+                    }
+                    break;
+                case 3:
+                    // Special code for 3 x 3 Householder
+                    v0 = v[0];
+                    t0 = tau * v0;
+                    v1 = v[1];
+                    t1 = tau * v1;
+                    v2 = v[2];
+                    t2 = tau * v2;
+                    for (j=0; j<n; j++)
+                    {
+                        cj = ldc * j;
+                        sum = v0*C[cj] + v1*C[1+cj] + v2*C[2+cj];
+                        C[  cj] -= sum * t0;
+                        C[1+cj] -= sum * t1;
+                        C[2+cj] -= sum * t2;
+                    }
+                    break;
+                case 4:
+                    // Special code for 4 x 4 Householder
+                    v0 = v[0];
+                    t0 = tau * v0;
+                    v1 = v[1];
+                    t1 = tau * v1;
+                    v2 = v[2];
+                    t2 = tau * v2;
+                    v3 = v[3];
+                    t3 = tau * v3;
+                    for (j=0; j<n; j++)
+                    {
+                        cj = ldc * j;
+                        sum = v0*C[cj] + v1*C[1+cj] + v2*C[2+cj] + v3*C[3+cj];
+                        C[  cj] -= sum * t0;
+                        C[1+cj] -= sum * t1;
+                        C[2+cj] -= sum * t2;
+                        C[3+cj] -= sum * t3;
+                    }
+                    break;
+                case 5:
+                    // Special code for 5 x 5 Householder
+                    v0 = v[0];
+                    t0 = tau * v0;
+                    v1 = v[1];
+                    t1 = tau * v1;
+                    v2 = v[2];
+                    t2 = tau * v2;
+                    v3 = v[3];
+                    t3 = tau * v3;
+                    v4 = v[4];
+                    t4 = tau * v4;
+                    for (j=0; j<n; j++)
+                    {
+                        cj = ldc * j;
+                        sum = v0*C[cj] + v1*C[1+cj] + v2*C[2+cj] + v3*C[3+cj] + v4*C[4+cj];
+                        C[  cj] -= sum * t0;
+                        C[1+cj] -= sum * t1;
+                        C[2+cj] -= sum * t2;
+                        C[3+cj] -= sum * t3;
+                        C[4+cj] -= sum * t4;
+                    }
+                    break;
+                case 6:
+                    // Special code for 6 x 6 Householder
+                    v0 = v[0];
+                    t0 = tau * v0;
+                    v1 = v[1];
+                    t1 = tau * v1;
+                    v2 = v[2];
+                    t2 = tau * v2;
+                    v3 = v[3];
+                    t3 = tau * v3;
+                    v4 = v[4];
+                    t4 = tau * v4;
+                    v5 = v[5];
+                    t5 = tau * v5;
+                    for (j=0; j<n; j++)
+                    {
+                        cj = ldc * j;
+                        sum = v0*C[  cj] + v1*C[1+cj] + v2*C[2+cj] + v3*C[3+cj] + v4*C[4+cj]
+                            + v5*C[5+cj];
+                        C[  cj] -= sum * t0;
+                        C[1+cj] -= sum * t1;
+                        C[2+cj] -= sum * t2;
+                        C[3+cj] -= sum * t3;
+                        C[4+cj] -= sum * t4;
+                        C[5+cj] -= sum * t5;
+                    }
+                    break;
+                case 7:
+                    // Special code for 7 x 7 Householder
+                    v0 = v[0];
+                    t0 = tau * v0;
+                    v1 = v[1];
+                    t1 = tau * v1;
+                    v2 = v[2];
+                    t2 = tau * v2;
+                    v3 = v[3];
+                    t3 = tau * v3;
+                    v4 = v[4];
+                    t4 = tau * v4;
+                    v5 = v[5];
+                    t5 = tau * v5;
+                    v6 = v[6];
+                    t6 = tau * v6;
+                    for (j=0; j<n; j++)
+                    {
+                        cj = ldc * j;
+                        sum = v0*C[  cj] + v1*C[1+cj] + v2*C[2+cj] + v3*C[3+cj] + v4*C[4+cj]
+                            + v5*C[5+cj] + v6*C[6+cj];
+                        C[  cj] -= sum * t0;
+                        C[1+cj] -= sum * t1;
+                        C[2+cj] -= sum * t2;
+                        C[3+cj] -= sum * t3;
+                        C[4+cj] -= sum * t4;
+                        C[5+cj] -= sum * t5;
+                        C[6+cj] -= sum * t6;
+                    }
+                    break;
+                case 8:
+                    // Special code for 8 x 8 Householder
+                    v0 = v[0];
+                    t0 = tau * v0;
+                    v1 = v[1];
+                    t1 = tau * v1;
+                    v2 = v[2];
+                    t2 = tau * v2;
+                    v3 = v[3];
+                    t3 = tau * v3;
+                    v4 = v[4];
+                    t4 = tau * v4;
+                    v5 = v[5];
+                    t5 = tau * v5;
+                    v6 = v[6];
+                    t6 = tau * v6;
+                    v7 = v[7];
+                    t7 = tau * v7;
+                    for (j=0; j<n; j++)
+                    {
+                        cj = ldc * j;
+                        sum = v0*C[  cj] + v1*C[1+cj] + v2*C[2+cj] + v3*C[3+cj] + v4*C[4+cj]
+                            + v5*C[5+cj] + v6*C[6+cj] + v7*C[7+cj];
+                        C[  cj] -= sum * t0;
+                        C[1+cj] -= sum * t1;
+                        C[2+cj] -= sum * t2;
+                        C[3+cj] -= sum * t3;
+                        C[4+cj] -= sum * t4;
+                        C[5+cj] -= sum * t5;
+                        C[6+cj] -= sum * t6;
+                        C[7+cj] -= sum * t7;
+                    }
+                    break;
+                case 9:
+                    // Special code for 9 x 9 Householder
+                    v0 = v[0];
+                    t0 = tau * v0;
+                    v1 = v[1];
+                    t1 = tau * v1;
+                    v2 = v[2];
+                    t2 = tau * v2;
+                    v3 = v[3];
+                    t3 = tau * v3;
+                    v4 = v[4];
+                    t4 = tau * v4;
+                    v5 = v[5];
+                    t5 = tau * v5;
+                    v6 = v[6];
+                    t6 = tau * v6;
+                    v7 = v[7];
+                    t7 = tau * v7;
+                    v8 = v[8];
+                    t8 = tau * v8;
+                    for (j=0; j<n; j++)
+                    {
+                        cj = ldc * j;
+                        sum = v0*C[  cj] + v1*C[1+cj] + v2*C[2+cj] + v3*C[3+cj] + v4*C[4+cj]
+                            + v5*C[5+cj] + v6*C[6+cj] + v7*C[7+cj] + v8*C[8+cj];
+                        C[  cj] -= sum * t0;
+                        C[1+cj] -= sum * t1;
+                        C[2+cj] -= sum * t2;
+                        C[3+cj] -= sum * t3;
+                        C[4+cj] -= sum * t4;
+                        C[5+cj] -= sum * t5;
+                        C[6+cj] -= sum * t6;
+                        C[7+cj] -= sum * t7;
+                        C[8+cj] -= sum * t8;
+                    }
+                    break;
+                case 10:
+                    // Special code for 10 x 10 Householder
+                    v0 = v[0];
+                    t0 = tau * v0;
+                    v1 = v[1];
+                    t1 = tau * v1;
+                    v2 = v[2];
+                    t2 = tau * v2;
+                    v3 = v[3];
+                    t3 = tau * v3;
+                    v4 = v[4];
+                    t4 = tau * v4;
+                    v5 = v[5];
+                    t5 = tau * v5;
+                    v6 = v[6];
+                    t6 = tau * v6;
+                    v7 = v[7];
+                    t7 = tau * v7;
+                    v8 = v[8];
+                    t8 = tau * v8;
+                    v9 = v[9];
+                    t9 = tau * v9;
+                    for (j=0; j<n; j++)
+                    {
+                        cj = ldc * j;
+                        sum = v0*C[  cj] + v1*C[1+cj] + v2*C[2+cj] + v3*C[3+cj] + v4*C[4+cj]
+                            + v5*C[5+cj] + v6*C[6+cj] + v7*C[7+cj] + v8*C[8+cj] + v9*C[9+cj];
+                        C[  cj] -= sum * t0;
+                        C[1+cj] -= sum * t1;
+                        C[2+cj] -= sum * t2;
+                        C[3+cj] -= sum * t3;
+                        C[4+cj] -= sum * t4;
+                        C[5+cj] -= sum * t5;
+                        C[6+cj] -= sum * t6;
+                        C[7+cj] -= sum * t7;
+                        C[8+cj] -= sum * t8;
+                        C[9+cj] -= sum * t9;
+                    }
+                    break;
+            }
+        }
+        else
+        {
+            int c1, c2, c3, c4, c5, c6, c7, c8, c9;
+            switch (n)
+            {
+                case 10:
+                    c9 = ldc * 9;
+                case 9:
+                    c8 = ldc * 8;
+                case 8:
+                    c7 = ldc * 7;
+                case 7:
+                    c6 = ldc * 6;
+                case 6:
+                    c5 = ldc * 5;
+                case 5:
+                    c4 = ldc * 4;
+                case 4:
+                    c3 = ldc * 3;
+                case 3:
+                    c2 = ldc * 2;
+                case 2:
+                    c1 = ldc;
+            }
+            // Form  C * H, where H has order n.
+            switch (n)
+            {
+                default:
+                    // Code for general n
+                    dlarf(side, m, n, v, 1, tau, C, ldc, work);
+                    break;
+                case 1:
+                    // Special code for 1 x 1 Householder
+                    t0 = ONE - tau*v[0]*v[0];
+                    for (j=0; j<n; j++)
+                    {
+                        C[j] *= t0;
+                    }
+                    break;
+                case 2:
+                    // Special code for 2 x 2 Householder
+                    v0 = v[0];
+                    t0 = tau * v0;
+                    v1 = v[1];
+                    t1 = tau * v1;
+                    for (j=0; j<n; j++)
+                    {
+                        sum = v0*C[j] + v1*C[j+c1];
+                        C[j   ] -= sum * t0;
+                        C[j+c1] -= sum * t1;
+                    }
+                    break;
+                case 3:
+                    // Special code for 3 x 3 Householder
+                    v0 = v[0];
+                    t0 = tau * v0;
+                    v1 = v[1];
+                    t1 = tau * v1;
+                    v2 = v[2];
+                    t2 = tau * v2;
+                    for (j=0; j<n; j++)
+                    {
+                        sum = v0*C[j] + v1*C[j+c1] + v2*C[j+c2];
+                        C[j   ] -= sum * t0;
+                        C[j+c1] -= sum * t1;
+                        C[j+c2] -= sum * t2;
+                    }
+                    break;
+                case 4:
+                    // Special code for 4 x 4 Householder
+                    v0 = v[0];
+                    t0 = tau * v0;
+                    v1 = v[1];
+                    t1 = tau * v1;
+                    v2 = v[2];
+                    t2 = tau * v2;
+                    v3 = v[3];
+                    t3 = tau * v3;
+                    for (j=0; j<n; j++)
+                    {
+                        sum = v0*C[j] + v1*C[j+c1] + v2*C[j+c2] + v3*C[j+c3];
+                        C[j   ] -= sum * t0;
+                        C[j+c1] -= sum * t1;
+                        C[j+c2] -= sum * t2;
+                        C[j+c3] -= sum * t3;
+                    }
+                    break;
+                case 5:
+                    // Special code for 5 x 5 Householder
+                    v0 = v[0];
+                    t0 = tau * v0;
+                    v1 = v[1];
+                    t1 = tau * v1;
+                    v2 = v[2];
+                    t2 = tau * v2;
+                    v3 = v[3];
+                    t3 = tau * v3;
+                    v4 = v[4];
+                    t4 = tau * v4;
+                    for (j=0; j<n; j++)
+                    {
+                        sum = v0*C[j] + v1*C[j+c1] + v2*C[j+c2] + v3*C[j+c3] + v4*C[j+c4];
+                        C[j   ] -= sum * t0;
+                        C[j+c1] -= sum * t1;
+                        C[j+c2] -= sum * t2;
+                        C[j+c3] -= sum * t3;
+                        C[j+c4] -= sum * t4;
+                    }
+                    break;
+                case 6:
+                    // Special code for 6 x 6 Householder
+                    v0 = v[0];
+                    t0 = tau * v0;
+                    v1 = v[1];
+                    t1 = tau * v1;
+                    v2 = v[2];
+                    t2 = tau * v2;
+                    v3 = v[3];
+                    t3 = tau * v3;
+                    v4 = v[4];
+                    t4 = tau * v4;
+                    v5 = v[5];
+                    t5 = tau * v5;
+                    for (j=0; j<n; j++)
+                    {
+                        sum = v0*C[j   ] + v1*C[j+c1] + v2*C[j+c2] + v3*C[j+c3] + v4*C[j+c4]
+                            + v5*C[j+c5];
+                        C[j   ] -= sum * t0;
+                        C[j+c1] -= sum * t1;
+                        C[j+c2] -= sum * t2;
+                        C[j+c3] -= sum * t3;
+                        C[j+c4] -= sum * t4;
+                        C[j+c5] -= sum * t5;
+                    }
+                    break;
+                case 7:
+                    // Special code for 7 x 7 Householder
+                    v0 = v[0];
+                    t0 = tau * v0;
+                    v1 = v[1];
+                    t1 = tau * v1;
+                    v2 = v[2];
+                    t2 = tau * v2;
+                    v3 = v[3];
+                    t3 = tau * v3;
+                    v4 = v[4];
+                    t4 = tau * v4;
+                    v5 = v[5];
+                    t5 = tau * v5;
+                    v6 = v[6];
+                    t6 = tau * v6;
+                    for (j=0; j<n; j++)
+                    {
+                        sum = v0*C[j   ] + v1*C[j+c1] + v2*C[j+c2] + v3*C[j+c3] + v4*C[j+c4]
+                            + v5*C[j+c5] + v6*C[j+c6];
+                        C[j   ] -= sum * t0;
+                        C[j+c1] -= sum * t1;
+                        C[j+c2] -= sum * t2;
+                        C[j+c3] -= sum * t3;
+                        C[j+c4] -= sum * t4;
+                        C[j+c5] -= sum * t5;
+                        C[j+c6] -= sum * t6;
+                    }
+                    break;
+                case 8:
+                    // Special code for 8 x 8 Householder
+                    v0 = v[0];
+                    t0 = tau * v0;
+                    v1 = v[1];
+                    t1 = tau * v1;
+                    v2 = v[2];
+                    t2 = tau * v2;
+                    v3 = v[3];
+                    t3 = tau * v3;
+                    v4 = v[4];
+                    t4 = tau * v4;
+                    v5 = v[5];
+                    t5 = tau * v5;
+                    v6 = v[6];
+                    t6 = tau * v6;
+                    v7 = v[7];
+                    t7 = tau * v7;
+                    for (j=0; j<n; j++)
+                    {
+                        sum = v0*C[j   ] + v1*C[j+c1] + v2*C[j+c2] + v3*C[j+c3] + v4*C[j+c4]
+                            + v5*C[j+c5] + v6*C[j+c6] + v7*C[j+c7];
+                        C[j   ] -= sum * t0;
+                        C[j+c1] -= sum * t1;
+                        C[j+c2] -= sum * t2;
+                        C[j+c3] -= sum * t3;
+                        C[j+c4] -= sum * t4;
+                        C[j+c5] -= sum * t5;
+                        C[j+c6] -= sum * t6;
+                        C[j+c7] -= sum * t7;
+                    }
+                    break;
+                case 9:
+                    // Special code for 9 x 9 Householder
+                    v0 = v[0];
+                    t0 = tau * v0;
+                    v1 = v[1];
+                    t1 = tau * v1;
+                    v2 = v[2];
+                    t2 = tau * v2;
+                    v3 = v[3];
+                    t3 = tau * v3;
+                    v4 = v[4];
+                    t4 = tau * v4;
+                    v5 = v[5];
+                    t5 = tau * v5;
+                    v6 = v[6];
+                    t6 = tau * v6;
+                    v7 = v[7];
+                    t7 = tau * v7;
+                    v8 = v[8];
+                    t8 = tau * v8;
+                    for (j=0; j<n; j++)
+                    {
+                        sum = v0*C[j   ] + v1*C[j+c1] + v2*C[j+c2] + v3*C[j+c3] + v4*C[j+c4]
+                            + v5*C[j+c5] + v6*C[j+c6] + v7*C[j+c7] + v8*C[j+c8];
+                        C[j   ] -= sum * t0;
+                        C[j+c1] -= sum * t1;
+                        C[j+c2] -= sum * t2;
+                        C[j+c3] -= sum * t3;
+                        C[j+c4] -= sum * t4;
+                        C[j+c5] -= sum * t5;
+                        C[j+c6] -= sum * t6;
+                        C[j+c7] -= sum * t7;
+                        C[j+c8] -= sum * t8;
+                    }
+                    break;
+                case 10:
+                    // Special code for 10 x 10 Householder
+                    v0 = v[0];
+                    t0 = tau * v0;
+                    v1 = v[1];
+                    t1 = tau * v1;
+                    v2 = v[2];
+                    t2 = tau * v2;
+                    v3 = v[3];
+                    t3 = tau * v3;
+                    v4 = v[4];
+                    t4 = tau * v4;
+                    v5 = v[5];
+                    t5 = tau * v5;
+                    v6 = v[6];
+                    t6 = tau * v6;
+                    v7 = v[7];
+                    t7 = tau * v7;
+                    v8 = v[8];
+                    t8 = tau * v8;
+                    v9 = v[9];
+                    t9 = tau * v9;
+                    for (j=0; j<n; j++)
+                    {
+                        sum = v0*C[j   ] + v1*C[j+c1] + v2*C[j+c2] + v3*C[j+c3] + v4 *C[j+c4]
+                            + v5*C[j+c5] + v6*C[j+c6] + v7*C[j+c7] + v8*C[j+c8] + v9*C[j+c9];
+                        C[j   ] -= sum * t0;
+                        C[j+c1] -= sum * t1;
+                        C[j+c2] -= sum * t2;
+                        C[j+c3] -= sum * t3;
+                        C[j+c4] -= sum * t4;
+                        C[j+c5] -= sum * t5;
+                        C[j+c6] -= sum * t6;
+                        C[j+c7] -= sum * t7;
+                        C[j+c8] -= sum * t8;
+                        C[j+c9] -= sum * t9;
+                    }
+                    break;
+            }
+        }
+    }
+
     /*! §dlarnv returns a vector of random numbers from a uniform or normal distribution.
      *
      * §dlarnv returns a vector of §n random real numbers from a uniform or normal distribution.
@@ -10989,8 +11566,8 @@ public:
      *  with diagonal §d and off-diagonal §e. Used by §sbdsdc.
      *
      * Using a divide and conquer approach, §dlasda computes the singular value decomposition (SVD)
-     * of a real upper bidiagonal §n by §M matrix $B$ with diagonal $D$ and offdiagonal $E$, where
-     * §M = §n + §sqre. The algorithm computes the singular values in the SVD $B = U S V_T$. The
+     * of a real upper bidiagonal §n by §m matrix $B$ with diagonal $D$ and offdiagonal $E$, where
+     * §m = §n + §sqre. The algorithm computes the singular values in the SVD $B = U S V_T$. The
      * orthogonal matrices $U$ and $V_T$ are optionally computed in compact form.\n
      * A related subroutine, §dlasd0, computes the singular values and the singular vectors in
      * explicit form.
@@ -11006,8 +11583,8 @@ public:
      *
      * \param[in] sqre
      *     Specifies the column dimension of the bidiagonal matrix.\n
-     *     = 0: The bidiagonal matrix has column dimension §M = §n; \n
-     *     = 1: The bidiagonal matrix has column dimension §M = §n + 1.
+     *     = 0: The bidiagonal matrix has column dimension §m = §n; \n
+     *     = 1: The bidiagonal matrix has column dimension §m = §n + 1.
      *
      * \param[in,out] d
      *     an array, dimension (§n)\n
@@ -11015,7 +11592,7 @@ public:
      *     On exit §d, if §info = 0, contains its singular values.
      *
      * \param[in] e
-     *     an array, dimension (§M-1)\n
+     *     an array, dimension (§m-1)\n
      *     Contains the subdiagonal entries of the bidiagonal matrix.\n
      *     On exit, §e has been destroyed.
      *
