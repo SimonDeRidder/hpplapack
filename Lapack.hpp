@@ -3739,6 +3739,169 @@ public:
         }
     }
 
+    /*! §dlagtf computes an LU factorization of a matrix $T-\lambda I$, where $T$ is a general
+     *  tridiagonal matrix, and $\lambda$ a scalar, using partial pivoting with row interchanges.
+     *
+     * §dlagtf factorizes the matrix $T-\lambda I$, where $T$ is an §n by §n tridiagonal matrix and
+     * $\lambda$ is a scalar, as\n
+     *     $T - \lambda I = P L U$,\n
+     * where $P$ is a permutation matrix, $L$ is a unit lower tridiagonal matrix with at most one
+     * non-zero sub-diagonal element per column and $U$ is an upper triangular matrix with at most
+     * two non-zero super-diagonal elements per column.\n
+     * The factorization is obtained by Gaussian elimination with partial pivoting and implicit row
+     * scaling.\n
+     * The parameter §lambda is included in the routine so that §dlagtf may be used, in conjunction
+     * with §dlagts, to obtain eigenvectors of $T$ by inverse iteration.
+     * \param[in]     n The order of the matrix $T$.
+     * \param[in,out] a
+     *     an array, dimension (§n)\n On entry, §a must contain the diagonal elements of $T$.\n
+     *     On exit, §a is overwritten by the §n diagonal elements of the upper triangular matrix
+     *              $U$ of the factorization of $T$.
+     *
+     * \param[in]     lambda On entry, the scalar $\lambda$.
+     * \param[in,out] b
+     *     an array, dimension ($\{n}-1$)\n
+     *     On entry, §b must contain the $\{n}-1$ super-diagonal elements of $T$.\n
+     *     On exit, §b is overwritten by the $\{n}-1$ super-diagonal elements of the matrix $U$
+     *              of the factorization of $T$.
+     *
+     * \param[in,out] c
+     *     an array, dimension ($\{n}-1$)\n
+     *     On entry, §c must contain the $\{n}-1$ sub-diagonal elements of $T$.\n
+     *     On exit, §c is overwritten by the $\{n}-1$ sub-diagonal elements of the matrix $L$ of
+     *              the factorization of $T$.
+     *
+     * \param[in] tol
+     *     On entry, a relative tolerance used to indicate whether or not the matrix $T-\lambda I$
+     *     is nearly singular. §tol should normally be chosen as approximately the largest relative
+     *     error in the elements of $T$. For example, if the elements of $T$ are correct to about 4
+     *     significant figures, then §tol should be set to about $5*10^{-4}$. If §tol is supplied
+     *     as less than §eps, where §eps is the relative machine precision, then the value §eps is
+     *     used in place of §tol.
+     *
+     * \param[out] d
+     *     an array, dimension ($\{n}-2$)\n
+     *     On exit, §d is overwritten by the $\{n}-2$ second super-diagonal elements of the matrix
+     *              $U$ of the factorization of $T$.
+     *
+     * \param[out] in
+     *     an integer array, dimension (§n)\n
+     *     On exit, §in contains details of the permutation matrix $P$. If an interchange occurred
+     *     at the $k$th step of the elimination, then $\{in}[k]=1$, otherwise $\{in}[k]=0$. The
+     *     element $\{in}[\{n}-1]$ returns the smallest positive integer $j$ such that\n
+     *         $|U[j,j]|\le\|(T-\lambda I)[j]\|*\{tol}$,\n
+     *     where $\|A[j]\|$ denotes the sum of the absolute values of the $j$th row of the matrix
+     *     $A$. If no such $j$ exists then $\{in}[\{n}-1]$ is returned as -1. If $\{in}[\{n}-1]$
+     *     is returned as positive, then a diagonal element of $U$ is small, indicating that
+     *     ($T-\lambda I$) is singular or nearly singular.\n
+     *     NOTE: $\{in}[\{n}-1]$ is a zero-based index!
+     *
+     * \param[out] info
+     *     = 0: successful exit\n
+     *     < 0: if $\{info}=-k$, the $k$th argument had an illegal value
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                       */
+    static void dlagtf(int n, real* a, real lambda, real* b, real* c, real tol, real* d, int* in,
+                       int& info)
+    {
+        info = 0;
+        if (n<0)
+        {
+            info = -1;
+            xerbla("DLAGTF", -info);
+            return;
+        }
+        if (n==0)
+        {
+            return;
+        }
+        a[0] -= lambda;
+        int nm = n - 1;
+        in[nm] = -1;
+        if (n==1)
+        {
+           if (a[0]==ZERO)
+           {
+               in[0] = 1;
+           }
+            return;
+        }
+        real eps = dlamch("Epsilon");
+        real tl = std::max(tol, eps);
+        real scale1 = std::fabs(a[0]) + std::fabs(b[0]);
+        int k, kp;
+        real mult, piv1, piv2, scale2, temp;
+        for (k=0; k<nm; k++)
+        {
+            kp = k + 1;
+            a[kp] -= lambda;
+            scale2 = std::fabs(c[k]) + std::fabs(a[kp]);
+            if (kp<nm)
+            {
+                scale2 += std::fabs(b[kp]);
+            }
+            if (a[k]==ZERO)
+            {
+                piv1 = ZERO;
+            }
+            else
+            {
+                piv1 = std::fabs(a[k]) / scale1;
+            }
+            if (c[k]==ZERO)
+            {
+                in[k]  = 0;
+                piv2   = ZERO;
+                scale1 = scale2;
+                if (kp<nm)
+                {
+                    d[k] = ZERO;
+                }
+            }
+            else
+            {
+                piv2 = std::fabs(c[k]) / scale2;
+                if (piv2<=piv1)
+                {
+                    in[k]  = 0;
+                    scale1 = scale2;
+                    c[k]  /= a[k];
+                    a[kp] -= c[k] * b[k];
+                    if (kp<nm)
+                    {
+                        d[k] = ZERO;
+                    }
+                }
+                else
+                {
+                    in[k] = 1;
+                    mult  = a[k] / c[k];
+                    a[k]  = c[k];
+                    temp  = a[kp];
+                    a[kp] = b[k] - mult*temp;
+                    if (kp<nm)
+                    {
+                        d[k]  = b[kp];
+                        b[kp] = -mult * d[k];
+                    }
+                    b[k] = temp;
+                    c[k] = mult;
+                }
+            }
+            if (std::max(piv1, piv2)<=tl && in[nm]==-1)
+            {
+                in[nm] = k;
+            }
+        }
+        if (std::fabs(a[nm])<=scale1*tl && in[nm]==-1)
+        {
+            in[nm] = nm;
+        }
+    }
+
     /*! §dlahqr computes the eigenvalues and Schur factorization of an upper Hessenberg matrix,
      *  using the double-shift/single-shift QR algorithm.
      *
@@ -14868,6 +15031,345 @@ public:
         }
         ssmax = std::copysign(ssmax, tsign);
         ssmin = std::copysign(ssmin, tsign*real((ZERO<=f)-(f<ZERO))*real((ZERO<=h)-(h<ZERO)));
+    }
+
+    /*! §dlasy2 solves the Sylvester matrix equation where the matrices are of order 1 or 2.
+     *
+     * §dlasy2 solves for the §n1 by §n2 matrix §X, $1\le\{n1}$, $\{n2}\le 2$, in\n
+     *     $\operatorname{op}(\{Tl})\{X}+\{isgn}\:\{X}\operatorname{op}(\{Tr})=\{scale}\,\{B}$,\n
+     * where §Tl is §n1 by §n1, §Tr is §n2 by §n2, §B is §n1 by §n2, and $\{isgn}=1$ or $-1$.
+     * $\operatorname{op}(T)=T$ or $T^T$, where $T^T$ denotes the transpose of $T$.
+     * \param[in] ltranl
+     *     On entry, §ltranl specifies the $\operatorname{op}(\{Tl})$:\n
+     *     = false, $\operatorname{op}(\{Tl})=\{Tl}$,\n
+     *     = true,  $\operatorname{op}(\{Tl})=\{Tl}^T$.
+     *
+     * \param[in] ltranr
+     *     On entry, §ltranr specifies the $\operatorname{op}(\{Tr})$:\n
+     *     = false, $\operatorname{op}(\{Tr})=\{Tr}$,\n
+     *     = true,  $\operatorname{op}(\{Tr})=\{Tr}^T$.
+     *
+     * \param[in] isgn
+     *     On entry, §isgn specifies the sign of the equation as described before.
+     *     §isgn may only be 1 or -1.
+     *
+     * \param[in] n1 On entry, §n1 specifies the order of matrix §Tl. §n1 may only be 0, 1 or 2.
+     * \param[in] n2 On entry, §n2 specifies the order of matrix §Tr. §n2 may only be 0, 1 or 2.
+     * \param[in] Tl   an array, dimension (§ldtl,2)\n On entry, §Tl contains an §n1 by §n1 matrix.
+     * \param[in] ldtl The leading dimension of the matrix §Tl. $\{ldtl}\ge\max(1,\{n1})$.
+     * \param[in] Tr   an array, dimension (§ldtr,2)\n On entry, §Tr contains an §n2 by §n2 matrix.
+     * \param[in] ldtr The leading dimension of the matrix §Tr. $\{ldtr}\ge\max(1,\{n2})$.
+     * \param[in] B
+     *     an array, dimension (§ldb,2)\n
+     *     On entry, the §n1 by §n2 matrix §B contains the right-hand side of the equation.
+     *
+     * \param[in]  ldb   The leading dimension of the matrix §B. $\{ldb}\ge\max(1,\{n1})$.
+     * \param[out] scale
+     *     On exit, §scale contains the scale factor.
+     *     §scale is chosen less than or equal to 1 to prevent the solution overflowing.
+     *
+     * \param[out] X     an array, dimension (§ldx,2)\n On exit, §X contains the §n1 by §n2 solution.
+     * \param[in]  ldx   The leading dimension of the matrix §X. $\{ldx}\ge\max(1,\{n1})$.
+     * \param[out] xnorm On exit, §xnorm is the infinity-norm of the solution.
+     * \param[out] info
+     *     On exit, §info is set to\n
+     *     0: successful exit.\n
+     *     1: §Tl and §Tr have too close eigenvalues, so §Tl or §Tr is perturbed to get a
+     *        nonsingular equation.\n
+     *     NOTE: In the interests of speed, this routine does not check the inputs for errors.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date June 2016                                                                           */
+    static void dlasy2(bool ltranl, bool ltranr, int isgn, int n1, int n2, real const* Tl,
+                       int ldtl, real const* Tr, int ldtr, real const* B, int ldb, real& scale,
+                       real* X, int ldx, real& xnorm, int& info)
+    {
+        const bool BSWPIV[4] = {false, true, false, true};
+        const bool XSWPIV[4] = {false, false, true, true};
+        const int LOCL21[4] = {1, 0, 3, 2};
+        const int LOCU12[4] = {2, 3, 0, 1};
+        const int LOCU22[4] = {3, 2, 1, 0};
+        // Do not check the input parameters for errors
+        info = 0;
+        // Quick return if possible
+        if (n1==0 || n2==0)
+        {
+            return;
+        }
+        // Set constants to control overflow
+        real eps    = dlamch("P");
+        real smlnum = dlamch("S") / eps;
+        real sgn    = isgn;
+        int k = n1 + n1 + n2 - 2;
+        real smin, temp;
+        real btmp[4], tmp[4];
+        if (k<4)
+        {
+            if (k==1)
+            {
+                // 1 by 1: TL11*X + sgn*X*TR11 = B11
+                real tau1 = Tl[0] + sgn*Tr[0];
+                real bet  = std::fabs(tau1);
+                if (bet<=smlnum)
+                {
+                    tau1 = smlnum;
+                    bet  = smlnum;
+                    info = 1;
+                }
+                scale = ONE;
+                real gam = std::fabs(B[0]);
+                if (smlnum*gam>bet)
+                {
+                    scale = ONE / gam;
+                }
+                X[0] = (B[0]*scale) / tau1;
+                xnorm = std::fabs(X[0]);
+                return;
+            }
+            else
+            {
+                if (k==2)
+                {
+                    // 1 by 2: TL11*[X11 X12] + isgn*[X11 X12]*op[TR11 TR12]  = [B11 B12]
+                    //                                           [TR21 TR22]
+                    smin = std::max(eps*std::max(std::max(std::fabs(Tl[0]), std::fabs(Tr[0])),
+                                                 std::max(std::max(std::fabs(Tr[ldtr]),
+                                                                   std::fabs(Tr[1])),
+                                                          std::fabs(Tr[1+ldtr]))), smlnum);
+                    tmp[0] = Tl[0] + sgn*Tr[0];
+                    tmp[3] = Tl[0] + sgn*Tr[1+ldtr];
+                    if (ltranr)
+                    {
+                        tmp[1] = sgn*Tr[1];
+                        tmp[2] = sgn*Tr[ldtr];
+                    }
+                    else
+                    {
+                        tmp[1] = sgn*Tr[ldtr];
+                        tmp[2] = sgn*Tr[1];
+                    }
+                    btmp[0] = B[0];
+                    btmp[1] = B[ldb];
+                }
+                else // k==3
+                {
+                    // 2 by 1: op[TL11 TL12]*[X11] + isgn* [X11]*TR11  = [B11]
+                    //           [TL21 TL22] [X21]         [X21]         [B21]
+                    smin = std::max(eps*std::max(std::max(std::fabs(Tr[0]), std::fabs(Tl[0])),
+                                                 std::max(std::max(std::fabs(Tl[ldtl]),
+                                                                   std::fabs(Tl[1])),
+                                                          std::fabs(Tl[1+ldtl]))), smlnum);
+                    tmp[0] = Tl[0]      + sgn*Tr[0];
+                    tmp[3] = Tl[1+ldtl] + sgn*Tr[0];
+                    if (ltranl)
+                    {
+                        tmp[1] = Tl[ldtl];
+                        tmp[2] = Tl[1];
+                    }
+                    else
+                    {
+                        tmp[1] = Tl[1];
+                        tmp[2] = Tl[ldtl];
+                    }
+                    btmp[0] = B[0];
+                    btmp[1] = B[1];
+                }
+                // Solve 2 by 2 system using complete pivoting.
+                // Set pivots less than smin to smin.
+                int ipiv = Blas<real>::idamax(4, tmp, 1);
+                real u11 = tmp[ipiv];
+                if (std::fabs(u11)<=smin)
+                {
+                    info = 1;
+                    u11 = smin;
+                }
+                real u12 = tmp[LOCU12[ipiv]];
+                real l21 = tmp[LOCL21[ipiv]] / u11;
+                real u22 = tmp[LOCU22[ipiv]] - u12*l21;
+                if (std::fabs(u22)<=smin)
+                {
+                    info = 1;
+                    u22  = smin;
+                }
+                if (BSWPIV[ipiv])
+                {
+                    temp    = btmp[1];
+                    btmp[1] = btmp[0] - l21*temp;
+                    btmp[0] = temp;
+                }
+                else
+                {
+                    btmp[1] -= l21 * btmp[0];
+                }
+                scale = ONE;
+                if ((TWO*smlnum)*std::fabs(btmp[1])>std::fabs(u22)
+                 || (TWO*smlnum)*std::fabs(btmp[0])>std::fabs(u11))
+                {
+                    scale = HALF / std::max(std::fabs(btmp[0]), std::fabs(btmp[1]));
+                    btmp[0] *= scale;
+                    btmp[1] *= scale;
+                }
+                real x2[2];
+                x2[1] = btmp[1] / u22;
+                x2[0] = btmp[0] / u11 - (u12/u11)*x2[1];
+                if (XSWPIV[ipiv])
+                {
+                    temp  = x2[1];
+                    x2[1] = x2[0];
+                    x2[0] = temp;
+                }
+                X[0] = x2[0];
+                if (n1==1)
+                {
+                    X[ldx] = x2[1];
+                    xnorm  = std::fabs(X[0]) + std::fabs(X[ldx]);
+                }
+                else
+                {
+                    X[1]  = x2[1];
+                    xnorm = std::max(std::fabs(X[0]), std::fabs(X[1]));
+                }
+                return;
+            }
+        }
+        // 2 by 2: op[TL11 TL12]*[X11 X12] +isgn* [X11 X12]*op[TR11 TR12] = [B11 B12]
+        //           [TL21 TL22] [X21 X22]        [X21 X22]   [TR21 TR22]   [B21 B22]
+        // Solve equivalent 4 by 4 system using complete pivoting.
+        // Set pivots less than smin to smin.
+        smin = std::max(std::max(std::fabs(Tr[0]), std::fabs(Tr[ldtr])),
+                        std::max(std::fabs(Tr[1]), std::fabs(Tr[1+ldtr])));
+        smin = std::max(smin, std::max(std::max(std::fabs(Tl[0]), std::fabs(Tl[ldtl])),
+                                       std::max(std::fabs(Tl[1]), std::fabs(Tl[1+ldtl]))));
+        smin = std::max(eps*smin, smlnum);
+        btmp[0] = ZERO;
+        real t16[4*4];
+        Blas<real>::dcopy(16, btmp, 0, t16, 1);
+        t16[0]  = Tl[0]      + sgn*Tr[0];      // t16[0,0]
+        t16[5]  = Tl[1+ldtl] + sgn*Tr[0];      // t16[1,1]
+        t16[10] = Tl[0]      + sgn*Tr[1+ldtr]; // t16[2,2]
+        t16[15] = Tl[1+ldtl] + sgn*Tr[1+ldtr]; // t16[3,3]
+        if (ltranl)
+        {
+            t16[4]  = Tl[1];    // t16[0,1]
+            t16[1]  = Tl[ldtl]; // t16[1,0]
+            t16[14] = Tl[1];    // t16[2,3]
+            t16[11] = Tl[ldtl]; // t16[3,2]
+        }
+        else
+        {
+            t16[4]  = Tl[ldtl]; // t16[0,1]
+            t16[1]  = Tl[1];    // t16[1,0]
+            t16[14] = Tl[ldtl]; // t16[2,3]
+            t16[11] = Tl[1];    // t16[3,2]
+        }
+        if (ltranr)
+        {
+            t16[8]  = sgn*Tr[ldtr]; // t16[0,2]
+            t16[13] = sgn*Tr[ldtr]; // t16[1,3]
+            t16[2]  = sgn*Tr[1];    // t16[2,0]
+            t16[7]  = sgn*Tr[1];    // t16[3,1]
+        }
+        else
+        {
+            t16[8]  = sgn*Tr[1];    // t16[0,2]
+            t16[13] = sgn*Tr[1];    // t16[1,3]
+            t16[2]  = sgn*Tr[ldtr]; // t16[2,0]
+            t16[7]  = sgn*Tr[ldtr]; // t16[3,1]
+        }
+        btmp[0] = B[0];
+        btmp[1] = B[1];
+        btmp[2] = B[ldb];
+        btmp[3] = B[1+ldb];
+        // Perform elimination
+        int i, ip, ipsv, j, jp, jpsv;
+        real xmax;
+        int jpiv[4];
+        for (i=0; i<3; i++)
+        {
+            xmax = ZERO;
+            for (ip=i; ip<4; ip++)
+            {
+                for (jp=i; jp<4; jp++)
+                {
+                    if (std::fabs(t16[ip+4*jp])>=xmax) // t16[ip,jp]
+                    {
+                        xmax = std::fabs(t16[ip+4*jp]);
+                        ipsv = ip;
+                        jpsv = jp;
+                    }
+                }
+            }
+            if (ipsv!=i)
+            {
+                Blas<real>::dswap(4, &t16[ipsv], 4, &t16[i], 4); // t16[ipsv,0], t16[i,0]
+                temp       = btmp[i];
+                btmp[i]    = btmp[ipsv];
+                btmp[ipsv] = temp;
+            }
+            if (jpsv!=i)
+            {
+                Blas<real>::dswap(4, &t16[4*jpsv], 1, &t16[4*i], 1); // t16[0,jpsv], t16[0,i]
+            }
+            jpiv[i] = jpsv;
+            if (std::fabs(t16[i+4*i])<smin) // t16[i,i]
+            {
+                info = 1;
+                t16[i+4*i] = smin; // t16[i,i]
+            }
+            for (j=i+1; j<4; j++)
+            {
+                t16[j+4*i] /= t16[i+4*i]; // t16[j,i], t16[i,i]
+                btmp[j]    -= t16[j+4*i]*btmp[i]; // t16[j,i]
+                for (k=i+1; k<4; k++)
+                {
+                    t16[j+4*k] -= t16[j+4*i] * t16[i+4*k]; // t16[j,k], t16[j,i], t16[i,k]
+                }
+            }
+        }
+        if (std::fabs(t16[15])<smin) // t16[3,3]
+        {
+            info = 1;
+            t16[15] = smin; // t16[3,3]
+        }
+        scale = ONE;
+        if ((EIGHT*smlnum)*std::fabs(btmp[0])>std::fabs(t16[0])   // t16[0,0]
+         || (EIGHT*smlnum)*std::fabs(btmp[1])>std::fabs(t16[5])   // t16[1,1]
+         || (EIGHT*smlnum)*std::fabs(btmp[2])>std::fabs(t16[10])  // t16[2,2]
+         || (EIGHT*smlnum)*std::fabs(btmp[3])>std::fabs(t16[15])) // t16[3,3]
+        {
+            scale = (ONE/EIGHT) / std::max(std::max(std::fabs(btmp[0]), std::fabs(btmp[1])),
+                                           std::max(std::fabs(btmp[2]), std::fabs(btmp[3])));
+            btmp[0] *= scale;
+            btmp[1] *= scale;
+            btmp[2] *= scale;
+            btmp[3] *= scale;
+        }
+        for (i=0; i<4; i++)
+        {
+            k = 3 - i;
+            temp   = ONE / t16[k+4*k]; // t16[k,k]
+            tmp[k] = btmp[k] * temp;
+            for (j=k+1; j<4; j++)
+            {
+                tmp[k] -= (temp*t16[k+4*j]) * tmp[j]; // t16[k,j]
+            }
+        }
+        for (i=0; i<3; i++)
+        {
+            if (jpiv[2-i]!=2-i)
+            {
+                temp           = tmp[2-i];
+                tmp[2-i]       = tmp[jpiv[2-i]];
+                tmp[jpiv[2-i]] = temp;
+            }
+        }
+        X[0]     = tmp[0];
+        X[1]     = tmp[1];
+        X[ldx]   = tmp[2];
+        X[1+ldx] = tmp[3];
+        xnorm = std::max(std::fabs(tmp[0])+std::fabs(tmp[2]), std::fabs(tmp[1])+std::fabs(tmp[3]));
     }
 
     /*! §dorg2r generates all or part of the orthogonal matrix $Q$ from a QR factorization

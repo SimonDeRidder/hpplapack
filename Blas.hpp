@@ -2390,7 +2390,7 @@ public:
      * \param[in] incx storage spacing between elements of §dx
      * \return The index of the element of §dx with maximum absolute value,
      *         or -1 when $\{n}<1$ or $\{incx}\le 0$.\n
-     *         Note: this is a zero-based index!
+     *         NOTE: this is a zero-based index!
      * \authors Univ.of Tennessee
      * \authors Univ.of California Berkeley
      * \authors Univ.of Colorado Denver
