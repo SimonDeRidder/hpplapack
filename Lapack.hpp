@@ -203,12 +203,12 @@ public:
      *     If singular vectors are desired, then $\{ldvt}\ge\max(1,\{n})$.
      *
      * \param[out] q
-     *     an array, dimension (§LDQ)\n
+     *     an array, dimension (§ldq)\n
      *     If §compq = 'P', then:\n
      *         On exit, if §info = 0, §q and §iq contain the left and right singular vectors in a
      *         compact form, requiring $\mathcal{O}(\{n}\log\{n})$ space instead of $2\{n}^2$.
      *         In particular, §q contains all the real data in
-     *         $\{LDQ}\ge\{n}*(11+2\{smlsiz}+8\lfloor\log_2(\{n}/(\{smlsiz}+1))\rfloor)$ words of
+     *         $\{ldq}\ge\{n}*(11+2\{smlsiz}+8\lfloor\log_2(\{n}/(\{smlsiz}+1))\rfloor)$ words of
      *         memory, where §smlsiz is returned by §ilaenv and is equal to the maximum size of the
      *         subproblems at the bottom of the computation tree (usually about 25).\n
      *     For other values of §compq, §q is not referenced.
@@ -3739,6 +3739,266 @@ public:
         }
     }
 
+    /*! §dlaexc swaps adjacent diagonal blocks of a real upper quasi-triangular matrix in Schur
+     *  canonical form, by an orthogonal similarity transformation.
+     *
+     * §dlaexc swaps adjacent diagonal blocks $T_{00}$ and $T_{11}$ of order 1 or 2 in an upper
+     * quasi-triangular matrix $T$ by an orthogonal similarity transformation.\n
+     * $T$ must be in Schur canonical form, that is, block upper triangular with 1-by-1 and 2-by-2
+     * diagonal blocks; each 2-by-2 diagonal block has its diagonal elemnts equal and its
+     * off-diagonal elements of opposite sign.
+     * \param[in] wantq
+     *     = §true: accumulate the transformation in the matrix $Q$;\n
+     *     = §false: do not accumulate the transformation.
+     *
+     * \param[in]     n The order of the matrix $T$. $\{n}\ge 0$.
+     * \param[in,out] T
+     *     an array, dimension (§ldt,§n)\n
+     *     On entry, the upper quasi-triangular matrix $T$, in Schur canonical form.\n
+     *     On exit, the updated matrix $T$, again in Schur canonical form.
+     *
+     * \param[in]     ldt The leading dimension of the array $T$. $\{ldt}\ge\max(1,\{n})$.
+     * \param[in,out] Q
+     *     an array, dimension (§ldq,§n)\n
+     *     On entry, if §wantq is §true, the orthogonal matrix $Q$.\n
+     *     On exit, if §wantq is §true, the updated matrix $Q$.\n &emsp;&emsp;&emsp;
+     *              If §wantq is §false, $Q$ is not referenced.
+     *
+     * \param[in] ldq
+     *     The leading dimension of the array $Q$. $\{ldq}\ge 1$;
+     *     and if §wantq is §true, $\{ldq}\ge\{n}$.
+     *
+     * \param[in] j0
+     *     The index of the first row of the first block $T_{00}$.\n
+     *     NOTE: zero-based index!
+     *
+     * \param[in]  n0   The order of the first block $T_{00}$. $\{n0}=0$, 1 or 2.
+     * \param[in]  n1   The order of the second block $T_{11}$. $\{n1}=0$, 1 or 2.
+     * \param[out] work an array, dimension (§n)
+     * \param[out] info
+     *     = 0: successful exit\n
+     *     = 1: the transformed matrix $T$ would be too far from Schur form;
+     *          the blocks are not swapped and T and Q are unchanged.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                       */
+    static void dlaexc(bool wantq, int n, real* T, int ldt, real* Q, int ldq, int j0, int n0,
+                       int n1, real* work, int& info)
+    {
+        const int LDD = 4;
+        const int LDX = 2;
+        info = 0;
+        // Quick return if possible
+        if (n==0 || n0==0 || n1==0)
+        {
+            return;
+        }
+        int j1 = j0 + 1;
+        int j2 = j0 + 2;
+        int j3 = j0 + 3;
+        if (j1+n0>=n)
+        {
+            return;
+        }
+        int tj0 = ldt * j0;
+        int tj1 = ldt * j1;
+        int tj2 = ldt * j2;
+        int qj0 = ldq * j0;
+        real cs, sn, t11, temp;
+        if (n0==1 && n1==1)
+        {
+            real t22;
+            // Swap two 1-by-1 blocks.
+            t11 = T[j0+tj0];
+            t22 = T[j1+tj1];
+            // Determine the transformation to perform the interchange.
+            dlartg(T[j0+tj1], t22-t11, cs, sn, temp);
+            // Apply transformation to the matrix T.
+            if (j2<n)
+            {
+                Blas<real>::drot(n-j2, &T[j0+tj2], ldt, &T[j1+tj2], ldt, cs, sn);
+            }
+            Blas<real>::drot(j0, &T[tj0], 1, &T[tj1], 1, cs, sn);
+            T[j0+tj0] = t22;
+            T[j1+tj1] = t11;
+            if (wantq)
+            {
+                // Accumulate transformation in the matrix Q.
+                Blas<real>::drot(n, &Q[qj0], 1, &Q[ldq*j1], 1, cs, sn);
+            }
+        }
+        else
+        {
+            int ierr;
+            real scale, xnorm;
+            real D[LDD*4], u[3], u1[3], u2[3], X[LDX*2];
+            // Swapping involves at least one 2-by-2 block.
+            // Copy the diagonal block of order n0+n1 to the local array D and compute its norm.
+            int nd = n0 + n1;
+            dlacpy("Full", nd, nd, &T[j0+tj0], ldt, D, LDD);
+            real dnorm = dlange("Max", nd, nd, D, LDD, work);
+            // Compute machine-dependent threshold for test for accepting swap.
+            real eps    = dlamch("P");
+            real smlnum = dlamch("S") / eps;
+            real thresh = std::max(TEN*eps*dnorm, smlnum);
+            // Solve t11*X - X*t22 = scale*T12 for X.
+            dlasy2(false, false, -1, n0, n1, D, LDD, &D[n0+LDD*n0], LDD, &D[LDD*n0], LDD, scale, X,
+                   LDX, xnorm, ierr);
+            // Swap the adjacent diagonal blocks.
+            real tau;
+            int k = n0 + n0 + n1 - 3;
+            switch (k)
+            {
+                case 1:
+                    // n0 = 1, n1 = 2: generate elementary reflector H so that:
+                    // (scale, X11, X12) H = (0, 0, *)
+                    u[0] = scale;
+                    u[1] = X[0];
+                    u[2] = X[LDX];
+                    dlarfg(3, u[2], u, 1, tau);
+                    u[2] = ONE;
+                    t11  = T[j0+tj0];
+                    // Perform swap provisionally on diagonal block in D.
+                    dlarfx("L", 3, 3, u, tau, D, LDD, work);
+                    dlarfx("R", 3, 3, u, tau, D, LDD, work);
+                    // Test whether to reject swap.
+                    if (std::max(std::max(std::fabs(D[2]), std::fabs(D[2+LDD*1])),
+                                 std::fabs(D[2+LDD*2]-t11))>thresh)
+                    {
+                        // Exit with info = 1 if swap was rejected.
+                        info = 1;
+                        return;
+                    }
+                    // Accept swap: apply transformation to the entire matrix T.
+                    dlarfx("L", 3,  n-j0, u, tau, &T[j0+tj0], ldt, work);
+                    dlarfx("R", j2, 3,    u, tau, &T[tj0],    ldt, work);
+                    T[j2+tj0] = ZERO;
+                    T[j2+tj1] = ZERO;
+                    T[j2+tj2] = t11;
+                    if (wantq)
+                    {
+                        // Accumulate transformation in the matrix Q.
+                        dlarfx("R", n, 3, u, tau, &Q[qj0], ldq, work);
+                    }
+                    break;
+                case 2:
+                    // n0 = 2, n1 = 1: generate elementary reflector H so that:
+                    // H ( -X11) = (*)
+                    //   ( -X21) = (0)
+                    //   (scale) = (0)
+                    u[0] = -X[0];
+                    u[1] = -X[1];
+                    u[2] = scale;
+                    dlarfg(3, u[0], &u[1], 1, tau);
+                    u[0] = ONE;
+                    real t33 = T[j2+tj2];
+                    // Perform swap provisionally on diagonal block in D.
+                    dlarfx("L", 3, 3, u, tau, D, LDD, work);
+                    dlarfx("R", 3, 3, u, tau, D, LDD, work);
+                    // Test whether to reject swap.
+                    if (std::max(std::max(std::fabs(D[1]), std::fabs(D[2])), std::fabs(D[0]-t33))
+                        >thresh)
+                    {
+                        // Exit with info = 1 if swap was rejected.
+                        info = 1;
+                        return;
+                    }
+                    // Accept swap: apply transformation to the entire matrix T.
+                    dlarfx("R", j3, 3,    u, tau, &T[tj0],    ldt, work);
+                    dlarfx("L", 3,  n-j1, u, tau, &T[j0+tj1], ldt, work);
+                    T[j0+tj0] = t33;
+                    T[j1+tj0] = ZERO;
+                    T[j2+tj0] = ZERO;
+                    if (wantq)
+                    {
+                        // Accumulate transformation in the matrix Q.
+                        dlarfx("R", n, 3, u, tau, &Q[qj0], ldq, work);
+                    }
+                    break;
+                case 3:
+                    // n0 = 2, n1 = 2: generate elementary reflectors H(1) and H(2) so that:
+                    // H(2) H(1) ( -X11  -X12) = ( *  *)
+                    //           ( -X21  -X22)   ( 0  *)
+                    //           (scale    0 )   ( 0  0)
+                    //           (   0  scale)   ( 0  0)
+                    real tau1, tau2;
+                    u1[0] = -X[0];
+                    u1[1] = -X[1];
+                    u1[2] = scale;
+                    dlarfg(3, u1[0], &u1[1], 1, tau1);
+                    u1[0] = ONE;
+                    temp  = -tau1 * (X[LDX]+u1[1]*X[1+LDX]);
+                    u2[0] = -temp*u1[1] - X[1+LDX];
+                    u2[1] = -temp*u1[2];
+                    u2[2] = scale;
+                    dlarfg(3, u2[0], &u2[1], 1, tau2);
+                    u2[0] = ONE;
+                    // Perform swap provisionally on diagonal block in D.
+                    dlarfx("L", 3, 4, u1, tau1, D,       LDD, work);
+                    dlarfx("R", 4, 3, u1, tau1, D,       LDD, work);
+                    dlarfx("L", 3, 4, u2, tau2, &D[1],   LDD, work);
+                    dlarfx("R", 4, 3, u2, tau2, &D[LDD], LDD, work);
+                    // Test whether to reject swap.
+                    if (std::max(std::max(std::fabs(D[2]), std::fabs(D[2+LDD])),
+                                 std::max(std::fabs(D[3]), std::fabs(D[3+LDD])))>thresh)
+                    {
+                        // Exit with info = 1 if swap was rejected.
+                        info = 1;
+                        return;
+                    }
+                    // Accept swap: apply transformation to the entire matrix T.
+                    dlarfx("L", 3,    n-j0, u1, tau1, &T[j0+tj0], ldt, work);
+                    dlarfx("R", j3+1, 3,    u1, tau1, &T[tj0],    ldt, work);
+                    dlarfx("L", 3,    n-j0, u2, tau2, &T[j1+tj0], ldt, work);
+                    dlarfx("R", j3+1, 3,    u2, tau2, &T[tj1],    ldt, work);
+                    T[j2+tj0] = ZERO;
+                    T[j2+tj1] = ZERO;
+                    T[j3+tj0] = ZERO;
+                    T[j3+tj1] = ZERO;
+                    if (wantq)
+                    {
+                        // Accumulate transformation in the matrix Q.
+                        dlarfx("R", n, 3, u1, tau1, &Q[qj0], ldq, work);
+                        dlarfx("R", n, 3, u2, tau2, &Q[ldq*j1], ldq, work);
+                    }
+                    break;
+            }
+            real wi1, wi2, wr1, wr2;
+            if (n1==2)
+            {
+                // Standardize new 2-by-2 block t00
+                dlanv2(T[j0+tj0], T[j0+tj1], T[j1+tj0], T[j1+tj1], wr1, wi1, wr2, wi2, cs, sn);
+                Blas<real>::drot(n-j0, &T[j0+tj2], ldt, &T[j1+tj2], ldt, cs, sn);
+                Blas<real>::drot(j0, &T[tj0], 1, &T[tj1], 1, cs, sn);
+                if (wantq)
+                {
+                    Blas<real>::drot(n, &Q[qj0], 1, &Q[ldq*j1], 1, cs, sn);
+                }
+            }
+            if (n0==2)
+            {
+                // Standardize new 2-by-2 block t11
+                j2 = j0 + n1;
+                j3 = j2 + 1;
+                int j4 = j2 + 2;
+                tj2 = ldt * j2;
+                int tj3 = ldt * j3;
+                dlanv2(T[j2+tj2], T[j2+tj3], T[j3+tj2], T[j3+tj3], wr1, wi1, wr2, wi2, cs, sn);
+                if (j4<n)
+                {
+                    Blas<real>::drot(n-j4, &T[j2+ldt*j4], ldt, &T[j3+ldt*j4], ldt, cs, sn);
+                }
+                Blas<real>::drot(j2, &T[tj2], 1, &T[tj3], 1, cs, sn);
+                if (wantq)
+                {
+                    Blas<real>::drot(n, &Q[ldq*j2], 1, &Q[ldq*j3], 1, cs, sn);
+                }
+            }
+        }
+    }
+
     /*! §dlagtf computes an LU factorization of a matrix $T-\lambda I$, where $T$ is a general
      *  tridiagonal matrix, and $\lambda$ a scalar, using partial pivoting with row interchanges.
      *
@@ -3899,6 +4159,341 @@ public:
         if (std::fabs(a[nm])<=scale1*tl && in[nm]==-1)
         {
             in[nm] = nm;
+        }
+    }
+
+    /*! §dlagts solves the system of equations $(T-\lambda I)x = y$ or $(T-\lambda I)^Tx = y$,
+     *  where $T$ is a general tridiagonal matrix and $\lambda$ a scalar, using the LU
+     *  factorization computed by §dlagtf.
+     *
+     * §dlagts may be used to solve one of the systems of equations\n
+     *     $(T - \lambda I) x = y$ or $(T - \lambda I)^T x = y$,\n
+     * where $T$ is an §n by §n tridiagonal matrix, for $x$, following the factorization of
+     * $(T - \lambda I)$ as\n
+     *     $(T - \lambda I) = P L U$,\n
+     * by routine §dlagtf. The choice of equation to be solved is controlled by the argument §job,
+     * and in each case there is an option to perturb zero or very small diagonal elements of $U$,
+     * this option being intended for use in applications such as inverse iteration.
+     * \param[in] job
+     *     Specifies the job to be performed by §dlagts as follows:\n
+     *     = 1: The equations $(T - \lambda I)x = y$ are to be solved,
+     *          but diagonal elements of $U$ are not to be perturbed.\n
+     *     =-1: The equations $(T - \lambda I)x = y$ are to be solved and, if
+     *          overflow would otherwise occur, the diagonal elements of $U$ are to be perturbed.
+     *          See argument §tol below.\n
+     *     = 2: The equations $(T - \lambda I)^Tx = y$ are to be solved,
+     *          but diagonal elements of $U$ are not to be perturbed.\n
+     *     =-2: The equations $(T - \lambda I)^Tx = y$ are to be solved and, if
+     *          overflow would otherwise occur, the diagonal elements of $U$ are to be perturbed.
+     *          See argument §tol below.
+     *
+     * \param[in] n The order of the matrix $T$.
+     * \param[in] a
+     *     an array, dimension (§n)\n
+     *     On entry, §a must contain the diagonal elements of $U$ as returned from §dlagtf.
+     *
+     * \param[in] b
+     *     an array, dimension ($\{n}-1$)\n
+     *     On entry, §b must contain the first super-diagonal elements of $U$ as returned from
+     *               §dlagtf.
+     *
+     * \param[in] c
+     *     an array, dimension ($\{n}-1$)\n
+     *     On entry, §c must contain the sub-diagonal elements of $L$ as returned from §dlagtf.
+     *
+     * \param[in] d
+     *     an array, dimension ($\{n}-2$)\n
+     *     On entry, §d must contain the second super-diagonal elements of $U$ as returned from
+     *               §dlagtf.
+     *
+     * \param[in] in
+     *     an integer array, dimension (§n)\n
+     *     On entry, §in must contain details of the matrix $P$ as returned from §dlagtf.\n
+     *     NOTE: $\{in}[\{n}-1]$ must be a zero-based index!
+     *
+     * \param[in,out] y
+     *     an array, dimension (§n)\n
+     *     On entry, the right hand side vector $y$.\n
+     *     On exit, §y is overwritten by the solution vector $x$.
+     *
+     * \param[in,out] tol
+     *     On entry, with $\{job}<0$, §tol should be the minimum perturbation to be made to very
+     *               small diagonal elements of $U$. §tol should normally be chosen as about
+     *               $\{eps}\|U\|$, where §eps is the relative machine precision, but if §tol is
+     *               supplied as non-positive, then it is reset to $\{eps}\,\max(|U[i,j]|)$.
+     *               If $\{job}>0$ then §tol is not referenced.\n
+     *     On exit, §tol is changed as described above, only if §tol is non-positive on entry.
+     *              Otherwise §tol is unchanged.
+     *
+     * \param[out] info
+     *     =0: successful exit\n
+     *     <0: if $\{info}=-i$, the $i$-th argument had an illegal value\n
+     *     >0: overflow would occur when computing the $(\{info}-1)$th element of the solution
+     *         vector $x$. This can only occur when §job is supplied as positive and either means that a
+     *         diagonal element of $U$ is very small, or that the elements of the right-hand side
+     *         vector $y$ are very large.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                       */
+    static void dlagts(int job, int n, real const* a, real const* b, real const* c, real const* d,
+                       int const* in, real* y, real& tol, int& info)
+    {
+        info = 0;
+        if ((std::fabs(job)>2) || (job==0))
+        {
+            info = -1;
+        }
+        else if (n<0)
+        {
+            info = -2;
+        }
+        if (info!=0)
+        {
+            xerbla("DLAGTS", -info);
+            return;
+        }
+        if (n==0)
+        {
+            return;
+        }
+        real eps = dlamch("Epsilon");
+        real sfmin = dlamch("Safe minimum");
+        real bignum = ONE / sfmin;
+        int k;
+        if (job<0)
+        {
+            if (tol<=ZERO)
+            {
+                tol = std::fabs(a[0]);
+                if (n>1)
+                {
+                    tol = std::max(tol, std::fabs(a[1]), std::fabs(b[0]));
+                }
+                for (k=2; k<n; k++)
+                {
+                    tol = std::max(std::max(tol,               std::fabs(a[k])),
+                                   std::max(std::fabs(b[k-1]), std::fabs(d[k-2])));
+                }
+                tol *= eps;
+                if (tol==ZERO)
+                {
+                    tol = eps;
+                }
+            }
+        }
+        real absak, ak, pert, temp;
+        if (std::fabs(job)==1)
+        {
+            for (k=1; k<n; k++)
+            {
+                if (in[k-1]==0)
+                {
+                    y[k] -= c[k-1] * y[k-1];
+                }
+                else
+                {
+                    temp   = y[k-1];
+                    y[k-1] = y[k];
+                    y[k]   = temp - c[k-1]*y[k];
+                }
+            }
+            if (job==1)
+            {
+                for (k=n-1; k>=0; k--)
+                {
+                    if (k<n-2)
+                    {
+                        temp = y[k] - b[k]*y[k+1] - d[k]*y[k+2];
+                    }
+                    else if (k==n-2)
+                    {
+                        temp = y[k] - b[k]*y[k+1];
+                    }
+                    else
+                    {
+                        temp = y[k];
+                    }
+                    ak = a[k];
+                    absak = std::fabs(ak);
+                    if (absak<ONE)
+                    {
+                        if (absak<sfmin)
+                        {
+                            if (absak==ZERO || std::fabs(temp)*sfmin>absak)
+                            {
+                                info = k + 1;
+                                return;
+                            }
+                            else
+                            {
+                                temp *= bignum;
+                                ak   *= bignum;
+                            }
+                        }
+                        else if (std::fabs(temp)>absak*bignum)
+                        {
+                            info = k + 1;
+                            return;
+                        }
+                    }
+                    y[k] = temp / ak;
+                }
+            }
+            else
+            {
+                for (k=n-1; k>=0; k--)
+                {
+                    if (k<n-2)
+                    {
+                        temp = y[k] - b[k]*y[k+1] - d[k]*y[k+2];
+                    }
+                    else if (k==n-2)
+                    {
+                        temp = y[k] - b[k]*y[k+1];
+                    }
+                    else
+                    {
+                        temp = y[k];
+                    }
+                    ak = a[k];
+                    pert = std::copysign(tol, ak);
+                    while (true)
+                    {
+                        absak = std::fabs(ak);
+                        if (absak<ONE)
+                        {
+                            if (absak<sfmin)
+                            {
+                                if (absak==ZERO || std::fabs(temp)*sfmin>absak)
+                                {
+                                    ak += pert;
+                                    pert *= 2;
+                                }
+                                else
+                                {
+                                    temp *= bignum;
+                                    ak  *= bignum;
+                                    break;
+                                }
+                            }
+                            else if (std::fabs(temp)>absak*bignum)
+                            {
+                                ak   += pert;
+                                pert *= 2;
+                            }
+                        }
+                    }
+                    y[k] = temp / ak;
+                }
+            }
+        }
+        else
+        {
+            // Come to here if job = 2 or -2
+            if (job==2)
+            {
+                for (k=0; k<n; k++)
+                {
+                    if (k>=2)
+                    {
+                        temp = y[k] - b[k-1]*y[k-1] - d[k-2]*y[k-2];
+                    }
+                    else if (k==1)
+                    {
+                        temp = y[k] - b[k-1]*y[k-1];
+                    }
+                    else
+                    {
+                        temp = y[k];
+                    }
+                    ak = a[k];
+                    absak = std::fabs(ak);
+                    if (absak<ONE)
+                    {
+                        if (absak<sfmin)
+                        {
+                            if (absak==ZERO || std::fabs(temp)*sfmin>absak)
+                            {
+                                info = k + 1;
+                                return;
+                            }
+                            else
+                            {
+                                temp *= bignum;
+                                ak   *= bignum;
+                            }
+                        }
+                        else if (std::fabs(temp)>absak*bignum)
+                        {
+                            info = k + 1;
+                            return;
+                        }
+                    }
+                    y[k] = temp / ak;
+                }
+            }
+            else
+            {
+                for (k=0; k<n; k++)
+                {
+                    if (k>=2)
+                    {
+                        temp = y[k] - b[k-1]*y[k-1] - d[k-2]*y[k-2];
+                    }
+                    else if (k==1)
+                    {
+                        temp = y[k] - b[k-1]*y[k-1];
+                    }
+                    else
+                    {
+                        temp = y[k];
+                    }
+                    ak = a[k];
+                    pert = std::copysign(tol, ak);
+                    while (true)
+                    {
+                        absak = std::fabs(ak);
+                        if (absak<ONE)
+                        {
+                            if (absak<sfmin)
+                            {
+                                if (absak==ZERO || std::fabs(temp)*sfmin>absak)
+                                {
+                                   ak   += pert;
+                                   pert *= 2;
+                                }
+                                else
+                                {
+                                    temp *= bignum;
+                                    ak   *= bignum;
+                                    break;
+                                }
+                            }
+                            else if (std::fabs(temp)>absak*bignum)
+                            {
+                                ak   += pert;
+                                pert *= 2;
+                            }
+                        }
+                    }
+                    y[k] = temp / ak;
+                }
+            }
+            for (k=n-1; k>=1; k--)
+            {
+                if (in[k-1]==0)
+                {
+                    y[k-1] -= c[k-1]*y[k];
+                }
+                else
+                {
+                    temp   = y[k-1];
+                    y[k-1] = y[k];
+                    y[k]   = temp - c[k-1]*y[k];
+                }
+            }
         }
     }
 
