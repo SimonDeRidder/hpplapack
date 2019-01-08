@@ -3885,8 +3885,8 @@ public:
                     break;
                 case 2:
                     // n0 = 2, n1 = 1: generate elementary reflector H so that:
-                    // H ( -X11) = (*)
-                    //   ( -X21) = (0)
+                    // H (- X11) = (*)
+                    //   (- X21) = (0)
                     //   (scale) = (0)
                     u[0] = -X[0];
                     u[1] = -X[1];
@@ -3919,10 +3919,10 @@ public:
                     break;
                 case 3:
                     // n0 = 2, n1 = 2: generate elementary reflectors H(1) and H(2) so that:
-                    // H(2) H(1) ( -X11  -X12) = ( *  *)
-                    //           ( -X21  -X22)   ( 0  *)
-                    //           (scale    0 )   ( 0  0)
-                    //           (   0  scale)   ( 0  0)
+                    // H(2) H(1) (-X11  -X12) = (*  *)
+                    //           (-X21  -X22)   (0  *)
+                    //           (scale    0)   (0  0)
+                    //           (0    scale)   (0  0)
                     real tau1, tau2;
                     u1[0] = -X[0];
                     u1[1] = -X[1];
@@ -17306,6 +17306,291 @@ public:
         work[0] = lwkopt;
     }
 
+    /*! §dstein
+     *
+     * §dstein computes the eigenvectors of a real symmetric tridiagonal matrix $T$ corresponding
+     * to specified eigenvalues, using inverse iteration.\n
+     * The maximum number of iterations allowed for each eigenvector is specified by an internal
+     * parameter §MAXITS (currently set to 5).
+     * \param[in] n The order of the matrix. $\{n}\ge 0$.
+     * \param[in] d
+     *     an array, dimension (§n)\n The §n diagonal elements of the tridiagonal matrix $T$.
+     *
+     * \param[in] e
+     *     an array, dimension ($\{n}-1$)\n
+     *     The $\{n}-1$ subdiagonal elements of the tridiagonal matrix $T$, in elements 0 to
+     *     $\{n}-2$.
+     *
+     * \param[in] m The number of eigenvectors to be found. $0\le\{m}\le\{n}$.
+     * \param[in] w
+     *     an array, dimension (§n)\n
+     *     The first §m elements of §w contain the eigenvalues for which eigenvectors are to be
+     *     computed. The eigenvalues should be grouped by split-off block and ordered from smallest
+     *     to largest within the block. (The output array §w from §dstebz with §ORDER = 'B' is
+     *     expected here.)
+     *
+     * \param[in] iblock
+     *     an integer array, dimension (§n)\n
+     *     The submatrix indices associated with the corresponding eigenvalues in §w;
+     *     $\{iblock}[i]=0$ if eigenvalue $\{w}[i]$ belongs to the first submatrix from the top,
+     *     $=1$ if $\{w}[i]$ belongs to the second submatrix, etc. (The output array §iblock from
+     *     §dstebz is expected here.)\n
+     *     NOTE: zero-based indices!
+     *
+     * \param[in] isplit
+     *     an integer array, dimension (§n)\n
+     *     The splitting points, at which $T$ breaks up into submatrices.\n
+     *     The first submatrix consists of rows/columns 0 to $\{isplit}[0]$, the second of
+     *     rows/columns $\{isplit}[0]+1$ through $\{isplit}[1]$, etc.\n
+     *     (The output array §isplit from §dstebz is expected here.)\n
+     *     NOTE: zero-based indices!
+     *
+     * \param[out] Z
+     *     an array, dimension (§ldz,§m)\n
+     *     The computed eigenvectors. The eigenvector associated with the eigenvalue $\{w}[i]$ is
+     *     stored in the $i$-th column of §Z. Any vector which fails to converge is set to its
+     *     current iterate after §MAXITS iterations.
+     *
+     * \param[in]  ldz   The leading dimension of the array §Z. $\{ldz}\ge\max(1,\{n})$.
+     * \param[out] work  an array, dimension ($5\{n}$)
+     * \param[out] iwork an integer array, dimension (§n)
+     * \param[out] ifail
+     *     an integer array, dimension (§m)\n
+     *     On normal exit, all elements of §ifail are $-1$.\n
+     *     If one or more eigenvectors fail to converge after §MAXITS iterations, then their
+     *     indices are stored in array ifail.\n
+     *     NOTE: zero-based indices!
+     *
+     * \param[out] info
+     *     =0: successful exit.\n
+     *     <0: if $\{info}=-i$, the $i$-th argument had an illegal value
+     *     >0: if $\{info}= i$, then $i$ eigenvectors failed to converge in §MAXITS iterations.
+     *         Their indices are stored in array §ifail.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016
+     * \remark
+     *     Internal Parameters:\n
+     *         MAXITS, integer, default=5: The maximum number of iterations performed.\n
+     *         EXTRA,  integer, default=2: The number of iterations performed after norm growth
+     *                                     criterion is satisfied, should be at least 1.         */
+    static void dstein(int n, real const* d, real const* e, int m, real const* w,
+                       int const* iblock, int const* isplit, real* Z, int ldz, real* work,
+                       int* iwork, int* ifail, int& info)
+    {
+        const real ODM3 = real(1.0e-3);
+        const real ODM1 = real(1.0e-1);
+        const int MAXITS = 5;
+        const int EXTRA = 2;
+        int i, j;
+        // Test the input parameters.µ
+        info = 0;
+        for (i=0; i<m; i++)
+        {
+            ifail[i] = -1;
+        }
+        if (n<0)
+        {
+            info = -1;
+        }
+        else if (m<0 || m>n)
+        {
+            info = -4;
+        }
+        else if (ldz<std::max(1, n))
+        {
+            info = -9;
+        }
+        else
+        {
+            for (j=1; j<m; j++)
+            {
+                if (iblock[j]<iblock[j-1])
+                {
+                    info = -6;
+                    break;
+                }
+                if (iblock[j]==iblock[j-1] && w[j]<w[j-1])
+                {
+                    info = -5;
+                    break;
+                }
+            }
+        }
+        if (info!=0)
+        {
+            xerbla("DSTEIN", -info);
+            return;
+        }
+        // Quick return if possible
+        if (n==0 || m==0)
+        {
+            return;
+        }
+        else if (n==1)
+        {
+            Z[0] = ONE;
+            return;
+        }
+        // Get machine constants.
+        real eps = dlamch("Precision");
+        // Initialize seed for random number generator DLARNV.
+        int iseed[4];
+        for (i=0; i<4; i++)
+        {
+            iseed[i] = 1;
+        }
+        // Initialize pointers.
+        int indrv1 = 0;
+        int indrv2 = indrv1 + n;
+        int indrv3 = indrv2 + n;
+        int indrv4 = indrv3 + n;
+        int indrv5 = indrv4 + n;
+        // Compute eigenvectors of matrix blocks.
+        int j1 = 0;
+        int b1, blksiz, bn, gpind, iinfo, its, jblk, jmax, nblk, nrmchk, zind;
+        real dtpcrt, eps1, nrm, onenrm, ortol, pertol, scl, sep, tol, xj, xjm, ztr;
+        for (nblk=0; nblk<=iblock[m-1]; nblk++)
+        {
+            // Find starting and ending indices of block nblk.
+            if (nblk==0)
+            {
+                b1 = 0;
+            }
+            else
+            {
+                b1 = isplit[nblk-1] + 1;
+            }
+            bn = isplit[nblk];
+            blksiz = bn - b1 + 1;
+            if (blksiz!=1)
+            {
+                gpind = j1;
+                // Compute reorthogonalization criterion and stopping criterion.
+                onenrm = std::fabs(d[b1]) + std::fabs(e[b1]);
+                onenrm = std::max(onenrm, std::fabs(d[bn])+std::fabs(e[bn-1]));
+                for (i=b1+1; i<bn; i++)
+                {
+                    onenrm = std::max(onenrm, std::fabs(d[i])+std::fabs(e[i-1])+std::fabs(e[i]));
+                }
+                ortol = ODM3 * onenrm;
+                dtpcrt = std::sqrt(ODM1/blksiz);
+            }
+            // Loop through eigenvalues of block nblk.
+            jblk = 0;
+            for (j=j1; j<m; j++)
+            {
+                if (iblock[j]!=nblk)
+                {
+                    j1 = j;
+                    break;
+                }
+                jblk++;
+                xj = w[j];
+                // Skip all the work if the block size is one.
+                if (blksiz==1)
+                {
+                    work[indrv1] = ONE;
+                }
+                else
+                {
+                    // If eigenvalues j and j-1 are too close, add a relatively small perturbation.
+                    if (jblk>1)
+                    {
+                        eps1 = std::fabs(eps*xj);
+                        pertol = TEN * eps1;
+                        sep = xj - xjm;
+                        if (sep<pertol)
+                        {
+                            xj = xjm + pertol;
+                        }
+                    }
+                    its = 0;
+                    nrmchk = 0;
+                    // Get random starting vector.
+                    dlarnv(2, iseed, blksiz, work[indrv1]);
+                    // Copy the matrix T so it won't be destroyed in factorization.
+                    Blas<real>::dcopy(blksiz,   &d[b1], 1, &work[indrv4],   1);
+                    Blas<real>::dcopy(blksiz-1, &e[b1], 1, &work[indrv2+1], 1);
+                    Blas<real>::dcopy(blksiz-1, &e[b1], 1, &work[indrv3],   1);
+                    // Compute LU factors with partial pivoting  (PT = LU)
+                    tol = ZERO;
+                    dlagtf(blksiz, &work[indrv4], xj, &work[indrv2+1], &work[indrv3], tol,
+                           &work[indrv5], iwork, iinfo);
+                    // Update iteration count.
+                    do
+                    {
+                        its++;
+                        if (its>MAXITS)
+                        {
+                            // If stopping criterion was not satisfied, update info and store
+                            // eigenvector number in array ifail.
+                            info++;
+                            ifail[info-1] = j;
+                            break;
+                        }
+                        // Normalize and scale the righthand side vector Pb.
+                        jmax = Blas<real>::idamax(blksiz, &work[indrv1], 1);
+                        scl = blksiz * onenrm * std::max(eps, std::fabs(work[indrv4+blksiz-1]))
+                              / std::fabs(work[indrv1+jmax]);
+                        Blas<real>::dscal(blksiz, scl, &work[indrv1], 1);
+                        // Solve the system LU = Pb.
+                        dlagts(-1, blksiz, &work[indrv4], &work[indrv2+1], &work[indrv3],
+                               &work[indrv5], iwork, &work[indrv1], tol, iinfo);
+                        //Reorthogonalize by modified Gram-Schmidt if eigenvalues are close enough.
+                        if (jblk!=1)
+                        {
+                            if (std::fabs(xj-xjm)>ortol)
+                            {
+                                gpind = j;
+                            }
+                            if (gpind!=j)
+                            {
+                                for (i=gpind; i<j; i++)
+                                {
+                                    zind = b1 + ldz*i;
+                                    ztr = -Blas<real>::ddot(blksiz, &work[indrv1], 1, &Z[zind], 1);
+                                    Blas<real>::daxpy(blksiz, ztr, &Z[zind], 1, &work[indrv1], 1);
+                                }
+                            }
+                        }
+                        // Check the infinity norm of the iterate.
+                        jmax = Blas<real>::idamax(blksiz, &work[indrv1], 1);
+                        nrm = std::fabs(work[indrv1+jmax]);
+                        //Continue for additional iterations after norm reaches stopping criterion.
+                        if (nrm<dtpcrt)
+                        {
+                            continue;
+                        }
+                        nrmchk++;
+                    } while (nrmchk<EXTRA+1);
+                    // Accept iterate as jth eigenvector.
+                    scl = ONE / Blas<real>::dnrm2(blksiz, &work[indrv1], 1);
+                    jmax = Blas<real>::idamax(blksiz, &work[indrv1], 1);
+                    if (work[indrv1+jmax]<ZERO)
+                    {
+                        scl = -scl;
+                    }
+                    Blas<real>::dscal(blksiz, scl, &work[indrv1], 1);
+                }
+                zind = ldz * j;
+                for (i=0; i<n; i++)
+                {
+                    Z[i+zind] = ZERO;
+                }
+                zind += b1;
+                for (i=0; i<blksiz; i++)
+                {
+                    Z[i+zind] = work[indrv1+i];
+                }
+                // Save the shift to check eigenvalue spacing at next iteration.
+                xjm = xj;
+            }
+        }
+    }
+
     /*! §dtrevc3
      *
      * §dtrevc3 computes some or all of the right and/or left eigenvectors of a real upper
@@ -18460,6 +18745,323 @@ public:
                 }
             }
         }
+    }
+
+    /*! §dtrexc
+     *
+     * §dtrexc reorders the real Schur factorization of a real matrix $A = Q T Q^T$, so that the
+     * diagonal block of $T$ with row index §ifst is moved to row §ilst.\n
+     * The real Schur form $T$ is reordered by an orthogonal similarity transformation $Z^T T Z$,
+     * and optionally the matrix $Q$ of Schur vectors is updated by postmultiplying it with $Z$.\n
+     * $T$ must be in Schur canonical form (as returned by §dhseqr), that is, block upper
+     * triangular with 1 by 1 and 2 by 2 diagonal blocks; each 2 by 2 diagonal block has its
+     * diagonal elements equal and its off-diagonal elements of opposite sign.
+     * \param[in] compq
+     *     = 'V': update the matrix $Q$ of Schur vectors;\n
+     *     = 'N': do not update $Q$.
+     *
+     * \param[in] n
+     *     The order of the matrix $T$. $\{n}\ge 0$.\n
+     *     If $\{n}=0$ arguments §ilst and §ifst may be any value.
+     *
+     * \param[in,out] T
+     *     an array, dimension (§ldt,§n)\n
+     *     On entry, the upper quasi-triangular matrix $T$, in Schur Schur canonical form.\n
+     *     On exit, the reordered upper quasi-triangular matrix, again in Schur canonical form.
+     *
+     * \param[in] ldt The leading dimension of the array §T. $\{ldt}\ge\max(1,\{n})$.
+     *
+     * \param[in,out] Q
+     *     an array, dimension (§ldq,§n)\n
+     *     On entry, if §compq = 'V', the matrix $Q$ of Schur vectors.\n
+     *     On exit, if §compq = 'V', §Q has been postmultiplied by the orthogonal transformation
+     *              matrix $Z$ which reorders $T$.\n &emsp;&emsp;&emsp;&nbsp;
+     *              If §compq = 'N', §Q is not referenced.
+     *
+     * \param[in] ldq
+     *     The leading dimension of the array §Q. $\{ldq}\ge 1$, and if §compq = 'V',
+     *     $\{ldq}\ge\max(1,\{n})$.
+     *
+     * \param[in,out] ifst, ilst
+     *     Specify the reordering of the diagonal blocks of $T$. The block with row index §ifst is
+     *     moved to row §ilst, by a sequence of transpositions between adjacent blocks.\n
+     *     On exit, if §ifst pointed on entry to the second row of a 2 by 2 block, it is changed to
+     *     point to the first row; §ilst always points to the first row of the block in its final
+     *     position (which may differ from its input value by +1 or -1).\n
+     *     $0\le\{ifst}<\{n}$; $0\le\{ilst}<\{n}$.\n
+     *     NOTE: zero-based indices!
+     *
+     * \param[out] work an array, dimension (§n)
+     * \param[out] info
+     *     =0: successful exit\n
+     *     <0: if $\{info}=-i$, the $i$-th argument had an illegal value\n
+     *     =1: two adjacent blocks were too close to swap (the problem is very ill-conditioned);
+     *         $T$ may have been partially reordered, and §ilst points to the first row of the
+     *         current position of the block being moved.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                       */
+    static void dtrexc(char const* compq, int n, real* T, int ldt, real* Q, int ldq, int& ifst,
+                       int& ilst, real* work, int& info)
+    {
+        // Decode and test the input arguments.
+        info = 0;
+        bool wantq = (std::toupper(compq[0])=='V');
+        if (!wantq && std::toupper(compq[0])!='N')
+        {
+            info = -1;
+        }
+        else if (n<0)
+        {
+            info = -2;
+        }
+        else if (ldt<std::max(1, n))
+        {
+            info = -4;
+        }
+        else if (ldq<1 || (wantq && ldq<std::max(1, n)))
+        {
+            info = -6;
+        }
+        else if ((ifst<0 || ifst>=n) && (n>0))
+        {
+            info = -7;
+        }
+        else if ((ilst<0 || ilst>=n) && (n>0))
+        {
+            info = -8;
+        }
+        if (info!=0)
+        {
+            xerbla("DTREXC", -info);
+            return;
+        }
+        // Quick return if possible
+        if (n<=1)
+        {
+            return;
+        }
+        // Determine the first row of specified block and find out it is 1 by 1 or 2 by 2.
+        if (ifst>0)
+        {
+            if (T[ifst+ldt*(ifst-1)]!=ZERO)
+            {
+                ifst--;
+            }
+        }
+        int nbf = 1;
+        if (ifst<n-1)
+        {
+            if (T[ifst+1+ldt*ifst]!=ZERO)
+            {
+                nbf = 2;
+            }
+        }
+        // Determine the first row of the final block and find out it is 1 by 1 or 2 by 2.
+        if (ilst>0)
+        {
+            if (T[ilst+ldt*(ilst-1)]!=ZERO)
+            {
+                ilst--;
+            }
+        }
+        int nbl = 1;
+        if (ilst<n-1)
+        {
+            if (T[ilst+1+ldt*ilst]!=ZERO)
+            {
+                nbl = 2;
+            }
+        }
+        if (ifst==ilst)
+        {
+            return;
+        }
+        int here, nbnext;
+        if (ifst<ilst)
+        {
+            // Update ilst
+            if (nbf==2 && nbl==1)
+            {
+                ilst--;
+            }
+            if (nbf==1 && nbl==2)
+            {
+                ilst++;
+            }
+            here = ifst;
+            do
+            {
+                // Swap block with next one below
+                if (nbf==1 || nbf==2)
+                {
+                    // Current block either 1 by 1 or 2 by 2
+                    nbnext = 1;
+                    if (here+nbf<n-1)
+                    {
+                        if (T[here+nbf+1+ldt*(here+nbf)]!=ZERO)
+                        {
+                            nbnext = 2;
+                        }
+                    }
+                    dlaexc(wantq, n, T, ldt, Q, ldq, here, nbf, nbnext, work, info);
+                    if (info!=0)
+                    {
+                        ilst = here;
+                        return;
+                    }
+                    here += nbnext;
+                    // Test if 2 by 2 block breaks into two 1 by 1 blocks
+                    if (nbf==2)
+                    {
+                        if (T[here+1+ldt*here]==ZERO)
+                        {
+                            nbf = 3;
+                        }
+                    }
+                }
+                else
+                {
+                    // Current block consists of two 1 by 1 blocks each of which must be swapped
+                    // individually
+                    nbnext = 1;
+                    if (here+3<n)
+                    {
+                        if (T[here+3+ldt*(here+2)]!=ZERO)
+                        {
+                            nbnext = 2;
+                        }
+                    }
+                    dlaexc(wantq, n, T, ldt, Q, ldq, here+1, 1, nbnext, work, info);
+                    if (info!=0)
+                    {
+                        ilst = here;
+                        return;
+                    }
+                    if (nbnext==1)
+                    {
+                        // Swap two 1 by 1 blocks, no problems possible
+                        dlaexc(wantq, n, T, ldt, Q, ldq, here, 1, nbnext, work, info);
+                        here++;
+                    }
+                    else
+                    {
+                        // Recompute nbnext in case 2 by 2 split
+                        if (T[here+2+ldt*(here+1)]==ZERO)
+                        {
+                            nbnext = 1;
+                        }
+                        if (nbnext==2)
+                        {
+                            // 2 by 2 Block did not split
+                            dlaexc(wantq, n, T, ldt, Q, ldq, here, 1, nbnext, work, info);
+                            if (info!=0)
+                            {
+                                ilst = here;
+                                return;
+                            }
+                            here += 2;
+                        }
+                        else
+                        {
+                            // 2 by 2 Block did split
+                            dlaexc(wantq, n, T, ldt, Q, ldq, here, 1, 1, work, info);
+                            dlaexc(wantq, n, T, ldt, Q, ldq, here+1, 1, 1, work, info);
+                            here += 2;
+                        }
+                    }
+                }
+            } while (here<ilst);
+        }
+        else
+        {
+            here = ifst;
+            do
+            {
+                // Swap block with next one above
+                if (nbf==1 || nbf==2)
+                {
+                    // Current block either 1 by 1 or 2 by 2
+                    nbnext = 1;
+                    if (here>=2)
+                    {
+                        if (T[here-1+ldt*(here-2)]!=ZERO)
+                        {
+                            nbnext = 2;
+                        }
+                    }
+                    dlaexc(wantq, n, T, ldt, Q, ldq, here-nbnext, nbnext, nbf, work, info);
+                    if (info!=0)
+                    {
+                        ilst = here;
+                        return;
+                    }
+                    here -= nbnext;
+                    // Test if 2 by 2 block breaks into two 1 by 1 blocks
+                    if (nbf==2)
+                    {
+                        if (T[here+1+ldt*here]==ZERO)
+                        {
+                            nbf = 3;
+                        }
+                    }
+                }
+                else
+                {
+                    // Current block consists of two 1 by 1 blocks each of which must be swapped
+                    // individually
+                    nbnext = 1;
+                    if (here>=2)
+                    {
+                        if (T[here-1+ldt*(here-2)]!=ZERO)
+                        {
+                            nbnext = 2;
+                        }
+                    }
+                    dlaexc(wantq, n, T, ldt, Q, ldq, here-nbnext, nbnext, 1, work, info);
+                    if (info!=0)
+                    {
+                        ilst = here;
+                        return;
+                    }
+                    if (nbnext==1)
+                    {
+                        // Swap two 1 by 1 blocks, no problems possible
+                        dlaexc(wantq, n, T, ldt, Q, ldq, here, nbnext, 1, work, info);
+                        here--;
+                    }
+                    else
+                    {
+                        // Recompute nbnext in case 2 by 2 split
+                        if (T[here+ldt*(here-1)]==ZERO)
+                        {
+                            nbnext = 1;
+                        }
+                        if (nbnext==2)
+                        {
+                            // 2 by 2 Block did not split
+                            dlaexc(wantq, n, T, ldt, Q, ldq, here-1, 2, 1, work, info);
+                            if (info!=0)
+                            {
+                                ilst = here;
+                                return;
+                            }
+                            here -= 2;
+                        }
+                        else
+                        {
+                            // 2 by 2 Block did split
+                            dlaexc(wantq, n, T, ldt, Q, ldq, here, 1, 1, work, info);
+                            dlaexc(wantq, n, T, ldt, Q, ldq, here-1, 1, 1, work, info);
+                            here -= 2;
+                        }
+                    }
+                }
+            } while (here>ilst);
+        }
+        ilst = here;
     }
 
     /*! §ieeeck
