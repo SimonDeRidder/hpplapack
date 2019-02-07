@@ -3419,6 +3419,461 @@ public:
         }
     }
 
+    /*! §dlaebz computes the number of eigenvalues of a real symmetric tridiagonal matrix which are
+     *  less than or equal to a given value, and performs other tasks required by the routine
+     *  §dstebz.
+     *
+     * §dlaebz contains the iteration loops which compute and use the function $N(w)$, which is the
+     * count of eigenvalues of a symmetric tridiagonal matrix $T$ less than or equal to its
+     * argument $w$. It performs a choice of two types of loops:
+     * \li ijob=1, followed by
+     * \li ijob=2: It takes as input a list of intervals and returns a list of sufficiently small
+     *             intervals whose union contains the same eigenvalues as the union of the original
+     *             intervals. The input intervals are $]\{Ab}[j,0],\{Ab}[j,1]]$,
+     *             $j=0,\ldots,\{minp}-1$.
+     *             The output interval $]\{Ab}[j,0],\{Ab}[j,1]]$ will contain eigenvalues
+     *             $\{Nab}[j,0]+1,\ldots,\{Nab}[j,1]$, where $0 \le j < \{mout}$.
+     * \li ijob=3: It performs a binary search in each input interval $]\{Ab}[j,0],\{Ab}[j,1]]$ for
+     *             a point $w(j)$ such that $N(w(j))=\{nval}[j]$, and uses $c[j]$ as the starting
+     *             point of the search. If such a $w(j)$ is found, then on output
+     *             $\{Ab}[j,0]=\{Ab}[j,1]=w$. If no such $w(j)$ is found, then on output
+     *             $]\{Ab}[j,0],\{Ab}[j,1]]$ will be a small interval containing the point where
+     *             $N(w)$ jumps through $\{nval}[j]$, unless that point lies outside the initial
+     *             interval.
+     *
+     * Note that the intervals are in all cases half-open intervals, i.e., of the form $]a,b]$,
+     * which includes $b$ but not $a$.\n
+     * To avoid underflow, the matrix should be scaled so that its largest element is no greater
+     * than $\{overflow}^\frac{1}{2}*\{underflow}^\frac{1}{4}$ in absolute value. To assure the
+     * most accurate computation of small eigenvalues, the matrix should be scaled to be not much
+     * smaller than that, either.\n
+     * See W. Kahan "Accurate Eigenvalues of a Symmetric Tridiagonal Matrix", Report CS41, Computer
+     * Science Dept., Stanford University, July 21, 1966\n
+     * Note: the arguments are, in general, *not* checked for unreasonable values.
+     * \param[in] ijob
+     *     Specifies what is to be done:\n
+     *         =1: Compute §Nab for the initial intervals.\n
+     *         =2: Perform bisection iteration to find eigenvalues of $T$.\n
+     *         =3: Perform bisection iteration to invert $N(w)$, i.e., to find a point which has a
+     *             specified number of eigenvalues of $T$ to its left.\n
+     *         Other values will cause §dlaebz to return with $\{info}=-1$.
+     *
+     * \param[in] nitmax
+     *     The maximum number of "levels" of bisection to be performed, i.e., an interval of width
+     *     $W$ will not be made smaller than $2^{-\{nitmax}}W$. If not all intervals have converged
+     *     after §nitmax iterations, then §info is set to the number of non-converged intervals.
+     *
+     * \param[in] n    The dimension §n of the tridiagonal matrix $T$. It must be at least 1.
+     * \param[in] mmax
+     *     The maximum number of intervals. If more than §mmax intervals are generated, then
+     *     §dlaebz will quit with $\{info}=\{mmax}+1$.
+     *
+     * \param[in] minp  The initial number of intervals. It may not be greater than §mmax.
+     * \param[in] nbmin
+     *     The smallest number of intervals that should be processed using a vector loop. If zero,
+     *     then only the scalar loop will be used.
+     *
+     * \param[in] abstol
+     *     The minimum (absolute) width of an interval. When an interval is narrower than §abstol,
+     *     or than §reltol times the larger (in magnitude) endpoint, then it is considered to be
+     *     sufficiently small, i.e., converged. This must be at least zero.
+     *
+     * \param[in] reltol
+     *     The minimum relative width of an interval.  When an interval is narrower than §abstol,
+     *     or than §reltol times the larger (in magnitude) endpoint, then it is considered to be
+     *     sufficiently small, i.e., converged. Note: this should always be at least
+     *     $\{radix}*\{machine epsilon}$.
+     *
+     * \param[in] pivmin
+     *     The minimum absolute value of a "pivot" in the Sturm sequence loop.
+     *     This must be at least $\max_j{\left|\{e}[j]^2\right|}\{safe_min}$ and at least
+     *     §safe_min, where §safe_min is at least the smallest number that can divide one without
+     *     overflow.
+     *
+     * \param[in] d an array, dimension (§n)\n The diagonal elements of the tridiagonal matrix $T$.
+     * \param[in] e
+     *     an array, dimension (§n)\n
+     *     The offdiagonal elements of the tridiagonal matrix $T$ in positions 0 through $\{n}-2$.
+     *     $\{e}[\{n}-1]$ is arbitrary.
+     *
+     * \param[in] e2
+     *     an array, dimension (§n)\n
+     *     The squares of the offdiagonal elements of the tridiagonal matrix $T$.
+     *     $\{e2}[\{n}-1]$ is ignored.
+     *
+     * \param[in,out] nval
+     *     an integer array, dimension (§minp)\n
+     *     If $\{ijob}=1$ or $2$, not referenced.\n
+     *     If $\{ijob}=3$, the desired values of $N(w)$. The elements of §nval will be reordered to
+     *     correspond with the intervals in §Ab. Thus, $\{nval}[j]$ on output will not, in general
+     *     be the same as $\{nval}[j]$ on input, but it will correspond with the interval
+     *     $]\{Ab}[j,0],\{Ab}[j,1]]$ on output.
+     *
+     * \param[in,out] Ab
+     *     an array, dimension (§mmax,2)\n
+     *     The endpoints of the intervals. $\{Ab}[j,0]$ is $a[j]$, the left endpoint of the $j$-th
+     *     interval, and $\{Ab}[j,1]$ is $b[j]$, the right endpoint of the $j$-th interval. The
+     *     input intervals will, in general, be modified, split, and reordered by the calculation.
+     *
+     * \param[in,out] c
+     *     an array, dimension (§mmax)\n
+     *     If $\{ijob}=1$, ignored.\n
+     *     If $\{ijob}=2$, workspace.\n
+     *     If $\{ijob}=3$, then on input $c[j]$ should be initialized to the first search point in
+     *                     the binary search.
+     *
+     * \param[out] mout
+     *     If $\{ijob}=1$, the number of eigenvalues in the intervals.\n
+     *     If $\{ijob}=2$ or $3$, the number of intervals output.\n
+     *     If $\{ijob}=3$, §mout will equal §minp.
+     *
+     * \param[in,out] Nab
+     *     an integer array, dimension (§mmax,2)\n
+     *     If $\{ijob}=1$, then on output $\{Nab}[i,j]$ will be set to $N(\{Ab}[i,j])$.\n\n
+     *     If $\{ijob}=2$, then on input, $\{Nab}[i,j]$ should be set. It must satisfy the
+     *                     condition:\n
+     *                         $N(\{Ab}[i,0]) \le \{Nab}[i,0] \le \{Nab}[i,1] \le N(\{Ab}[i,1])$,\n
+     *                     which means that in interval $i$ only eigenvalues
+     *                     $\{Nab}[i,0]+1,\ldots,\{Nab}[i,1]$ will be considered. Usually,
+     *                     $\{Nab}[i,j]=N(\{Ab}[i,j])$, from a previous call to §dlaebz with
+     *                     $\{ijob}=1$.\n
+     *                     On output, $\{Nab}[i,j]$ will contain
+     *                     $\max\left(na[k],\min\left(nb[k],N(\{Ab}[i,j])\right)\right)$, where $k$
+     *                     is the index of the input interval that the output interval
+     *                     $]\{Ab}[j,0],\{Ab}[j,1]]$ came from, and $na[k]$ and $nb[k]$ are the the
+     *                     input values of $\{Nab}[k,0]$ and $\{Nab}[k,1]$.\n\n
+     *     If $\{ijob}=3$, then on output, $\{Nab}[i,j]$ contains $N(\{Ab}[i,j])$, unless
+     *                     $N(w)>\{nval}[i]$ for all search points $w$, in which case $\{Nab}[i,0]$
+     *                     will not be modified, i.e., the output value will be the same as the
+     *                     input value (modulo reorderings -- see §nval and §Ab), or unless
+     *                     $N(w)<\{nval}[i]$ for all search points $w$, in which case $\{Nab}[i,1]$
+     *                     will not be modified. Normally, §Nab should be set to some distinctive
+     *                     value(s) before §dlaebz is called.
+     *
+     * \param[out] work  an array,         dimension (§mmax)\n Workspace.
+     * \param[out] iwork an integer array, dimension (§mmax)\n Workspace.
+     * \param[out] info
+     *     =0:       All intervals converged.\n
+     *     =1--mmax: The last §info intervals did not converge.\n
+     *     =mmax+1:  More than mmax intervals were generated.
+     * \authors Univ. of Tennessee
+     * \authors Univ. of California Berkeley
+     * \authors Univ. of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016
+     * \remark
+     *     This routine is intended to be called only by other LAPACK routines, thus the interface
+     *     is less user-friendly. It is intended for two purposes:
+     *      -# finding eigenvalues.\n In this case, §dlaebz should have one or more initial
+     *         intervals set up in §Ab, and §dlaebz should be called with $\{ijob}=1$. This sets up
+     *         §Nab, and also counts the eigenvalues. Intervals with no eigenvalues would usually
+     *         be thrown out at this point. Also, if not all the eigenvalues in an interval $i$ are
+     *         desired, $\{Nab}[i,0]$ can be increased or $\{Nab}[i,1] decreased. For example, set
+     *         $\{Nab}[i,0]=\{Nab}[i,1]-1$ to get the largest eigenvalue. §dlaebz is then called
+     *         with $\{ijob}=2$ and §mmax no smaller than the value of §mout returned by the call
+     *         with $\{ijob}=1$. After this ($\{ijob}=2$) call, eigenvalues $\{Nab}[i,0]+1$ through
+     *         $\{Nab}[i,1]$ are approximately $\{Ab}[i,0]$ (or $\{Ab}[i,1]$) to the tolerance
+     *         specified by §abstol and §reltol.
+     *      -# finding an interval $]a',b']$ containing eigenvalues $w(f),\ldots,w(l)$.\n
+     *         In this case, start with a Gershgorin interval $]a,b[$. Set up §Ab to contain 2
+     *         search intervals, both initially $]a,b[$. One §nval element should contain $f-1$ and
+     *         the other should contain $l$, while §c should contain $a$ and $b$, resp.
+     *         $\{Nab}[i,0]$ should be $-1$ and $\{Nab}[i,1]$ should be $\{n}+1$, to flag an error
+     *         if the desired interval does not lie in $]a,b[$. §dlaebz is then called with
+     *         $\{ijob}=3$. On exit, if $w(f-1)<w(f)$, then one of the intervals --$j$-- will have
+     *         $\{Ab}[j,0]=\{Ab}[j,1]$ and $\{Nab}[j,0]=\{Nab}[j,1]=f-1$, while if, to the
+     *         specified tolerance, $w(f-k)=\ldots=w(f+r)$, $k>0$ and $r\ge 0$, then the interval
+     *         will have $N(\{Ab}[j,0])=\{Nab}[j,0]=f-k$ and $N(\{Ab}[j,1])=\{Nab}[j,1]=f+r$. The
+     *         cases $w(l)<w(l+1)$ and $w(l-r)=\ldots=w(l+k)$ are handled similarly.             */
+    static void dlaebz(int ijob, int nitmax, int n, int mmax, int minp, int nbmin, real abstol,
+                       real reltol, real pivmin, real const* d, real const* e, real const* e2,
+                       int* nval, real* Ab, real* c, int& mout, int* Nab, real* work, int* iwork,
+                       int& info)
+    {
+        // Check for Errors
+        info = 0;
+        if (ijob<1 || ijob>3)
+        {
+            info = -1;
+            return;
+        }
+        // Initialize Nab
+        int j, ji;
+        real tmp1;
+        if (ijob==1)
+        {
+            // Compute the number of eigenvalues in the initial intervals.
+            mout = 0;
+            int jp, abi;
+            for (ji=0; ji<minp; ji++)
+            {
+                for (jp=0; jp<=mmax; jp+=mmax)
+                {
+                    abi = ji + jp;
+                    tmp1 = d[0] - Ab[abi];
+                    if (std::fabs(tmp1)<pivmin)
+                    {
+                        tmp1 = -pivmin;
+                    }
+                    Nab[abi] = 0;
+                    if (tmp1<=ZERO)
+                    {
+                        Nab[abi] = 1;
+                    }
+                    for (j=1; j<n; j++)
+                    {
+                        tmp1 = d[j] - e2[j-1]/tmp1 - Ab[abi];
+                        if (std::fabs(tmp1)<pivmin)
+                        {
+                            tmp1 = -pivmin;
+                        }
+                        if (tmp1<=ZERO)
+                        {
+                            Nab[abi]++;
+                        }
+                    }
+                }
+                mout += Nab[ji+mmax] - Nab[ji];
+            }
+            return;
+        }
+        // Initialize for loop
+        // kf and kl have the following meaning:
+        //     Intervals 0,...,kf-1 have converged.
+        //     Intervals kf,...,kl  still need to be refined.
+        int kf = 0;
+        int kl = minp - 1;
+        // If ijob=2, initialize c.
+        // If ijob=3, use the user-supplied starting point.
+        if (ijob==2)
+        {
+            for (ji=0; ji<minp; ji++)
+            {
+                c[ji] = HALF * (Ab[ji]+Ab[ji+mmax]);
+            }
+        }
+        // Iteration loop
+        int itmp1, itmp2, jip, jit, kfnew, klnew;
+        real tmp2;
+        for (jit=0; jit<nitmax; jit++)
+        {
+            // Loop over intervals
+            if (kl-kf+1>=nbmin && nbmin>0)
+            {
+                // Begin of Parallel Version of the loop
+                for (ji=kf; ji<=kl; ji++)
+                {
+                    // Compute N(c), the number of eigenvalues less than c
+                    work[ji] = d[0] - c[ji];
+                    iwork[ji] = 0;
+                    if (work[ji]<=pivmin)
+                    {
+                        iwork[ji] = 1;
+                        work[ji] = std::min(work[ji], -pivmin);
+                    }
+                    for (j=1; j<n; j++)
+                    {
+                        work[ji] = d[j] - e2[j-1]/work[ji] - c[ji];
+                        if (work[ji]<=pivmin)
+                        {
+                            iwork[ji]++;
+                            work[ji] = std::min(work[ji], -pivmin);
+                        }
+                    }
+                }
+                if (ijob<=2)
+                {
+                    // ijob=2: Choose all intervals containing eigenvalues.
+                    klnew = kl;
+                    for (ji=kf; ji<=kl; ji++)
+                    {
+                        jip = ji + mmax;
+                        // Ensure that N(w) is monotone
+                        iwork[ji] = std::min(Nab[jip], std::max(Nab[ji], iwork[ji]));
+                        // Update the Queue -- add intervals if both halves contain eigenvalues.
+                        if (iwork[ji]==Nab[jip])
+                        {
+                            // No eigenvalue in the upper interval: just use the lower interval.
+                            Ab[jip] = c[ji];
+                        }
+                        else if (iwork[ji]==Nab[ji])
+                        {
+                            // No eigenvalue in the lower interval: just use the upper interval.
+                            Ab[ji] = c[ji];
+                        }
+                        else
+                        {
+                            klnew++;
+                            if (klnew<mmax)
+                            {
+                                // Eigenvalue in both intervals -- add upper to queue.
+                                Ab[ klnew+mmax] = Ab[ jip];
+                                Nab[klnew+mmax] = Nab[jip];
+                                Ab[ klnew] =     c[ji];
+                                Nab[klnew] = iwork[ji];
+                                Ab[ jip] =     c[ji];
+                                Nab[jip] = iwork[ji];
+                            }
+                            else
+                            {
+                                info = mmax + 1;
+                            }
+                        }
+                    }
+                    if (info!=0)
+                    {
+                        return;
+                    }
+                    kl = klnew;
+                }
+                else
+                {
+                    // ijob=3: Binary search. Keep only the interval containing w s.t. N(w) = nval
+                    for (ji=kf; ji<=kl; ji++)
+                    {
+                        if (iwork[ji]<=nval[ji])
+                        {
+                            Ab[ ji] =     c[ji];
+                            Nab[ji] = iwork[ji];
+                        }
+                        if (iwork[ji]>=nval[ji])
+                        {
+                            jip = ji + mmax;
+                            Ab[ jip] =     c[ji];
+                            Nab[jip] = iwork[ji];
+                        }
+                    }
+                }
+                // End of Parallel Version of the loop
+            }
+            else
+            {
+                // Begin of Serial Version of the loop
+                klnew = kl;
+                for (ji=kf; ji<=kl; ji++)
+                {
+                    // Compute N(w), the number of eigenvalues less than w
+                    tmp1  = c[ji];
+                    tmp2  = d[0] - tmp1;
+                    itmp1 = 0;
+                    if (tmp2<=pivmin)
+                    {
+                        itmp1 = 1;
+                        tmp2  = std::min(tmp2, -pivmin);
+                    }
+                    for (j=1; j<n; j++)
+                    {
+                        tmp2 = d[j] - e2[j-1]/tmp2 - tmp1;
+                        if (tmp2<=pivmin)
+                        {
+                            itmp1++;
+                            tmp2 = std::min(tmp2, -pivmin);
+                        }
+                    }
+                    if (ijob<=2)
+                    {
+                        jip = ji + mmax;
+                        // ijob=2: Choose all intervals containing eigenvalues.
+                        // Ensure that N(w) is monotone
+                        itmp1 = std::min(Nab[jip], std::max(Nab[ji], itmp1));
+                        // Update the Queue -- add intervals if both halves contain eigenvalues.
+                        if (itmp1==Nab[jip])
+                        {
+                            // No eigenvalue in the upper interval: just use the lower interval.
+                            Ab[jip] = tmp1;
+                        }
+                        else if (itmp1==Nab[ji])
+                        {
+                            // No eigenvalue in the lower interval: just use the upper interval.
+                            Ab[ji] = tmp1;
+                        }
+                        else if (klnew<mmax-1)
+                        {
+                            // Eigenvalue in both intervals -- add upper to queue.
+                            klnew++;
+                            Ab[ klnew+mmax] =  Ab[jip];
+                            Nab[klnew+mmax] = Nab[jip];
+                            Ab[ klnew] = tmp1;
+                            Nab[klnew] = itmp1;
+                            Ab[ jip] = tmp1;
+                            Nab[jip] = itmp1;
+                        }
+                        else
+                        {
+                            info = mmax + 1;
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        // ijob=3: Binary search.
+                        // Keep only the interval containing w s.t. N(w) = nval
+                        if (itmp1<=nval[ji])
+                        {
+                            Ab[ ji] = tmp1;
+                            Nab[ji] = itmp1;
+                        }
+                        if (itmp1>=nval[ji])
+                        {
+                            jip = ji + mmax;
+                            Ab[ jip] = tmp1;
+                            Nab[jip] = itmp1;
+                        }
+                    }
+                }
+                kl = klnew;
+            }
+            // Check for convergence
+            kfnew = kf;
+            for (ji=kf; ji<=kl; ji++)
+            {
+                jip = ji + mmax;
+                tmp1 = std::fabs(Ab[jip]-Ab[ji]);
+                tmp2 = std::max(std::fabs(Ab[jip]), std::fabs(Ab[ji]));
+                if (tmp1<std::max(abstol, std::max(pivmin, reltol*tmp2)) || Nab[ji]>=Nab[jip])
+                {
+                    // Converged -- Swap with position kfnew, then increment kfnew
+                    if (ji>kfnew)
+                    {
+                        tmp1  =  Ab[ji];
+                        tmp2  =  Ab[jip];
+                        itmp1 = Nab[ji];
+                        itmp2 = Nab[jip];
+                        Ab[ji]   =  Ab[kfnew];
+                        Ab[jip]  =  Ab[kfnew+mmax];
+                        Nab[ji]  = Nab[kfnew];
+                        Nab[jip] = Nab[kfnew+mmax];
+                        Ab[ kfnew]      = tmp1;
+                        Ab[ kfnew+mmax] = tmp2;
+                        Nab[kfnew]      = itmp1;
+                        Nab[kfnew+mmax] = itmp2;
+                        if (ijob==3)
+                        {
+                            itmp1       = nval[ji];
+                            nval[ji]    = nval[kfnew];
+                            nval[kfnew] = itmp1;
+                        }
+                    }
+                    kfnew++;
+                }
+            }
+            kf = kfnew;
+            // Choose Midpoints
+            for (ji=kf; ji<=kl; ji++)
+            {
+                c[ji] = HALF * (Ab[ji]+Ab[ji+mmax]);
+            }
+            // If no more intervals to refine, quit.
+            if (kf>kl)
+            {
+                break;
+            }
+        }
+        // Converged
+        info = std::max(kl-kf+1, 0);
+        mout = kl + 1;
+    }
+
     /*! §dlaed6 used by §sstedc. Computes one Newton step in solution of the secular equation.
      *
      * §dlaed6 computes the positive or negative root (closest to the origin) of\n
@@ -6388,6 +6843,485 @@ public:
                 v[2] = H31S*(H[0]+H[2+ldh*2]-sr1-sr2) + H21S*H[2+ldh];
             }
         }
+    }
+
+    /*! §dlaqr2 performs the orthogonal similarity transformation of a Hessenberg matrix to detect
+     *  and deflate fully converged eigenvalues from a trailing principal submatrix (aggressive
+     *  early deflation).
+     *
+     * §dlaqr2 is identical to §dlaqr3 except that it avoids recursion by calling §dlahqr instead
+     * of §dlaqr4.\n
+     * Aggressive early deflation:\n
+     * This subroutine accepts as input an upper Hessenberg matrix $H$ and performs an orthogonal
+     * similarity transformation designed to detect and deflate fully converged eigenvalues from a
+     * trailing principal submatrix.  On output $H$ has been overwritten by a new Hessenberg matrix
+     * that is a perturbation of an orthogonal similarity transformation of $H$. It is to be hoped
+     * that the final version of $H$ has many zero subdiagonal entries.
+     * \param[in] wantt
+     *     If §true, then the Hessenberg matrix $H$ is fully updated so that the quasi-triangular
+     *     Schur factor may be computed (in cooperation with the calling subroutine).\n
+     *     If §false, then only enough of $H$ is updated to preserve the eigenvalues.
+     *
+     * \param[in] wantz
+     *     If §true, then the orthogonal matrix $Z$ is updated so so that the orthogonal Schur
+     *     factor may be computed (in cooperation with the calling subroutine).\n
+     *     If §false, then §Z is not referenced.
+     *
+     * \param[in] n
+     *     The order of the matrix $H$ and (if §wantz is §true) the order of the orthogonal matrix
+     *     $Z$.
+     *
+     * \param[in] ktop
+     *     It is assumed that either $\{ktop}=0$ or $H[\{ktop},\{ktop}-1]=0$.\n
+     *     §kbot and §ktop together determine an isolated block along the diagonal of the
+     *     Hessenberg matrix.\n
+     *     NOTE: zero-based index!
+     *
+     * \param[in] kbot
+     *     It is assumed without a check that either $\{kbot}=\{n}-1$ or $H[\{kbot}+1,\{kbot}]=0$.
+     *     \n §kbot and §ktop together determine an isolated block along the diagonal of the
+     *     Hessenberg matrix.\n
+     *     NOTE: zero-based index!
+     *
+     * \param[in]     nw Deflation window size. $1\le\{nw}\le(\{kbot}-\{ktop}+1)$.
+     * \param[in,out] H
+     *     an array, dimension (§ldh,§n)\n
+     *     On input the initial §n by §n section of §H stores the Hessenberg matrix undergoing
+     *     aggressive early deflation.\n
+     *     On output §H has been transformed by an orthogonal similarity transformation, perturbed,
+     *     and then returned to Hessenberg form that (it is to be hoped) has some zero subdiagonal
+     *     entries.
+     *
+     * \param[in] ldh
+     *     Leading dimension of §H just as declared in the calling subroutine. $\{n}\le\{ldh}$
+     *
+     * \param[in] iloz, ihiz
+     *     Specify the rows of $Z$ to which transformations must be applied if §wantz is §true.
+     *     $0\le\{iloz}\le\{ihiz}<\{n}$.\n
+     *     NOTE: zero-based indices!
+     *
+     * \param[in,out] Z
+     *     an array, dimension (§ldz,§n)\n
+     *     If §wantz is §true, then on output, the orthogonal similarity transformation mentioned
+     *     above has been accumulated into $\{Z}[\{iloz}:\{ihiz},\{iloz}:\{ihiz}]$ from the right.
+     *     \n If §wantz is §false, then §Z is unreferenced.
+     *
+     * \param[in] ldz
+     *     The leading dimension of §Z just as declared in the calling subroutine. $1\le\{ldz}$.
+     *
+     * \param[out] ns
+     *     The number of unconverged (ie approximate) eigenvalues returned in §sr and §si that may
+     *     be used as shifts by the calling subroutine.
+     *
+     * \param[out] nd The number of converged eigenvalues uncovered by this subroutine.
+     *
+     * \param[out] sr, si
+     *     arrays, dimension (§kbot)\n
+     *     On output, the real and imaginary parts of approximate eigenvalues that may be used for
+     *     shifts are stored in $\{sr}[\{kbot}-\{nd}-\{ns}+1]$ through $\{sr}[\{kbot}-\{nd}]$ and
+     *     $\{si}[\{kbot}-\{nd}-\{ns}+1]$ through $\{si}[\{kbot}-\{nd}]$, respectively.\n.
+     *     The real and imaginary parts of converged eigenvalues are stored in
+     *     $\{sr}[\{kbot}-\{nd}+1]$ through $\{sr}[\{kbot}]$ and $\{si}[\{kbot}-\{nd}-1]$ through
+     *     $\{si}[\{kbot}]$, respectively.
+     *
+     * \param[out] V   an array, dimension (§ldv,§nw)\n An §nw by §nw work array.
+     * \param[in]  ldv
+     *     The leading dimension of §V just as declared in the calling subroutine. $\{nw}\le\{ldv}$
+     *
+     * \param[in]  nh  The number of columns of §T. $\{nh}\ge\{nw}$.
+     * \param[out] T   an array, dimension (§ldt,§nw)
+     * \param[in]  ldt
+     *     The leading dimension of §T just as declared in the calling subroutine. $\{nw}\le\{ldt}$
+     *
+     * \param[in] nv
+     *     The number of rows of work array §Wv available for workspace. $\{nv}\ge\{nw}$.
+     *
+     * \param[out] Wv   an array, dimension (§ldwv,§nw)
+     * \param[in]  ldwv
+     *     The leading dimension of §Wv just as declared in the calling subroutine.
+     *     $\{nw}\le\{ldv}$.
+     *
+     * \param[out] work
+     *     an array, dimension (§lwork)\n On exit, $\{work}[0]$ is set to an estimate of the
+     *     optimal value of §lwork for the given values of §n, §nw, §ktop and §kbot.
+     *
+     * \param[in] lwork
+     *     The dimension of the work array §work. $\{lwork}=2\{nw}$ suffices, but greater
+     *     efficiency may result from larger values of §lwork.\n
+     *     If $\{lwork}=-1$, then a workspace query is assumed; §dlaqr2 only estimates the optimal
+     *     workspace size for the given values of §n, §nw, §ktop and §kbot. The estimate is
+     *     returned in $\{work}[0]$. No error message related to §lwork is issued by §xerbla.
+     *     Neither §H nor §Z are accessed.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date June 2017
+     * \remark
+     *     Contributors:\n
+     *         Karen Braman and Ralph Byers, Department of Mathematics, University of Kansas, USA*/
+    static void dlaqr2(bool wantt, bool wantz, int n, int ktop, int kbot, int nw, real* H, int ldh,
+                       int iloz, int ihiz, real* Z, int ldz, int& ns, int& nd, real* sr, real* si,
+                       real* V, int ldv, int nh, real* T, int ldt, int nv, real* Wv, int ldwv,
+                       real* work, int lwork)
+    {
+        // Estimate optimal workspace.
+        int jw = std::min(nw, kbot-ktop+1);
+        int info, lwkopt;
+        if (jw<=2)
+        {
+            lwkopt = 1;
+        }
+        else
+        {
+            // Workspace query call to DGEHRD
+            dgehrd(jw, 0, jw-2, T, ldt, work, work, -1, info);
+            int lwk1 = int(work[0]);
+            // Workspace query call to DORMHR
+            dormhr("R", "N", jw, jw, 0, jw-2, T, ldt, work, V, ldv, work, -1, info);
+            int lwk2 = int(work[0]);
+            // Optimal workspace
+            lwkopt = jw + std::max(lwk1, lwk2);
+        }
+        // Quick return in case of workspace query.
+        if (lwork==-1)
+        {
+            work[0] = real(lwkopt);
+            return;
+        }
+        // Nothing to do for an empty active block ...
+        ns = 0;
+        nd = 0;
+        work[0] = ONE;
+        if (ktop>kbot)
+        {
+            return;
+        }
+        // ... nor for an empty deflation window.
+        if (nw<1)
+        {
+            return;
+        }
+        // Machine constants
+        real safmin = dlamch("SAFE MINIMUM");
+        real safmax = ONE / safmin;
+        dlabad(safmin, safmax);
+        real ulp = dlamch("PRECISION");
+        real smlnum = safmin * (real(n)/ulp);
+        // Setup deflation window
+        jw = std::min(nw, kbot-ktop+1);
+        int kwtop = kbot - jw + 1;
+        real s;
+        if (kwtop==ktop)
+        {
+            s = ZERO;
+        }
+        else
+        {
+            s = H[kwtop+ldh*(kwtop-1)];
+        }
+        if (kbot==kwtop)
+        {
+            // 1-by-1 deflation window: not much to do
+            sr[kwtop] = H[kwtop+ldh*kwtop];
+            si[kwtop] = ZERO;
+            ns = 1;
+            nd = 0;
+            if (std::fabs(s)<=std::max(smlnum, ulp*std::fabs(H[kwtop+ldh*kwtop])))
+            {
+                ns = 0;
+                nd = 1;
+                if (kwtop>ktop)
+                {
+                    H[kwtop+ldh*(kwtop-1)] = ZERO;
+                }
+            }
+            work[0] = ONE;
+            return;
+        }
+        // Convert to spike-triangular form. (In case of a rare QR failure, this routine continues
+        // to do aggressive early deflation using that part of the deflation window that converged
+        // using infqr here and there to keep track.)
+        dlacpy("U", jw, jw, &H[kwtop+ldh*kwtop], ldh, T, ldt);
+        Blas<real>::dcopy(jw-1, &H[kwtop+1+ldh*kwtop], ldh+1, &T[1], ldt+1);
+        dlaset("A", jw, jw, ZERO, ONE, V, ldv);
+        int infqr;
+        dlahqr(true, true, jw, 0, jw-1, T, ldt, &sr[kwtop], &si[kwtop], 0, jw-1, V, ldv, infqr);
+        // DTREXC needs a clean margin near the diagonal
+        int i;
+        for (i=0; i<jw-3; i++)
+        {
+            T[i+2+ldt*i] = ZERO;
+            T[i+3+ldt*i] = ZERO;
+        }
+        if (jw>2)
+        {
+            T[jw-1+ldt*(jw-3)] = ZERO;
+        }
+        // Deflation detection loop
+        ns = jw;
+        real foo;
+        int ifst;
+        bool bulge;
+        int ilst = infqr;
+        int nsm = ns - 1;
+        while (ilst<ns)
+        {
+            if (ns==1)
+            {
+                bulge = false;
+            }
+            else
+            {
+                bulge = (T[nsm+ldt*(nsm-1)]!=ZERO);
+            }
+            // Small spike tip test for deflation
+            if (!bulge)
+            {
+                // Real eigenvalue
+                foo = std::fabs(T[nsm+ldt*nsm]);
+                if (foo==ZERO)
+                {
+                    foo = std::fabs(s);
+                }
+                if (std::fabs(s*V[ldv*nsm])<=std::max(smlnum, ulp*foo))
+                {
+                    // Deflatable
+                    ns--;
+                    nsm = ns - 1;
+                }
+                else
+                {
+                    // Undeflatable. Move it up out of the way. (DTREXC can not fail in this case.)
+                    ifst = nsm;
+                    dtrexc("V", jw, T, ldt, V, ldv, ifst, ilst, work, info);
+                    ilst++;
+                }
+            }
+            else
+            {
+                // Complex conjugate pair
+                foo = std::fabs(T[nsm+ldt*nsm]) + std::sqrt(std::fabs(T[nsm+ldt*(nsm-1)]))
+                                                 *std::sqrt(std::fabs(T[nsm-1+ldt*nsm]));
+                if (foo==ZERO)
+                {
+                    foo = std::fabs(s);
+                }
+                if (std::max(std::fabs(s*V[ldv*nsm]), std::fabs(s*V[ldv*(nsm-1)]))
+                    <= std::max(smlnum, ulp*foo))
+                {
+                    // Deflatable
+                    ns -= 2;
+                    nsm = ns - 1;
+                }
+                else
+                {
+                    // Undeflatable. Move them up out of the way. Fortunately, dtrexc does the
+                    // right thing with ilst in case of a rare exchange failure.
+                    ifst = nsm;
+                    dtrexc("V", jw, T, ldt, V, ldv, ifst, ilst, work, info);
+                    ilst += 2;
+                }
+            }
+        } // End deflation detection loop
+        // Return to Hessenberg form
+        if (ns==0)
+        {
+            s = ZERO;
+        }
+        if (ns<jw)
+        {
+            // sorting diagonal blocks of T improves accuracy for graded matrices.
+            // Bubble sort deals well with exchange failures.
+            bool sorted = false;
+            i = ns;
+            real evi, evk;
+            int k, kend, ti, tk;
+            while (!sorted)
+            {
+                sorted = true;
+                kend = i - 1;
+                i = infqr;
+                ti = i + ldt*i;
+                if (i==ns-1)
+                {
+                    k = i + 1;
+                }
+                else if (T[1+ti]==ZERO)
+                {
+                    k = i + 1;
+                }
+                else
+                {
+                    k = i + 2;
+                }
+                tk = k + ldt*k;
+                while (k<=kend)
+                {
+                    if (k==i+1)
+                    {
+                        evi = std::fabs(T[ti]);
+                    }
+                    else
+                    {
+                        evi = std::fabs(T[ti])
+                              + std::sqrt(std::fabs(T[1+ti]))*std::sqrt(std::fabs(T[ti+ldt]));
+                    }
+                    if (k==kend)
+                    {
+                        evk = std::fabs(T[tk]);
+                    }
+                    else if (T[1+tk]==ZERO)
+                    {
+                        evk = std::fabs(T[tk]);
+                    }
+                    else
+                    {
+                        evk = std::fabs(T[tk])
+                              + std::sqrt(std::fabs(T[1+tk]))*std::sqrt(std::fabs(T[tk+ldt]));
+                    }
+                    if (evi>=evk)
+                    {
+                        i = k;
+                    }
+                    else
+                    {
+                        sorted = false;
+                        ifst = i;
+                        ilst = k;
+                        DTREXC("V", jw, T, ldt, V, ldv, ifst, ilst, work, info);
+                        if (info==0)
+                        {
+                            i = ilst;
+                        }
+                        else
+                        {
+                            i = k;
+                        }
+                    }
+                    ti = i + ldt*i;
+                    if (i==kend)
+                    {
+                        k = i + 1;
+                    }
+                    else if (T[1+ti]==ZERO)
+                    {
+                        k = i + 1;
+                    }
+                    else
+                    {
+                        k = i + 2;
+                    }
+                    tk = k + ldt*k;
+                }
+            }
+        }
+        // Restore shift/eigenvalue array from T
+        i = jw - 1;
+        real aa, bb, cc, cs, dd, sn;
+        while (i>=infqr)
+        {
+            if (i==infqr)
+            {
+                sr[kwtop+i] = T[i+ldt*i];
+                si[kwtop+i] = ZERO;
+                i--;
+            }
+            else if (T[i+ldt*(i-1)]==ZERO)
+            {
+                sr[kwtop+i] = T[i+ldt*i];
+                si[kwtop+i] = ZERO;
+                i--;
+            }
+            else
+            {
+                aa = T[i-1+ldt*(i-1)];
+                cc = T[i+ldt*(i-1)];
+                bb = T[i-1+ldt*i];
+                dd = T[i+ldt*i];
+                dlanv2(aa, bb, cc, dd, sr[kwtop+i-1], si[kwtop+i-1], sr[kwtop+i], si[kwtop+i], cs,
+                       sn);
+                i -= 2;
+            }
+        }
+        if (ns<jw || s==ZERO)
+        {
+            if (ns>1 && s!=ZERO)
+            {
+                // Reflect spike back into lower triangle
+                Blas<real>::dcopy(ns, V, ldv, work, 1);
+                real beta = work[0];
+                real tau;
+                dlarfg(ns, beta, &work[1], 1, tau);
+                work[0] = ONE;
+                dlaset("L", jw-2, jw-2, ZERO, ZERO, &T[2], ldt);
+                dlarf("L", ns, jw, work, 1, tau, T, ldt, &work[jw]);
+                dlarf("R", ns, ns, work, 1, tau, T, ldt, &work[jw]);
+                dlarf("R", jw, ns, work, 1, tau, V, ldv, &work[jw]);
+                dgehrd(jw, 0, ns-1, T, ldt, work, &work[jw], lwork-jw, info);
+            }
+            // Copy updated reduced window into place
+            if (kwtop>0)
+            {
+                H[kwtop+ldh*(kwtop-1)] = s * V[0];
+            }
+            dlacpy("U", jw, jw, T, ldt, &H[kwtop+ldh*kwtop], ldh);
+            Blas<real>::dcopy(jw-1, &T[1], ldt+1, &H[kwtop+1+ldh*kwtop], ldh+1);
+            // Accumulate orthogonal matrix in order update H and Z, if requested.
+            if (ns>1 && s!=ZERO)
+            {
+                dormhr("R", "N", jw, ns, 0, ns-1, T, ldt, work, V, ldv, &work[jw], lwork-jw, info);
+            }
+            // Update vertical slab in H
+            int ltop;
+            if (wantt)
+            {
+                ltop = 0;
+            }
+            else
+            {
+                ltop = ktop;
+            }
+            int kln, krow;
+            int htop = ldh * kwtop;
+            for (krow=ltop; krow<kwtop; krow+=nv)
+            {
+                kln = std::min(nv, kwtop-krow-1);
+                Blas<real>::dgemm("N", "N", kln, jw, jw, ONE, &H[krow+htop], ldh, V, ldv, ZERO, Wv,
+                                  ldwv);
+                dlacpy("A", kln, jw, Wv, ldwv, &H[krow+htop], ldh);
+            }
+            // Update horizontal slab in H
+            if (wantt)
+            {
+                for (int kcol=kbot+1; kcol<n; kcol+=nh)
+                {
+                    kln = std::min(nh, n-kcol);
+                    Blas<real>::dgemm("C", "N", jw, kln, jw, ONE, V, ldv, &H[kwtop+ldh*kcol], ldh,
+                                      ZERO, T, ldt);
+                    dlacpy("A", jw, kln, T, ldt, &H[kwtop+ldh*kcol], ldh);
+                }
+            }
+            // Update vertical slab in Z
+            if (wantz)
+            {
+                int ztop = ldz * kwtop;
+                for (krow=iloz; krow<=ihiz; krow+=nv)
+                {
+                    kln = std::min(nv, ihiz-krow+1);
+                    Blas<real>::dgemm("N", "N", kln, jw, jw, ONE, &Z[krow+ztop], ldz, V, ldv, ZERO,
+                                      Wv, ldwv);
+                    dlacpy("A", kln, jw, Wv, ldwv, &Z[krow+ztop], ldz);
+                }
+            }
+        }
+        // Return the number of deflations ...
+        nd = jw - ns;
+        // ... and the number of shifts. (Subtracting infqr from the spike length takes care of the
+        // case of a rare QR failure while calculating eigenvalues of the deflation window.)
+        ns -= infqr;
+        // Return optimal workspace.
+        work[0] = real(lwkopt);
     }
 
     /*! §dlaqr5 performs a single small-bulge multi-shift QR sweep.
@@ -16110,8 +17044,8 @@ public:
      *     an array, dimension\n $\min(\{m},\{k})$ if §vect = 'Q'\n
      *                           $\min(\{n},\{k})$ if §vect = 'P'\n
      *     $\{tau}[i]$ must contain the scalar factor of the elementary reflector $H(i)$ or $G(i)$,
-     *     which determines $Q$ or $P^T$, as returned by §dgebrd in its array argument §TAUQ or
-     *     §TAUP.
+     *     which determines $Q$ or $P^T$, as returned by §dgebrd in its array argument §tauq or
+     *     §taup.
      *
      * \param[out] work
      *     an array, dimension ($\max(1,\{lwork})$)\n
