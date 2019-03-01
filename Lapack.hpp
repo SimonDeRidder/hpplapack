@@ -3444,7 +3444,7 @@ public:
      * Note that the intervals are in all cases half-open intervals, i.e., of the form $]a,b]$,
      * which includes $b$ but not $a$.\n
      * To avoid underflow, the matrix should be scaled so that its largest element is no greater
-     * than $\{overflow}^\frac{1}{2}*\{underflow}^\frac{1}{4}$ in absolute value. To assure the
+     * than $\sqrt{\{overflow}\sqrt{\{underflow}}}$ in absolute value. To assure the
      * most accurate computation of small eigenvalues, the matrix should be scaled to be not much
      * smaller than that, either.\n
      * See W. Kahan "Accurate Eigenvalues of a Symmetric Tridiagonal Matrix", Report CS41, Computer
@@ -3486,9 +3486,8 @@ public:
      *
      * \param[in] pivmin
      *     The minimum absolute value of a "pivot" in the Sturm sequence loop.
-     *     This must be at least $\max_j{\left|\{e}[j]^2\right|}\{safe_min}$ and at least
-     *     §safe_min, where §safe_min is at least the smallest number that can divide one without
-     *     overflow.
+     *     This must be at least $\max_j{\left|\{e}[j]^2\right|}\{safemin}$ and at least §safemin,
+     *     where §safemin is at least the smallest number that can divide one without overflow.
      *
      * \param[in] d an array, dimension (§n)\n The diagonal elements of the tridiagonal matrix $T$.
      * \param[in] e
@@ -3553,9 +3552,9 @@ public:
      * \param[out] work  an array,         dimension (§mmax)\n Workspace.
      * \param[out] iwork an integer array, dimension (§mmax)\n Workspace.
      * \param[out] info
-     *     =0:       All intervals converged.\n
-     *     =1--mmax: The last §info intervals did not converge.\n
-     *     =mmax+1:  More than mmax intervals were generated.
+     *     $=0$:        All intervals converged.\n
+     *     $=1-\{mmax}$: The last §info intervals did not converge.\n
+     *     $=\{mmax}+1$:  More than mmax intervals were generated.
      * \authors Univ. of Tennessee
      * \authors Univ. of California Berkeley
      * \authors Univ. of Colorado Denver
@@ -3568,7 +3567,7 @@ public:
      *         intervals set up in §Ab, and §dlaebz should be called with $\{ijob}=1$. This sets up
      *         §Nab, and also counts the eigenvalues. Intervals with no eigenvalues would usually
      *         be thrown out at this point. Also, if not all the eigenvalues in an interval $i$ are
-     *         desired, $\{Nab}[i,0]$ can be increased or $\{Nab}[i,1] decreased. For example, set
+     *         desired, $\{Nab}[i,0]$ can be increased or $\{Nab}[i,1]$ decreased. For example, set
      *         $\{Nab}[i,0]=\{Nab}[i,1]-1$ to get the largest eigenvalue. §dlaebz is then called
      *         with $\{ijob}=2$ and §mmax no smaller than the value of §mout returned by the call
      *         with $\{ijob}=1$. After this ($\{ijob}=2$) call, eigenvalues $\{Nab}[i,0]+1$ through
@@ -7321,6 +7320,486 @@ public:
         // case of a rare QR failure while calculating eigenvalues of the deflation window.)
         ns -= infqr;
         // Return optimal workspace.
+        work[0] = real(lwkopt);
+    }
+
+    /*! §dlaqr4 computes the eigenvalues of a Hessenberg matrix, and optionally the matrices from
+     *  the Schur decomposition.
+     *
+     * §dlaqr4 implements one level of recursion for §dlaqr0. It is a complete implementation of
+     * the small bulge multi-shift QR algorithm. It may be called by §dlaqr0 and, for large enough
+     * deflation window size, it may be called by §dlaqr3. This subroutine is identical to §dlaqr0
+     * except that it calls §dlaqr2 instead of §dlaqr3.\n
+     * §dlaqr4 computes the eigenvalues of a Hessenberg matrix $H$ and, optionally, the matrices
+     * $T$ and $Z$ from the Schur decomposition $H = Z T Z^T$, where $T$ is an upper quasi-
+     * triangular matrix (the Schur form), and $Z$ is the orthogonal matrix of Schur vectors.\n
+     * Optionally $Z$ may be postmultiplied into an input orthogonal matrix $Q$ so that this
+     * routine can give the Schur factorization of a matrix $A$ which has been reduced to the
+     * Hessenberg form $H$ by the orthogonal matrix $Q$: $A = Q H Q^T = (QZ) T (QZ)^T$.
+     * \param[in] wantt
+     *     = §true:  the full Schur form $T$ is required.\n
+     *     = §false: only eigenvalues are required.
+     *
+     * \param[in] wantz
+     *     = §true: the matrix of Schur vectors $Z$ is required.\n
+     *     = §false: Schur vectors are not required.
+     *
+     * \param[in] n        The order of the matrix $H$. $\{n}\ge 0$.
+     * \param[in] ilo, ihi
+     *     It is assumed that $H$ is already upper triangular in rows and columns $0:\{ilo}-1$ and
+     *     $\{ihi}+1:\{n}-1$ and, if $\{ilo}>0$, $H[\{ilo},\{ilo}-1]$ is zero. §ilo and §ihi are
+     *     normally set by a previous call to §dgebal, and then passed to §dgehrd when the matrix
+     *     output by §dgebal is reduced to Hessenberg form. Otherwise, §ilo and §ihi should be set
+     *     to §0 and $\{n}-1$, respectively. If $\{n}>0$, then $0\le\{ilo}\le\{ihi}<\{n}$.\n
+     *     If $\{n}=0$, then $\{ilo}=0$ and $\{ihi}=-1$.\n
+     *     NOTE: zero-based indices!
+     *
+     * \param[in,out] H
+     *     an array, dimension (§ldh,§n)\n
+     *     On entry, the upper Hessenberg matrix $H$.\n
+     *     On exit, if $\{info}=0$ and §wantt is §true, then §H contains the upper quasi-triangular
+     *     matrix $T$ from the Schur decomposition (the Schur form); 2 by 2 diagonal blocks
+     *     (corresponding to complex conjugate pairs of eigenvalues) are returned in standard form,
+     *     with $\{H}[i,i]=\{H}[i+1,i+1]$ and $\{H}[i+1,i]\{H}[i,i+1]<0$. If $\{info}=0$ and §wantt
+     *     is §false, then the contents of §H are unspecified on exit.\n
+     *     (The output value of §H when $\{info}>0$ is given under the description of §info below.)
+     *     \n This subroutine may explicitly set $\{H}[i,j]=0$ for $i>j$ and
+     *     $j=0,1,\ldots,\{ilo}-1$ or $j=\{ihi}+1,\{ihi}+2,\ldots,\{n}-1$.
+     *
+     * \param[in]  ldh    The leading dimension of the array §H. $\{ldh}\ge\max(1,\{n})$.
+     * \param[out] wr, wi
+     *     arrays, dimension ($\{ihi}+1$)\n
+     *     The real and imaginary parts, respectively, of the computed eigenvalues of
+     *     $\{H}[\{ilo}:\{ihi},\{ilo}:\{ihi}]$ are stored in $\{wr}[\{ilo}:\{ihi}]$ and
+     *     $\{wi}[\{ilo}:\{ihi}]$. If two eigenvalues are computed as a complex conjugate pair,
+     *     they are stored in consecutive elements of §wr and §wi, say the $i$-th and $(i+1)$th,
+     *     with $\{wi}[i]>0$ and $\{wi}[i+1]<0$. If §wantt is §true, then the eigenvalues are
+     *     stored in the same order as on the diagonal of the Schur form returned in §H, with
+     *     $\{wr}[i]=\{H}[i,i]$ and, if $\{H}[i:i+1,i:i+1]$ is a 2 by 2 diagonal block,
+     *     $\{wi}[i]=\sqrt{-\{H}[i+1,i]\{H}[i,i+1]}$ and $\{wi}[i+1]=-\{wi}[i]$.
+     *
+     * \param[in] iloz, ihiz
+     *     Specify the rows of §Z to which transformations must be applied if §wantz is §true.\n
+     *     $0\le\{iloz}\le\{ilo}$; $\{ihi}\le\{ihiz}<\{n}$.\n
+     *     NOTE: zero-based indices!
+     *
+     * \param[in,out] Z
+     *     an array, dimension (§ldz,$\{ihi}+1$)\n
+     *     If §wantz is §false, then §Z is not referenced.\n
+     *     If §wantz is §true, then $\{Z}[\{ilo}:\{ihi},\{iloz}:\{ihiz}]$ is replaced by
+     *     $\{Z}[\{ilo}:\{ihi},\{iloz}:\{ihiz}]U$ where $U$ is the orthogonal Schur factor of
+     *     $\{H}[\{ilo}:\{ihi},\{ilo}:\{ihi}]$. (The output value of §Z when $\{info}>0$ is given
+     *     under the description of §info below.)
+     *
+     * \param[in] ldz
+     *     The leading dimension of the array §Z.\n
+     *     If §wantz is §true then $\{ldz}\ge\max(1,\{ihiz}+1)$. Otherwize, $\{ldz}\ge 1$.
+     *
+     * \param[out] work
+     *     an array, dimension (§lwork)\n
+     *     On exit, if $\{lwork}=-1$, $\{work}[0]$ returns an estimate of the optimal value for
+     *     §lwork.
+     *
+     * \param[in] lwork
+     *     The dimension of the array §work. $\{lwork}\ge\max(1,\{n})$ is sufficient, but §lwork
+     *     typically as large as $6\{n}$ may be required for optimal performance. A workspace query
+     *     to determine the optimal workspace size is recommended.\n
+     *     If $\{lwork}=-1$, then §dlaqr4 does a workspace query. In this case, §dlaqr4 checks the
+     *     input parameters and estimates the optimal workspace size for the given values of §n,
+     *     §ilo and §ihi. The estimate is returned in $\{work}[0]$. No error message related to
+     *     §lwork is issued by §xerbla. Neither §H nor §Z are accessed.
+     *
+     * \param[out] info
+     *     \li =0: successful exit
+     *     \li >0: \n
+     *             - if $\{info}=i$, §dlaqr4 failed to compute all of the eigenvalues. Elements
+     *               $0:\{ilo}-1$ and $i:\{n}-1$ of §wr and §wi contain those eigenvalues which
+     *               have been successfully computed. (Failures are rare.)
+     *             - If $\{info}>0$ and §wantt is §false, then on exit, the remaining unconverged
+     *               eigenvalues are the eigenvalues of the upper Hessenberg matrix rows and
+     *               columns §ilo through $\{info}-1$ of the final, output value of §H.
+     *             - If $\{info}>0$ and §wantt is §true, then on exit\n
+     *                 $(\text{initial value of }\{H})U = U(\text{final value of }\{H})$&emsp;(*)\n
+     *               where $U$ is a orthogonal matrix. The final value of §H is upper Hessenberg
+     *               and triangular in rows and columns §info through §ihi.
+     *             - If $\{info}>0$ and §wantz is §true, then on exit\n
+     *                 $(\text{final value of }\{Z}[\{ilo}:\{ihi},\{iloz}:\{ihiz}])$
+     *                 $=(\text{initial value of }\{Z}[\{ilo}:\{ihi},\{iloz}:\{ihiz}])U$\n
+     *               where $U$ is the orthogonal matrix in (*) (regardless of the value of §wantt.)
+     *             - If $\{info}>0$ and §wantz is §false, then §Z is not accessed.
+     *             .
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016
+     * \remark
+     *     Contributors:\n
+     *         Karen Braman and Ralph Byers, Department of Mathematics, University of Kansas, USA\n
+     *     References:\n
+     *         K. Braman, R. Byers and R. Mathias, The Multi-Shift QR Algorithm Part I: Maintaining
+     *         Well Focused Shifts, and Level 3 Performance, SIAM Journal of Matrix Analysis,
+     *         volume 23, pages 929--947, 2002.\n\n
+     *     K. Braman, R. Byers and R. Mathias, The Multi-Shift QR Algorithm Part II: Aggressive
+     *     Early Deflation, SIAM Journal of Matrix Analysis, volume 23, pages 948--973, 2002.    */
+    static void dlaqr4(bool wantt, bool wantz, int n, int ilo, int ihi, real* H, int ldh, real* wr,
+                       real* wi, int iloz, int ihiz, real* Z, int ldz, real* work, int lwork,
+                       int& info)
+    {
+        // Matrices of order NTINY or smaller must be processed by dlahqr because of insufficient
+        // subdiagonal scratch space. (This is a hard limit.)
+        const int NTINY = 11;
+        // Exceptional deflation windows: try to cure rare slow convergence by varying the size of
+        // the deflation window after KEXNW iterations.
+        const int KEXNW = 5;
+        // Exceptional shifts: try to cure rare slow convergence with ad-hoc exceptional shifts
+        // every KEXSH iterations.
+        const int KEXSH = 6;
+        // The constants WILK1 and WILK2 are used to form the exceptional shifts.
+        const real WILK1 = real(0.75);
+        const real WILK2 = real(-0.4375);
+        info = 0;
+        // Quick return for n = 0: nothing to do.
+        if (n==0)
+        {
+            work[0] = ONE;
+            return;
+        }
+        int lwkopt;
+        if (n<=NTINY)
+        {
+            // Tiny matrices must use dlahqr.
+            lwkopt = 1;
+            if (lwork!=-1)
+            {
+                dlahqr(wantt, wantz, n, ilo, ihi, H, ldh, wr, wi, iloz, ihiz, Z, ldz, info);
+            }
+        }
+        else
+        {
+            // Use small bulge multi-shift QR with aggressive early deflation on larger-than-tiny
+            // matrices.
+            // Hope for the best.
+            info = 0;
+            // Set up job flags for ilaenv.
+            char jbcmpz[3];
+            if (wantt)
+            {
+                jbcmpz[0] = 'S';
+            }
+            else
+            {
+                jbcmpz[0] = 'E';
+            }
+            if (wantz)
+            {
+                jbcmpz[1] = 'V';
+            }
+            else
+            {
+                jbcmpz[1] = 'N';
+            }
+            jbcmpz[2] = '\0';
+            // nwr = recommended deflation window size. At this point, n>NTINY=11, so there is
+            // enough subdiagonal workspace for nwr>=2 as required.
+            // (In fact, there is enough subdiagonal space for nwr>=3.)
+            int nwr;
+            nwr = ilaenv(13, "DLAQR4", jbcmpz, n, ilo+1, ihi+1, lwork);
+            nwr = std::max(2, nwr);
+            nwr = std::min(ihi-ilo+1, std::min((n-1)/3, nwr));
+            // nsr = recommended number of simultaneous shifts. At this point n>NTINY=11, so there
+            // is enough subdiagonal workspace for nsr to be even and greater than or equal to two
+            // as required.
+            int nsr;
+            nsr = ilaenv(15, "DLAQR4", jbcmpz, n, ilo+1, ihi+1, lwork);
+            nsr = std::min(nsr, std::min((n+6)/9, ihi-ilo));
+            nsr = std::max(2, nsr-nsr%2);
+            // Estimate optimal workspace
+            // Workspace query call to dlaqr2
+            int ld, ls;
+            dlaqr2(wantt, wantz, n, ilo, ihi, nwr+1, H, ldh, iloz, ihiz, Z, ldz, ls, ld, wr,
+                   wi, H, ldh, n, H, ldh, n, H, ldh, work, -1);
+            // Optimal workspace = std::max(dlaqr5, dlaqr2)
+            lwkopt = std::max(3*nsr/2, int(work[0]));
+            // Quick return in case of workspace query.
+            if (lwork==-1)
+            {
+                work[0] = real(lwkopt);
+                return;
+            }
+            // dlahqr/dlaqr0 crossover point
+            int nmin = std::max(NTINY, ilaenv(12, "DLAQR4", jbcmpz, n, ilo+1, ihi+1, lwork));
+            // Nibble crossover point
+            int nibble = std::max(0, ilaenv(14, "DLAQR4", jbcmpz, n, ilo+1, ihi+1, lwork));
+            // Accumulate reflections during ttswp? Use block 2 by 2 structure during matrix-matrix
+            // multiply?
+            int kacc22 = std::max(0, ilaenv(16, "DLAQR4", jbcmpz, n, ilo+1, ihi+1, lwork));
+            kacc22 = std::min(2, kacc22);
+            // nwmax = the largest possible deflation window for which there is sufficient
+            // workspace.
+            int nwmax = std::min((n-1)/3, lwork/2);
+            int nw = nwmax;
+            // nsmax = the Largest number of simultaneous shifts for which there is sufficient
+            // workspace.
+            int nsmax = std::min((n+6)/9, 2*lwork/3);
+            nsmax -= nsmax % 2;
+            // ndfl: an iteration count restarted at deflation.
+            int ndfl = 1;
+            // itmax = iteration limit
+            int itmax = std::max(30, 2*KEXSH) * std::max(10, (ihi-ilo+1));
+            // Last row and column in the active block
+            int kbot = ihi;
+            // Main Loop
+            real aa, bb, cc, cs, dd, sn, ss, swap;
+            int i, inf, it, k, kdu, ks, kt, ktop, ku, kv, kwh, kwtop, kwv, ndec, nh, nho, ns, nve,
+                nwupbd;
+            bool sorted;
+            for (it=0; it<itmax; it++)
+            {
+                // Done when kbot falls below ilo
+                if (kbot<ilo)
+                {
+                    break;
+                }
+                // Locate active block
+                for (k=kbot; k>ilo; k--)
+                {
+                    if (H[k+ldh*(k-1)]==ZERO)
+                    {
+                        break;
+                    }
+                }
+                ktop = k;
+                /* Select deflation window size:
+                 *     Typical Case:
+                 *         If possible and advisable, nibble the entire active block. If not, use
+                 *         size min(nwr,nwmax) or min(nwr+1,nwmax) depending upon which has the
+                 *         smaller corresponding subdiagonal entry (a heuristic).
+                 *     Exceptional Case:
+                 *         If there have been no deflations in KEXNW or more iterations, then vary
+                 *         the deflation window size. At first, because, larger windows are, in
+                 *         general, more powerful than smaller ones, rapidly increase the window to
+                 *         the maximum possible. Then, gradually reduce the window size.         */
+                nh = kbot - ktop + 1;
+                nwupbd = std::min(nh, nwmax);
+                if (ndfl<KEXNW)
+                {
+                    nw = std::min(nwupbd, nwr);
+                }
+                else
+                {
+                    nw = std::min(nwupbd, 2*nw);
+                }
+                if (nw<nwmax)
+                {
+                    if (nw>=nh-1)
+                    {
+                        nw = nh;
+                    }
+                    else
+                    {
+                        kwtop = kbot - nw + 1;
+                        if (std::fabs(H[kwtop+ldh*(kwtop-1)]) > std::fabs(H[kwtop-1+ldh*(kwtop-2)]))
+                        {
+                            nw++;
+                        }
+                    }
+                }
+                if (ndfl<KEXNW)
+                {
+                    ndec = -1;
+                }
+                else if (ndec>=0 || nw>=nwupbd)
+                {
+                    ndec++;
+                    if (nw-ndec<2)
+                    {
+                        ndec = 0;
+                    }
+                    nw -= ndec;
+                }
+                /* Aggressive early deflation:
+                 *   split workspace under the subdiagonal into
+                 *     - an nw by nw work array V in the lower left-hand-corner,
+                 *     - an nw by at-least-nw-but-more-is-better (nw by nho) horizontal work array
+                 *       along the bottom edge,
+                 *     - an at-least-nw-but-more-is-better by nw (nho by nw) vertical work array
+                 *       along the left-hand-edge.                                               */
+                kv  = n - nw;
+                kt  = nw;
+                nho = (n-nw-1) - kt;
+                kwv = nw + 1;
+                nve = (n-nw) - kwv;
+                // Aggressive early deflation
+                dlaqr2(wantt, wantz, n, ktop, kbot, nw, H, ldh, iloz, ihiz, Z, ldz, ls, ld, wr, wi,
+                       &H[kv], ldh, nho, &H[kv+ldh*kt], ldh, nve, &H[kwv], ldh, work, lwork);
+                // Adjust kbot accounting for new deflations.
+                kbot -= ld;
+                // ks points to the shifts.
+                ks = kbot - ls + 1;
+                /* Skip an expensive QR sweep if there is a (partly heuristic) reason to expect
+                 * that many eigenvalues will deflate without it. Here, the QR sweep is skipped if
+                 * many eigenvalues have just been deflated or if the remaining active block is
+                 * small.                                                                        */
+                if (ld==0 || (100*ld<=nw*nibble && kbot-ktop+1>std::min(nmin, nwmax)))
+                {
+                    /* ns = nominal number of simultaneous shifts. This may be lowered (slightly)
+                     * if dlaqr2 did not provide that many shifts.                               */
+                    ns = std::min(std::min(nsmax, nsr), std::max(2, kbot-ktop));
+                    ns -= ns % 2;
+                    /* If there have been no deflations in a multiple of KEXSH iterations, then try
+                     * exceptional shifts. Otherwise use shifts provided by dlaqr2 above or from
+                     * the eigenvalues of a trailing principal submatrix.                        */
+                    if ((ndfl%KEXSH)==0)
+                    {
+                        ks = kbot - ns + 1;
+                        for (i=kbot; i>std::max(ks, ktop+1); i-=2)
+                        {
+                            ss = std::fabs(H[i+ldh*(i-1)]) + std::fabs(H[i-1+ldh*(i-2)]);
+                            aa = WILK1 * ss + H[i+ldh*i];
+                            bb = ss;
+                            cc = WILK2 * ss;
+                            dd = aa;
+                            dlanv2(aa, bb, cc, dd, wr[i-1], wi[i-1], wr[i], wi[i], cs, sn);
+                        }
+                        if (ks==ktop)
+                        {
+                            wr[ks+1] = H[ks+1+ldh*(ks+1)];
+                            wi[ks+1] = ZERO;
+                            wr[ks]   = wr[ks+1];
+                            wi[ks]   = wi[ks+1];
+                        }
+                    }
+                    else
+                    {
+                        /* Got ns/2 or fewer shifts? Use dlahqr on a trailing principal submatrix
+                         * to get more. (Since ns<=nsmax<=(n+6)/9, there is enough space below the
+                         * subdiagonal to fit an ns-by-ns scratch array.)                        */
+                        if (kbot-ks+1<=ns/2)
+                        {
+                            ks = kbot - ns + 1;
+                            kt = n - ns;
+                            dlacpy("A", ns, ns, &H[ks+ldh*ks], ldh, &H[kt], ldh);
+                            dlahqr(false, false, ns, 0, ns-1, &H[kt], ldh, &wr[ks], &wi[ks], 0, 0,
+                                   nullptr, 1, inf);
+                            ks += inf;
+                            /* In case of a rare QR failure use eigenvalues of the trailing 2 by 2
+                             * principal submatrix.                                              */
+                            if (ks>=kbot)
+                            {
+                                aa = H[kbot-1+ldh*(kbot-1)];
+                                cc = H[kbot  +ldh*(kbot-1)];
+                                bb = H[kbot-1+ldh*kbot];
+                                dd = H[kbot  +ldh*kbot];
+                                dlanv2(aa, bb, cc, dd, wr[kbot-1], wi[kbot-1], wr[kbot], wi[kbot],
+                                       cs, sn);
+                                ks = kbot - 1;
+                            }
+                        }
+                        if (kbot-ks+1>ns)
+                        {
+                            // Sort the shifts (Helps a little)
+                            // Bubble sort keeps complex conjugate pairs together.
+                            sorted = false;
+                            for (k=kbot; k>ks; k--)
+                            {
+                                if (sorted)
+                                {
+                                    break;
+                                }
+                                sorted = true;
+                                for (i=ks; i<k; i++)
+                                {
+                                    if (std::fabs(wr[i])  +std::fabs(wi[i])
+                                      < std::fabs(wr[i+1])+std::fabs(wi[i+1]))
+                                    {
+                                        sorted = false;
+                                        swap    = wr[i];
+                                        wr[i]   = wr[i+1];
+                                        wr[i+1] = swap;
+                                        swap    = wi[i];
+                                        wi[i]   = wi[i+1];
+                                        wi[i+1] = swap;
+                                    }
+                                }
+                            }
+                        }
+                        /* Shuffle shifts into pairs of real shifts and pairs of complex conjugate
+                         * shifts assuming complex conjugate shifts are already adjacent to one
+                         * another. (Yes, they are.)                                             */
+                        for (i=kbot; i>ks+1; i-=2)
+                        {
+                            if (wi[i]!=-wi[i-1])
+                            {
+                                swap    = wr[i];
+                                wr[i]   = wr[i-1];
+                                wr[i-1] = wr[i-2];
+                                wr[i-2] = swap;
+                                swap    = wi[i];
+                                wi[i]   = wi[i-1];
+                                wi[i-1] = wi[i-2];
+                                wi[i-2] = swap;
+                            }
+                        }
+                    }
+                    // If there are only two shifts and both are real, then use only one.
+                    if (kbot-ks+1==2)
+                    {
+                        if (wi[kbot]==ZERO)
+                        {
+                            if (std::fabs(wr[kbot]  -H[kbot+ldh*kbot])
+                              < std::fabs(wr[kbot-1]-H[kbot+ldh*kbot]))
+                            {
+                                wr[kbot-1] = wr[kbot];
+                            }
+                            else
+                            {
+                                wr[kbot] = wr[kbot-1];
+                            }
+                        }
+                    }
+                    /* Use up to ns of the smallest magnitude shifts. If there aren't ns shifts
+                     * available, then use them all, possibly dropping one to make the number of
+                     * shifts even.                                                              */
+                    ns = std::min(ns, kbot-ks+1);
+                    ns -= ns % 2;
+                    ks = kbot - ns + 1;
+                    /* Small-bulge multi-shift QR sweep
+                     *   split workspace under the subdiagonal into
+                     *     - a kdu by kdu work array U in the lower left-hand-corner,
+                     *     - a kdu by at-least-kdu-but-more-is-better (kdu by nho) horizontal work
+                     *       array WH along the bottom edge,
+                     *     - and an at-least-kdu-but-more-is-better by kdu (nve by kdu) vertical
+                     *       work WV arrow along the left-hand-edge.                             */
+                    kdu = 3*ns - 3;
+                    ku  = n - kdu;
+                    kwh = kdu;
+                    nho = (n-kdu-4) - kdu + 1;
+                    kwv = kdu + 3;
+                    nve = n - kdu - kwv;
+                    // Small-bulge multi-shift QR sweep
+                    dlaqr5(wantt, wantz, kacc22, n, ktop, kbot, ns, &wr[ks], &wi[ks], H, ldh, iloz,
+                           ihiz, Z, ldz, work, 3, &H[ku], ldh, nve, &H[kwv], ldh, nho,
+                           &H[ku+ldh*kwh], ldh);
+                }
+                // Note progress (or the lack of it).
+                if (ld>0)
+                {
+                    ndfl = 1;
+                }
+                else
+                {
+                    ndfl++;
+                }
+                // End of main loop
+            }
+            if (it>=itmax)
+            {
+                // Iteration limit exceeded. Set info to show where the problem occurred and exit.
+                info = kbot + 1;
+            }
+        }
+        // Return the optimal value of lwork.
         work[0] = real(lwkopt);
     }
 
@@ -18240,6 +18719,614 @@ public:
         work[0] = lwkopt;
     }
 
+    /*! §dstebz
+     *
+     * §dstebz computes the eigenvalues of a symmetric tridiagonal matrix $T$. The user may ask for
+     * all eigenvalues, all eigenvalues in the half-open interval $]\{vl},\{vu}]$, or the §il -th
+     * through §iu -th eigenvalues.\n
+     * To avoid overflow, the matrix must be scaled so that its largest element is no greater than
+     * $\sqrt{\{overflow}\sqrt{\{underflow}}}$ in absolute value, and for greatest accuracy, it
+     * should not be much smaller than that.\n
+     * See W. Kahan "Accurate Eigenvalues of a Symmetric Tridiagonal Matrix", Report CS41,
+     * Computer Science Dept., Stanford University, July 21, 1966.
+     * \param[in] range
+     *     = 'A': ("All") &emsp; all eigenvalues will be found.\n
+     *     = 'V': ("Value") all eigenvalues in the half-open interval $]\{vl},\{vu}]$ will be
+     *                      found.\n
+     *     = 'I': ("Index") the §il -th through §iu -th eigenvalues (of the entire matrix) will be
+     *                      found.
+     *
+     * \param[in] order
+     *     = 'B': ("By Block") &emsp; the eigenvalues will be grouped by split-off block (see
+     *                              §iblock, §isplit) and ordered from smallest to largest within
+     *                              the block.\n
+     *     = 'E': ("Entire matrix") the eigenvalues for the entire matrix will be ordered from
+     *                              smallest to largest.
+     *
+     * \param[in] n The order of the tridiagonal matrix $T$. $\{n}\ge 0$.
+     * \param[in] vl
+     *     If §range='V', the lower bound of the interval to be searched for eigenvalues.
+     *     Eigenvalues less than or equal to §vl, or greater than §vu, will not be returned.
+     *     $\{vl}<\{vu}$.\n
+     *     Not referenced if §range = 'A' or 'I'.
+     *
+     * \param[in] vu
+     *     If §range='V', the upper bound of the interval to be searched for eigenvalues.
+     *     Eigenvalues less than or equal to §vl, or greater than §vu, will not be returned.
+     *     $\{vl}<\{vu}$.\n
+     *     Not referenced if §range = 'A' or 'I'.
+     *
+     * \param[in] il
+     *     If §range='I', the index of the smallest eigenvalue to be returned.\n
+     *     $0\le\{il}\le\{iu}<\{n}$, if $\{n}>0$; $\{il}=0$ and $\{iu}=0$ if $\{n}=0$.\n
+     *     Not referenced if §range = 'A' or 'V'.\n
+     *     NOTE: zero-based index!
+     *
+     * \param[in] iu
+     *     If §range='I', the index of the largest eigenvalue to be returned.\n
+     *     $0\le\{il}\le\{iu}<\{n}$, if $\{n}>0$; $\{il}=1$ and $\{iu}=-1$ if $\{n}=0$.\n
+     *     Not referenced if §range = 'A' or 'V'.\n
+     *     NOTE: zero-based index!
+     *
+     * \param[in] abstol
+     *     The absolute tolerance for the eigenvalues. An eigenvalue (or cluster) is considered to
+     *     be located if it has been determined to lie in an interval whose width is §abstol or
+     *     less. If §abstol is less than or equal to zero, then $\{ulp}|T|$ will be used, where
+     *     $|T|$ means the 1-norm of $T$.\n.
+     *     Eigenvalues will be computed most accurately when §abstol is set to twice the underflow
+     *     threshold $2\,\{dlamch}('S')$, not zero.
+     *
+     * \param[in] d
+     *     an array, dimension (§n)\n The §n diagonal elements of the tridiagonal matrix $T$.
+     *
+     * \param[in] e
+     *     an array, dimension ($\{n}-1$)\n
+     *     The $\{n}-1$ off-diagonal elements of the tridiagonal matrix $T$.
+     *
+     * \param[out] m
+     *     The actual number of eigenvalues found. $0\le\{m}\le\{n}$.\n
+     *     (See also the description of §info=2,3.)
+     *
+     * \param[out] nsplit The number of diagonal blocks in the matrix $T$. $1\le\{nsplit}\le\{n}$.
+     * \param[out] w
+     *     an array, dimension (§n)\n
+     *     On exit, the first §m elements of §w will contain the eigenvalues.\n
+     *     (§dstebz may use the remaining $\{n}-\{m}$ elements as workspace.)
+     *
+     * \param[out] iblock
+     *     an integer array, dimension (§n)\n
+     *     At each row/column $j$ where $\{e}[j]$ is zero or small, the matrix $T$ is considered to
+     *     split into a block diagonal matrix. On exit, if $\{info}=0$, $\{iblock}[i]$ specifies to
+     *     which block (from 0 to the number of blocks - 1) the eigenvalue $\{w}[i]$ belongs.
+     *     (§dstebz may use the remaining $\{n}-\{m}$ elements as workspace.)\n
+     *     NOTE: zero-based indices!
+     *
+     * \param[out] isplit
+     *     an integer array, dimension (§n)\n
+     *     The splitting points, at which $T$ breaks up into submatrices. The first submatrix
+     *     consists of rows/columns $0$ to $\{isplit}[0]$, the second of rows/columns
+     *     $\{isplit}[0]+1$ through $\{isplit}[1]$, etc., and the $\{nsplit}-1$-th consists of
+     *     rows/columns $\{isplit}[\{nsplit}-2]+1$ through $\{isplit}[\{nsplit}-1]=\{n}-1$.\n
+     *     (Only the first §nsplit elements will actually be used, but since the user cannot know a
+     *     priori what value §nsplit will have, §n elements must be reserved for §isplit.)\n
+     *     NOTE: zero-based indices!
+     *
+     * \param[out] work an array, dimension ($4\{n}$)
+     * \param[out] iwork an integer array, dimension ($3\{n}$)
+     * \param[out] info
+     *     - =0: successful exit
+     *     - <0: if $\{info}=-i$, the $i$-th argument had an illegal value
+     *     - >0: some or all of the eigenvalues failed to converge or were not computed:
+     *         - =1 or 3: Bisection failed to converge for some eigenvalues; these eigenvalues are
+     *                    flagged by a negative block number. The effect is that the eigenvalues
+     *                    may not be as accurate as the absolute and relative tolerances. This is
+     *                    generally caused by unexpectedly inaccurate arithmetic.
+     *         - =2 or 3: §range='I' only: Not all of the eigenvalues $\{il}:\{iu}$ were found.
+     *                    - Effect: $\{m}<\{iu}+1-\{il}$
+     *                    - Cause:  non-monotonic arithmetic, causing the Sturm sequence to be
+     *                              non-monotonic.
+     *                    - Cure:   recalculate, using §range='A', and pick out eigenvalues
+     *                              $\{il}:\{iu}$. In some cases, increasing the internal constant
+     *                              §FUDGE may make things work.
+     *                    .
+     *         - = 4:     §range='I', and the Gershgorin interval initially used was too small. No
+     *                    eigenvalues were computed.
+     *                    - Probable cause: your machine has sloppy floating-point arithmetic.
+     *                    - Cure: Increase the internal constant §FUDGE, recompile, and try again.
+     *
+     * \remark:
+     *     Internal Constants:\n\n
+     *         §RELFAC default = 2.0\n
+     *             The relative tolerance. An interval $]a,b]$ lies within "relative tolerance" if
+     *             $b-a < \{RELFAC}*\{ulp}*\max\left(|a|,|b|\right)$, where §ulp is the machine
+     *             precision (distance from 1 to the next larger floating point number.)\n\n
+     *         §FUDGE default = 2.1\n
+     *             A "fudge factor" to widen the Gershgorin intervals. Ideally, a value of 1 should
+     *             work, but on machines with sloppy arithmetic, this needs to be larger. The
+     *             default for publicly released versions should be large enough to handle the
+     *             worst machine around. Note that this has no effect on accuracy of the solution.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date June 2016                                                                           */
+    static void dstebz(char const* range, char const* order, int n, real vl, real vu, int il,
+                       int iu, real abstol, real const* d, real const* e, int& m, int& nsplit,
+                       real* w, int* iblock, int* isplit, real* work, int* iwork, int& info)
+    {
+        const real FUDGE = 2.1;
+        const real RELFAC = 2.0;
+        info = 0;
+        // Decode range
+        int irange;
+        char uprange = std::toupper(range[0]);
+        if (uprange=='A')
+        {
+            irange = 1;
+        }
+        else if (uprange=='V')
+        {
+            irange = 2;
+        }
+        else if (uprange=='I')
+        {
+            irange = 3;
+        }
+        else
+        {
+            irange = 0;
+        }
+        // Decode order
+        int iorder;
+        char uporder = std::toupper(order[0]);
+        if (uporder=='B')
+        {
+            iorder = 2;
+        }
+        else if (uporder=='E')
+        {
+            iorder = 1;
+        }
+        else
+        {
+            iorder = 0;
+        }
+        // Check for Errors
+        if (irange<=0)
+        {
+            info = -1;
+        }
+        else if (iorder<=0)
+        {
+            info = -2;
+        }
+        else if (n<0)
+        {
+            info = -3;
+        }
+        else if (irange==2)
+        {
+            if (vl>=vu)
+            {
+                info = -5;
+            }
+        }
+        else if (irange==3 && (il<0 || il>std::max(0, n-1)))
+        {
+            info = -6;
+        }
+        else if (irange==3 && (iu<std::min(n-1, il) || iu>=n))
+        {
+            info = -7;
+        }
+        if (info!=0)
+        {
+            xerbla("DSTEBZ", -info);
+            return;
+        }
+        // Initialize error flags
+        info = 0;
+        bool ncnvrg = false;
+        bool toofew = false;
+        // Quick return if possible
+        m = 0;
+        if (n==0)
+        {
+            return;
+        }
+        // Simplifications:
+        if (irange==3 && il==0 && iu==n-1)
+        {
+            irange = 1;
+        }
+        // Get machine constants
+        // nb is the minimum vector length for vector bisection, or 0 if only scalar is to be done.
+        real safemn = dlamch("S");
+        real ulp = dlamch("P");
+        real rtoli = ulp * RELFAC;
+        int nb = ilaenv(1, "DSTEBZ", " ", n, -1, -1, -1);
+        if (nb<=1)
+        {
+            nb = 0;
+        }
+        // Special Case when n=1
+        if (n==1)
+        {
+            nsplit = 1;
+            isplit[0] = 0;
+            if (irange==2 && (vl>=d[0] || vu<d[0]))
+            {
+                m = 0;
+            }
+            else
+            {
+                w[0] = d[0];
+                iblock[0] = 0;
+                m = 1;
+            }
+            return;
+        }
+        // Compute Splitting Points
+        nsplit = 1;
+        work[n-1] = ZERO;
+        real pivmin = ONE, tmp1;
+        int j;
+        for (j=1; j<n; j++)
+        {
+            tmp1 = e[j-1] * e[j-1];
+            if (std::fabs(d[j]*d[j-1])*ulp*ulp+safemn > tmp1)
+            {
+                isplit[nsplit-1] = j - 1;
+                nsplit++;
+                work[j-1] = ZERO;
+            }
+            else
+            {
+                work[j-1] = tmp1;
+                pivmin = std::max(pivmin, tmp1);
+            }
+        }
+        isplit[nsplit-1] = n - 1;
+        pivmin *= safemn;
+        int iinfo, iout, itmax, nwl, nwu;
+        real atoli, gl, gu, tmp2, tnorm, wl, wlu, wu, wul;
+        // Compute Interval and atoli
+        if (irange==3)
+        {
+            // range='I': Compute the interval containing eigenvalues il through iu.
+            // Compute Gershgorin interval for entire (split) matrix and use it as the initial
+            // interval
+            gu = d[0];
+            gl = d[0];
+            tmp1 = ZERO;
+            for (j=0; j<n-1; j++)
+            {
+                tmp2 = std::sqrt(work[j]);
+                gu   = std::max(gu, d[j]+tmp1+tmp2);
+                gl   = std::min(gl, d[j]-tmp1-tmp2);
+                tmp1 = tmp2;
+            }
+            gu    = std::max(gu, d[n-1]+tmp1);
+            gl    = std::min(gl, d[n-1]-tmp1);
+            tnorm = std::max(std::fabs(gl), std::fabs(gu));
+            gl -= FUDGE*tnorm*ulp*n - FUDGE*TWO*pivmin;
+            gu += FUDGE*tnorm*ulp*n + FUDGE*pivmin;
+            // Compute Iteration parameters
+            itmax = int((std::log(tnorm+pivmin)-std::log(pivmin))/std::log(TWO)) + 2;
+            if (abstol<=ZERO)
+            {
+                atoli = ulp * tnorm;
+            }
+            else
+            {
+                atoli = abstol;
+            }
+            work[n]   = gl;
+            work[n+1] = gl;
+            work[n+2] = gu;
+            work[n+3] = gu;
+            work[n+4] = gl;
+            work[n+5] = gu;
+            iwork[0] = -1;
+            iwork[1] = -1;
+            iwork[2] = n + 1;
+            iwork[3] = n + 1;
+            iwork[4] = il;
+            iwork[5] = iu + 1;
+            dlaebz(3, itmax, n, 2, 2, nb, atoli, rtoli, pivmin, d, e, work, &iwork[4], &work[n],
+                   &work[n+4], iout, iwork, w, iblock, iinfo);
+            if (iwork[5]==iu+1)
+            {
+                wl  = work[n];
+                wlu = work[n+2];
+                nwl = iwork[0];
+                wu  = work[n+3];
+                wul = work[n+1];
+                nwu = iwork[3];
+            }
+            else
+            {
+                wl  = work[n+1];
+                wlu = work[n+3];
+                nwl = iwork[1];
+                wu  = work[n+2];
+                wul = work[n];
+                nwu = iwork[2];
+            }
+            if (nwl<0 || nwl>=n || nwu<1 || nwu>n)
+            {
+                info = 4;
+                return;
+            }
+        }
+        else
+        {
+            // range='A' or 'V' -- Set atoli
+            tnorm = std::max(std::fabs(d[0])+std::fabs(e[0]), std::fabs(d[n-1])+std::fabs(e[n-2]));
+            for (j=1; j<n-1; j++)
+            {
+                tnorm = std::max(tnorm, std::fabs(d[j])+std::fabs(e[j-1])+std::fabs(e[j]));
+            }
+            if (abstol<=ZERO)
+            {
+                atoli = ulp * tnorm;
+            }
+            else
+            {
+                atoli = abstol;
+            }
+            if (irange==2)
+            {
+                wl = vl;
+                wu = vu;
+            }
+            else
+            {
+                wl = ZERO;
+                wu = ZERO;
+            }
+        }
+        // Find Eigenvalues -- Loop Over Blocks and recompute nwl and nwu.
+        // nwl accumulates the number of eigenvalues <= wl,
+        // nwu accumulates the number of eigenvalues <= wu
+        m = 0;
+        int ibegin, iend = -1;
+        info = 0;
+        nwl  = 0;
+        nwu  = 0;
+        int ib, im, in, ioff, iwoff, je;
+        real bnorm;
+        for (int jb=0; jb<nsplit; jb++)
+        {
+            ioff = iend;
+            ibegin = ioff + 1;
+            iend = isplit[jb];
+            in = iend - ioff;
+            if (in==1)
+            {
+                // Special Case -- in=1
+                if (irange==1 || wl>=d[ibegin]-pivmin)
+                {
+                    nwl++;
+                }
+                if (irange==1 || wu>=d[ibegin]-pivmin)
+                {
+                    nwu++;
+                }
+                if (irange==1 || (wl<d[ibegin]-pivmin && wu>=d[ibegin]-pivmin))
+                {
+                    m++;
+                    w[m-1] = d[ibegin];
+                    iblock[m-1] = jb;
+                }
+            }
+            else
+            {
+                // General Case -- in > 1
+                // Compute Gershgorin Interval and use it as the initial interval
+                gu = d[ibegin];
+                gl = d[ibegin];
+                tmp1 = ZERO;
+                for (j=ibegin; j<iend; j++)
+                {
+                    tmp2 = std::fabs(e[j]);
+                    gu = std::max(gu, d[j]+tmp1+tmp2);
+                    gl = std::min(gl, d[j]-tmp1-tmp2);
+                    tmp1 = tmp2;
+                }
+                gu = std::max(gu, d[iend]+tmp1);
+                gl = std::min(gl, d[iend]-tmp1);
+                bnorm = std::max(std::fabs(gl), std::fabs(gu));
+                gl -= FUDGE*bnorm*ulp*in - FUDGE*pivmin;
+                gu += FUDGE*bnorm*ulp*in + FUDGE*pivmin;
+                // Compute atoli for the current submatrix
+                if (abstol<=ZERO)
+                {
+                    atoli = ulp * std::max(std::fabs(gl), std::fabs(gu));
+                }
+                else
+                {
+                    atoli = abstol;
+                }
+                if (irange>1)
+                {
+                    if (gu<wl)
+                    {
+                        nwl += in;
+                        nwu += in;
+                        continue;
+                    }
+                    gl = std::max(gl, wl);
+                    gu = std::min(gu, wu);
+                    if (gl>=gu)
+                    {
+                        continue;
+                    }
+                }
+                // Set Up Initial Interval
+                work[n]    = gl;
+                work[n+in] = gu;
+                dlaebz(1, 0, in, in, 1, nb, atoli, rtoli, pivmin, &d[ibegin], &e[ibegin],
+                       &work[ibegin], nullptr, &work[n], &work[n+2*in], im, iwork, &w[m],
+                       &iblock[m], iinfo);
+                nwl += iwork[0];
+                nwu += iwork[in];
+                iwoff = m - iwork[0];
+                // Compute Eigenvalues
+                itmax = int((std::log(gu-gl+pivmin)-std::log(pivmin))/std::log(TWO)) + 2;
+                dlaebz(2, itmax, in, in, 1, nb, atoli, rtoli, pivmin, &d[ibegin], &e[ibegin],
+                       &work[ibegin], nullptr, &work[n], &work[n+2*in], iout, iwork, &w[m],
+                       &iblock[m], iinfo);
+                // Copy eigenvalues into w and iblock
+                // Use -jb-2 for block number for unconverged eigenvalues.
+                for (j=0; j<iout; j++)
+                {
+                    tmp1 = HALF * (work[j+n]+work[j+in+n]);
+                    // Flag non-convergence.
+                    if (j>=iout-iinfo)
+                    {
+                        ncnvrg = true;
+                        ib = -jb - 2;
+                    }
+                    else
+                    {
+                        ib = jb;
+                    }
+                    for (je=iwork[j]+iwoff; je<iwork[j+in]+iwoff; je++)
+                    {
+                        w[je] = tmp1;
+                        iblock[je] = ib;
+                    }
+                }
+                m += im;
+            }
+        }
+        // If range='I', then (wl,wu) contains eigenvalues nwl+1,...,nwu
+        // If nwl < il or nwu > iu+1, discard extra eigenvalues.
+        if (irange==3)
+        {
+            im = -1;
+            int idiscl = il - nwl;
+            int idiscu = nwu - iu - 1;
+            if (idiscl>0 || idiscu>0)
+            {
+                for (je=0; je<m; je++)
+                {
+                    if (w[je]<=wlu && idiscl>0)
+                    {
+                        idiscl--;
+                    }
+                    else if (w[je]>=wul && idiscu>0)
+                    {
+                        idiscu--;
+                    }
+                    else
+                    {
+                        im++;
+                        w[im]      = w[je];
+                        iblock[im] = iblock[je];
+                    }
+                }
+                m = im + 1;
+            }
+            if (idiscl>0 || idiscu>0)
+            {
+                /* Code to deal with effects of bad arithmetic:
+                 * Some low eigenvalues to be discarded are not in ]wl,wlu], or high eigenvalues to
+                 * be discarded are not in ]wul,wu] so just kill off the smallest idiscl/largest
+                 * idiscu eigenvalues, by simply finding the smallest/largest eigenvalue(s).
+                 * (If N(w) is monotone non-decreasing, this should never happen.)               */
+                int iw, jdisc;
+                real wkill;
+                if (idiscl>0)
+                {
+                    wkill = wu;
+                    for (jdisc=0; jdisc<idiscl; jdisc++)
+                    {
+                        iw = -1;
+                        for (je=0; je<m; je++)
+                        {
+                            if (iblock[je]!=-1 && (w[je]<wkill || iw==-1))
+                            {
+                                iw    = je;
+                                wkill = w[je];
+                            }
+                        }
+                        iblock[iw] = -1;
+                    }
+                }
+                if (idiscu>0)
+                {
+                    wkill = wl;
+                    for (jdisc=0; jdisc<idiscu; jdisc++)
+                    {
+                        iw = -1;
+                        for (je=0; je<m; je++)
+                        {
+                            if (iblock[je]!=-1 && (w[je]>wkill || iw==-1))
+                            {
+                                iw    = je;
+                                wkill = w[je];
+                            }
+                        }
+                        iblock[iw] = -1;
+                    }
+                }
+                im = -1;
+                for (je=0; je<m; je++)
+                {
+                    if (iblock[je]!=-1)
+                    {
+                        im++;
+                        w[im]      = w[je];
+                        iblock[im] = iblock[je];
+                    }
+                }
+                m = im + 1;
+             }
+             if (idiscl<0 || idiscu<0)
+             {
+                toofew = true;
+             }
+        }
+        // If order='B', do nothing -- the eigenvalues are already sorted by block.
+        // If order='E', sort the eigenvalues from smallest to largest
+        if (iorder==1 && nsplit>1)
+        {
+            int ie, itmp1;
+            for (je=0; je<m-1; je++)
+            {
+                ie = -1;
+                tmp1 = w[je];
+                for (j=je+1; j<m; j++)
+                {
+                    if (w[j]<tmp1)
+                    {
+                        ie   = j;
+                        tmp1 = w[j];
+                    }
+                }
+                if (ie!=-1)
+                {
+                    itmp1      = iblock[ie];
+                    w[ie]      = w[je];
+                    iblock[ie] = iblock[je];
+                    w[je]      = tmp1;
+                    iblock[je] = itmp1;
+                }
+            }
+        }
+        info = 0;
+        if (ncnvrg)
+        {
+            info += 1;
+        }
+        if (toofew)
+        {
+            info += 2;
+        }
+    }
+
     /*! §dstein
      *
      * §dstein computes the eigenvectors of a real symmetric tridiagonal matrix $T$ corresponding
@@ -18260,7 +19347,7 @@ public:
      *     an array, dimension (§n)\n
      *     The first §m elements of §w contain the eigenvalues for which eigenvectors are to be
      *     computed. The eigenvalues should be grouped by split-off block and ordered from smallest
-     *     to largest within the block. (The output array §w from §dstebz with §ORDER = 'B' is
+     *     to largest within the block. (The output array §w from §dstebz with §order = 'B' is
      *     expected here.)
      *
      * \param[in] iblock
@@ -20991,7 +22078,7 @@ public:
      *     \li 14: (inibl) Determines when to stop nibbling and invest in an (expensive)
      *                     multi-shift QR sweep. If the aggressive early deflation subroutine finds
      *                     §ld converged eigenvalues from an order §nw deflation window and
-     *                     $\{LD}>(\{nw}\ \{nibble})/100$, then the next QR sweep is skipped and
+     *                     $\{ld}>(\{nw}\ \{nibble})/100$, then the next QR sweep is skipped and
      *                     early deflation is applied immediately to the remaining active diagonal
      *                     block. Setting §iparmq(§ispec =14)=0 causes §ttqre to skip a multi-shift
      *                     QR sweep whenever early deflation finds a converged eigenvalue. Setting
