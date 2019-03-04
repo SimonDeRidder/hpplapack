@@ -44,7 +44,8 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                       */
-    void alasum(char const* type, std::ostream& nout, int nfail, int nrun, int nerrs)
+    void alasum(char const* const type, std::ostream& nout, int const nfail, int const nrun,
+                int const nerrs) const
     {
         char typecopy[4];
         std::strncpy(typecopy, type, 3);
@@ -113,8 +114,9 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                       */
-    void dbdt01(int m, int n, int kd, real const* A, int lda, real const* Q, int ldq,
-                real const* d, real const* e, real const* Pt, int ldpt, real* work, real& resid)
+    void dbdt01(int const m, int const n, int const kd, real const* const A, int const lda,
+                real const* const Q, int const ldq, real const* const d, real const* const e,
+                real const* const Pt, int const ldpt, real* const work, real& resid) const
     {
         // Quick return if possible
         if (m<=0 || n<=0)
@@ -259,8 +261,9 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                       */
-    void dbdt02(int m, int n, real const* B, int ldb, real const* C, int ldc, real const* U,
-                int ldu, real* work, real& resid)
+    void dbdt02(int const m, int const n, real const* const B, int const ldb, real const* const C,
+                int const ldc, real const* const U, int const ldu, real* const work, real& resid)
+                const
     {
         // Quick return if possible
         resid = ZERO;
@@ -354,8 +357,9 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                       */
-    void dbdt03(char const* uplo, int n, int kd, real const* d, real const* e, real const* U,
-                int ldu, real const* s, real const* Vt, int ldvt, real* work, real& resid)
+    void dbdt03(char const* const uplo, int const n, int const kd, real const* const d,
+                real const* const e, real const* const U, int const ldu, real const* const s,
+                real const* const Vt, int const ldvt, real* const work, real& resid) const
     {
         // Quick return if possible
         resid = ZERO;
@@ -506,9 +510,9 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                       */
-    void dbdt04(char const* uplo, int n, real const* d, real const* e, real const* s,
-                       int ns, real const* U, int ldu, real const* Vt, int ldvt, real* work,
-                       real& resid)
+    void dbdt04(char const* const uplo, int const n, real const* const d, real const* const e,
+                real const* const s, int const ns, real const* const U, int const ldu,
+                real const* const Vt, int const ldvt, real* const work, real& resid) const
     {
         // Quick return if possible.
         resid = ZERO;
@@ -607,7 +611,7 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                       */
-    void dchkbl(std::istream& nin, std::ostream& nout)
+    void dchkbl(std::istream& nin, std::ostream& nout) const
     {
         const int lda = 20;
         int i, ihi=0, ihiin, ilo=0, iloin, info, j, knt, n, ninfo;

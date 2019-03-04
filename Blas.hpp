@@ -34,7 +34,7 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date   November 2017                                                                     */
-    static real dasum(int n, real const* dx, int incx)
+    static real dasum(int const n, real const* const dx, int const incx)
     {
         if (n<=0 || incx<=0)
         {
@@ -91,7 +91,8 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date   November 2017                                                                     */
-    static void daxpy(int n, real da, real const* dx, int incx, real* dy, int incy)
+    static void daxpy(int const n, real const da, real const* const dx, int const incx,
+                      real* const dy, int const incy)
     {
         if (n<=0)
         {
@@ -162,7 +163,8 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date November 2017                                                                       */
-    static void dcopy(int n, real const* dx, int incx, real* dy, int incy)
+    static void dcopy(int const n, real const* const dx, int const incx, real* const dy,
+                      int const incy)
     {
         if (n < 0)
         {
@@ -232,7 +234,8 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date November 2017                                                                       */
-    static real ddot(int n, real const* dx, int incx, real const* dy, int incy)
+    static real ddot(int const n, real const* const dx, int const incx, real const* const dy,
+                     int const incy)
     {
         if (n<=0)
         {
@@ -369,8 +372,10 @@ public:
      *     Iain Duff, AERE Harwell.\n
      *     Jeremy Du Croz, Numerical Algorithms Group Ltd.\n
      *     Sven Hammarling, Numerical Algorithms Group Ltd.                                      */
-    static void dgemm(char const* transa, char const* transb, int m, int n, int k, real alpha,
-                      real const* A, int lda, real const* B, int ldb, real beta, real* C, int ldc)
+    static void dgemm(char const* const transa, char const* const transb, int const m, int const n,
+                      int const k, real const alpha, real const* const A, int const lda,
+                      real const* const B, int const ldb, real const beta, real* const C,
+                      int const ldc)
     {
         // Set nota and notb as true if A and B respectively are not transposed and set nrowa
         // and nrowb as the number of rows and columns of A and the number of rows of B respectively.
@@ -649,8 +654,9 @@ public:
      *     Jeremy Du Croz, Nag Central Office.\n
      *     Sven Hammarling, Nag Central Office.\n
      *     Richard Hanson, Sandia National Labs.                                                 */
-    static void dgemv(char const* trans, int m, int n, real alpha, real const* A, int lda,
-                      real const* x, int incx, real beta, real* y, int incy)
+    static void dgemv(char const* const trans, int const m, int const n, real const alpha,
+                      real const* const A, int const lda, real const* const x, int const incx,
+                      real const beta, real* const y, int const incy)
     {
         // Test the input parameters.
         int info = 0;
@@ -887,8 +893,9 @@ public:
      *     Jeremy Du Croz, Nag Central Office.\n
      *     Sven Hammarling, Nag Central Office.\n
      *     Richard Hanson, Sandia National Labs.                                                 */
-    static void dger(int m, int n, real alpha, real const* x, int incx, real const* y, int incy,
-                     real* A, int lda)
+    static void dger(int const m, int const n, real const alpha, real const* const x,
+                     int const incx, real const* const y, int const incy, real* const A,
+                     int const lda)
     {
         real temp;
         // Test the input parameters.
@@ -996,7 +1003,7 @@ public:
      *     --This version written on 25-October-1982.\n
      *     Modified on 14-October-1993 to inline the call to §dlassq.\n
      *     Sven Hammarling, Nag Ltd.                                                             */
-    static real dnrm2(int n, real const* x, int incx)
+    static real dnrm2(int const n, real const* const x, int const incx)
     {
         real absxi, norm, scale, ssq, temp;
         int ix;
@@ -1041,7 +1048,7 @@ public:
      *
      * §drot applies a plane rotation.
      * \param[in]     n    number of elements in input vector(s)
-     * \param[in]     dx   an array, dimension $(1 + (\{n}-1)|\{incx}|)$
+     * \param[in,out] dx   an array, dimension $(1 + (\{n}-1)|\{incx}|)$
      * \param[in]     incx storage spacing between elements of §dx
      * \param[in,out] dy   an array, dimension $(1 + (\{n}-1)|\{incy}|)$
      * \param[in]     incy storage spacing between elements of §dy
@@ -1054,7 +1061,8 @@ public:
      * \date November 2017
      * \remark
      *     jack dongarra, linpack, 3/11/78.                                                      */
-    static void drot(int n, real* dx, int incx, real* dy, int incy, real c, real s)
+    static void drot(int const n, real* const dx, int const incx, real* const dy, int const incy,
+                     real const c, real const s)
     {
         if (n<=0)
         {
@@ -1111,7 +1119,7 @@ public:
      * \remark
      *     jack dongarra, linpack, 3/11/78.\n
      *     modified 3/93 to return if incx <= 0.                                                 */
-    static void dscal(int n, real da, real* dx, int incx)
+    static void dscal(int const n, real const da, real* const dx, int const incx)
     {
         int i;
         if (n<=0 || incx<=0)
@@ -1169,7 +1177,7 @@ public:
      * \date November 2017
      * \remark
      *     jack dongarra, linpack, 3/11/78.                                                      */
-    static void dswap(int n, real* dx, int incx, real* dy, int incy)
+    static void dswap(int const n, real* const dx, int const incx, real* const dy, int const incy)
     {
         if (n <= 0)
         {
@@ -1292,8 +1300,9 @@ public:
      *     Jeremy Du Croz, Nag Central Office.\n
      *     Sven Hammarling, Nag Central Office.\n
      *     Richard Hanson, Sandia National Labs.                                                 */
-    static void dsymv(char const* uplo, int n, real alpha, real const* A, int lda, real const* x,
-                      int incx, real beta, real* y, int incy)
+    static void dsymv(char const* const uplo, int const n, real const alpha, real const* const A,
+                      int const lda, real const* const x, int const incx, real const beta,
+                      real* const y, int const incy)
     {
         // Test the input parameters.
         int info = 0;
@@ -1541,8 +1550,9 @@ public:
      *     Jeremy Du Croz, Nag Central Office.\n
      *     Sven Hammarling, Nag Central Office.\n
      *     Richard Hanson, Sandia National Labs.                                                 */
-    static void dsyr2(char const* uplo, int n, real alpha, real const* x, int incx, real const* y,
-                      int incy, real* A, int lda)
+    static void dsyr2(char const* const uplo, int const n, real const alpha, real const* const x,
+                      int const incx, real const* const y, int const incy, real* const A,
+                      int const lda)
     {
         // Test the input parameters.
         int info = 0;
@@ -1767,8 +1777,9 @@ public:
      *     Iain Duff, AERE Harwell.\n
      *     Jeremy Du Croz, Numerical Algorithms Group Ltd.\n
      *     Sven Hammarling, Numerical Algorithms Group Ltd.                                      */
-    static void dtrmm(char const* side, char const* uplo, char const* transa, char const* diag,
-                      int m, int n, real alpha, real const* A, int lda, real* B, int ldb)
+    static void dtrmm(char const* const side, char const* const uplo, char const* const transa,
+                      char const* const diag, int const m, int const n, real const alpha,
+                      real const* const A, int const lda, real* const B, int const ldb)
     {
         // Test the input parameters.
         bool lside = (toupper(side[0]) == 'L');
@@ -2141,8 +2152,9 @@ public:
      *     Jeremy Du Croz, Nag Central Office.\n
      *     Sven Hammarling, Nag Central Office.\n
      *     Richard Hanson, Sandia National Labs.                                                 */
-    static void dtrmv(char const* uplo, char const* trans, char const* diag, int n, real const* A,
-                      int lda, real* x, int incx)
+    static void dtrmv(char const* const uplo, char const* const trans, char const* const diag,
+                      int const n, real const* const A, int const lda, real* const x,
+                      int const incx)
     {
         // Test the input parameters.
         int info = 0;
@@ -2399,7 +2411,7 @@ public:
      * \remark
      *     jack dongarra, linpack, 3/11/78.\n
      *     modified 3/93 to return if incx<=0.                                                   */
-    static int idamax(int n, real const* dx, int incx)
+    static int idamax(int const n, real const* const dx, int const incx)
     {
         if (n<1 || incx<=0)
         {
@@ -2457,7 +2469,7 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                       */
-    static void xerbla(char const* srname, int info)
+    static void xerbla(char const* const srname, int const info)
     {
         std::cout << " ** On entry to " << srname << " parameter number " <<  info
                   << " had an illegal value";

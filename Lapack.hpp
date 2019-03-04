@@ -53,7 +53,7 @@ public:
      *     LAPACK is a software package provided by Univ. of Tennessee,
      *     Univ. of California Berkeley, Univ. of Colorado Denver and NAG Ltd.
      * \date December 2016                                                                       */
-    static real dlamc3(real A, real B)
+    static real dlamc3(real const A, real const B) const
     {
         return A + B;
     }
@@ -78,7 +78,7 @@ public:
      * \authors Univ. of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                       */
-    static real dlamch(char const* cmach)
+    static real dlamch(char const* const cmach) const
     {
         // Assume rounding, not chopping.Always.
         real rnd = ONE;
@@ -138,7 +138,7 @@ public:
      * \authors Univ. of Colorado Denver
      * \authors NAG Ltd.
      * \date June 2017                                                                           */
-    static void ilaver(int& vers_major, int& vers_minor, int& vers_patch)
+    static void ilaver(int& vers_major, int& vers_minor, int& vers_patch) const
     {
         vers_major = 3;
         vers_minor = 8;
@@ -245,9 +245,10 @@ public:
      *     Contributors:\n
      *     Ming Gu and Huan Ren, Computer Science Division,
      *     University of California at Berkeley, USA                                             */
-    static void dbdsdc(char const* uplo, char const* compq, int n, real* d, real* e, real* U,
-                       int ldu, real* Vt, int ldvt, real* q, int* iq, real* work, int* iwork,
-                       int& info)
+    static void dbdsdc(char const* const uplo, char const* const compq, int const n, real* const d,
+                       real* const e, real* const U, int const ldu, real* const Vt, int const ldvt,
+                       real* const q, int* const iq, real* const work, int* const iwork, int& info)
+                       const
     {
         // Test the input parameters.
         info = 0;
@@ -654,9 +655,10 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date June 2017                                                                            */
-    static void dbdsqr(char const* uplo, int n, int ncvt, int nru, int ncc, real* d, real* e,
-                       real* Vt, int ldvt, real* U, int ldu, real* C, int ldc, real* work,
-                       int& info)
+    static void dbdsqr(char const* const uplo, int const n, int const ncvt, int const nru,
+                       int const ncc, real* const d, real* const e, real* const Vt, int const ldvt,
+                       real* const U, int const ldu, real* const C, int const ldc,
+                       real* const work, int& info) const
     {
         const real MEIGTH = real(-0.125);
         const real HNDRTH = real(0.01);
@@ -1377,8 +1379,9 @@ public:
      * \authors Univ. of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                       */
-    static void dgebak(char const* job, char const* side, int n, int ilo, int ihi,
-                       real const* scale, int m, real* V, int ldv, int& info)
+    static void dgebak(char const* const job, char const* const side, int const n, int const ilo,
+                       int const ihi, real const* const scale, int const m, real* const V,
+                       int const ldv, int& info) const
     {
         // Decode and Test the input parameters
         bool rightv = (std::toupper(side[0])=='R');
@@ -1574,8 +1577,8 @@ public:
      *     This subroutine is based on the EISPACK routine §BALANC.\n
      *     Modified by Tzu-Yi Chen, Computer Science Division, University of California at
      *     Berkeley, USA                                                                         */
-    static void dgebal(char const* job, int n, real* A, int lda, int& ilo, int& ihi, real* scale,
-                       int& info)
+    static void dgebal(char const* const job, int const n, real* const A, int const lda, int& ilo,
+                       int& ihi, real* const scale, int& info) const
     {
         const real sclfac = TWO;
         const real factor = real(0.95);
@@ -1901,8 +1904,9 @@ public:
      *     where $d$ and $e$ denote diagonal and off-diagonal elements of $B$, $v_i$ denotes an
      *     element of the vector defining $H(i)$, and $u_i$ an element of the vector defining
      *     $G(i)$.                                                                               */
-    static void dgebd2(int m, int n, real* A, int lda, real* d, real* e, real* tauq, real* taup,
-                       real* work, int& info)
+    static void dgebd2(int const m, int const n, real* const A, int const lda, real* const d,
+                       real* const e, real* const tauq, real* const taup, real* const work,
+                       int& info) const
     {
         // Test the input parameters
         info = 0;
@@ -2100,8 +2104,9 @@ public:
      *     where $d$ and $e$ denote diagonal and off-diagonal elements of $B$, $v_i$ denotes an
      *     element of the vector defining $H(i)$, and $u_i$ an element of the vector defining
      *     $G(i)$.                                                                               */
-    static void dgebrd(int m, int n, real* A, int lda, real* d, real* e, real* tauq, real* taup,
-                       real* work, int lwork, int& info)
+    static void dgebrd(int const m, int const n, real* const A, int const lda, real* const d,
+                       real* const e, real* const tauq, real* const taup, real* const work,
+                       int const lwork, int& info) const
     {
         // Test the input parameters
         info = 0;
@@ -2281,7 +2286,8 @@ public:
      *     where $a$ denotes an element of the original matrix $A$, $h$ denotes a modified element
      *     of the upper Hessenberg matrix $H$, and $v_i$ denotes an element of the vector defining
      *     $H(i)$.                                                                               */
-    static void dgehd2(int n, int ilo, int ihi, real* A, int lda, real* tau, real* work, int& info)
+    static void dgehd2(int const n, int const ilo, int const ihi, real* const A, int const lda,
+                       real* const tau, real* const work, int& info) const
     {
         // Test the input parameters
         info = 0;
@@ -2404,8 +2410,8 @@ public:
      *     $H(i)$.\n
      *     This file is a slight modification of LAPACK-3.0's §dgehrd subroutine incorporating
      *     improvements proposed by Quintana-Orti and Van de Geijn (2006). (See §dlahr2.)        */
-    static void dgehrd(int n, int ilo, int ihi, real* A, int lda, real* tau, real* work, int lwork,
-                       int info)
+    static void dgehrd(int const n, int const ilo, int const ihi, real* const A, int const lda,
+                       real* const tau, real* const work, int const lwork, int& info) const
     {
         const int NBMAX = 64;
         const int LDT = NBMAX + 1;
@@ -2595,8 +2601,8 @@ public:
      *         $H(i) = I - \{tau}[i] v v^T$\n
      *     where $v$ is a real/complex vector with $v[0:i-1]=0$ and $v[i]=1$;
      *     $v[i+1:\{m}-1]$ is stored on exit in §A$[i+1:\{m}-1,i]$.                              */
-    static void dgeqp3(int m, int n, real* A, int lda, int* jpvt, real* tau, real* work, int lwork,
-                       int& info)
+    static void dgeqp3(int const m, int const n, real* const A, int const lda, int* const jpvt,
+                       real* const tau, real* const work, int const lwork, int& info) const
     {
         const int INB = 1, INBMIN = 2, IXOVER = 3;
         // Test input arguments
@@ -2797,7 +2803,8 @@ public:
      *         $H(i) = I - \{tau}[i] v v^T$\n
      *     where v is a real vector with $v[0:i-1]=0$ and $v[i]=1$;
      *     $v[i+1:\{m}-1]$ is stored on exit in §A$[i+1:\{m}-1,i]$.			         */
-    static void dgeqr2(int m, int n, real* A, int lda, real* tau, real* work, int& info)
+    static void dgeqr2(int const m, int const n, real* const A, int const lda, real* const tau,
+                       real* const work, int& info) const
     {
         int i, k, coli, icoli;
         real aii;
@@ -2884,7 +2891,8 @@ public:
      *         $H(i) = I - \{tau}[i] v v^T$\n
      *     where v is a real vector with $v[0:i-1]=0$ and $v[i]=1$;
      *     $v[i+1:\{m}-1]$ is stored on exit in §A$[i+1:\{m}-1,i]$.                              */
-    static void dgeqrf(int m, int n, real* A, int lda, real* tau, real* work, int lwork, int& info)
+    static void dgeqrf(int const m, int const n, real* const A, int const lda, real* const tau,
+                       real* const work, int const lwork, int& info) const
     {
         // Test the input arguments
         info = 0;
@@ -3003,7 +3011,7 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                       */
-    static void dlabad(real& small, real& large)
+    static void dlabad(real& small, real& large) const
     {
         // If it looks like we're on a Cray, take the square root of small and large to avoid
         // overflow and underflow problems.
@@ -3113,8 +3121,9 @@ public:
      *     where $a$ denotes an element of the original matrix which is unchanged, $v_i$ denotes an
      *     element of the vector defining $H(i)$, and $u_i$ an element of the vector defining
      *     $G(i)$.                                                                               */
-    static void dlabrd(int m, int n, int nb, real* A, int lda, real* d, real* e, real* tauq,
-                       real* taup, real* X, int ldx, real* Y, int ldy)
+    static void dlabrd(int const m, int const n, int const nb, real* const A, int const lda,
+                       real* const d, real* const e, real* const tauq, real* const taup,
+                       real* const X, int const ldx, real* const Y, int const ldy) const
     {
         // Quick return if possible
         if (m<=0 || n<=0)
@@ -3283,7 +3292,8 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                       */
-    static void dlacpy(char const* uplo, int m, int n, real const* A, int lda, real* B, int ldb)
+    static void dlacpy(char const* const uplo, int const m, int const n, real const* const A,
+                       int const lda, real* const B, int const ldb) const
     {
         int i, j, ldaj, ldbj;
         if (std::toupper(uplo[0])=='U')
@@ -3337,7 +3347,8 @@ public:
      * \authors Univ. of Colorado Denver
      * \authors NAG Ltd.
      * \date January 2013                                                                        */
-    static void dladiv(real a, real b, real c, real d, real& p, real& q)
+    static void dladiv(real const a, real const b, real const c, real const d, real& p, real& q)
+                       const
     {
         const real BS = TWO;
         real ab = std::max(std::fabs(a), std::fabs(b));
@@ -3387,7 +3398,7 @@ public:
     /*! §dladiv1
      *
      * Auxiliary routine to §dladiv                                                              */
-    static void dladiv1(real& a, real b, real c, real d, real& p, real& q)
+    static void dladiv1(real& a, real const b, real const c, real const d, real& p, real& q) const
     {
         real r = d / c;
         real t = ONE / (c + d*r);
@@ -3399,7 +3410,8 @@ public:
     /*! §dladiv2
      *
      * Auxiliary routine to §dladiv1.                                                              */
-    static real dladiv2(real a, real b, real c, real d, real r, real t)
+    static real dladiv2(real const a, real const b, real const c, real const d, real const r,
+                        real const t) const
     {
         if (r!=ZERO)
         {
@@ -3584,10 +3596,12 @@ public:
      *         specified tolerance, $w(f-k)=\ldots=w(f+r)$, $k>0$ and $r\ge 0$, then the interval
      *         will have $N(\{Ab}[j,0])=\{Nab}[j,0]=f-k$ and $N(\{Ab}[j,1])=\{Nab}[j,1]=f+r$. The
      *         cases $w(l)<w(l+1)$ and $w(l-r)=\ldots=w(l+k)$ are handled similarly.             */
-    static void dlaebz(int ijob, int nitmax, int n, int mmax, int minp, int nbmin, real abstol,
-                       real reltol, real pivmin, real const* d, real const* e, real const* e2,
-                       int* nval, real* Ab, real* c, int& mout, int* Nab, real* work, int* iwork,
-                       int& info)
+    static void dlaebz(int const ijob, int const nitmax, int const n, int const mmax,
+                       int const minp, int const nbmin, real const abstol, real const reltol,
+                       real const pivmin, real const* const d, real const* const e,
+                       real const* const e2, int* const nval, real* const Ab, real* const c,
+                       int& mout, int* const Nab, real* const work, int* const iwork, int& info)
+                       const
     {
         // Check for Errors
         info = 0;
@@ -3923,8 +3937,8 @@ public:
      *
      * Contributors:
      *     Ren-Cang Li, Computer Science Division, University of California at Berkeley, USA     */
-    static void dlaed6(int kniter, bool orgati, real rho, real const* d, real const* z, real finit,
-                       real& tau, int& info)
+    static void dlaed6(int const kniter, bool const orgati, real const rho, real const* const d,
+                       real const* const z, real const finit, real& tau, int& info) const
     {
         const int MAXIT = 40;
         info = 0;
@@ -4238,8 +4252,9 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                       */
-    static void dlaexc(bool wantq, int n, real* T, int ldt, real* Q, int ldq, int j0, int n0,
-                       int n1, real* work, int& info)
+    static void dlaexc(bool const wantq, int const n, real* const T, int const ldt, real* const Q,
+                       int const ldq, int const j0, int const n0, int const n1, real* const work,
+                       int& info) const
     {
         const int LDD = 4;
         const int LDX = 2;
@@ -4518,8 +4533,8 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                       */
-    static void dlagtf(int n, real* a, real lambda, real* b, real* c, real tol, real* d, int* in,
-                       int& info)
+    static void dlagtf(int const n, real* const a, real const lambda, real* const b, real* const c,
+                       real const tol, real* const d, int* const in, int& info) const
     {
         info = 0;
         if (n<0)
@@ -4691,8 +4706,9 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                       */
-    static void dlagts(int job, int n, real const* a, real const* b, real const* c, real const* d,
-                       int const* in, real* y, real& tol, int& info)
+    static void dlagts(int const job, int const n, real const* const a, real const* const b,
+                       real const* const c, real const* const d, int const* const in,
+                       real* const y, real& tol, int& info) const
     {
         info = 0;
         if ((std::fabs(job)>2) || (job==0))
@@ -5032,8 +5048,9 @@ public:
      *     This is a modified version of §dlahqr from LAPACK version 3.0.\n
      *     It is \li more robust against overflow and underflow and \li adopts the more
      *     conservative Ahues & Tisseur stopping criterion (LAWN 122, 1997).                     */
-    static void dlahqr(bool wantt, bool wantz, int n, int ilo, int ihi, real* H, int ldh, real* wr,
-                       real* wi, int iloz, int ihiz, real* Z, int ldz, int& info)
+    static void dlahqr(bool const wantt, bool const wantz, int const n, int const ilo,
+                       int const ihi, real* const H, int const ldh, real* const wr, real* const wi,
+                       int const iloz, int const ihiz, real* const Z, int const ldz, int& info) const
     {
         const real DAT1 = THREE / FOUR;
         const real DAT2 = real(-0.4375);
@@ -5463,8 +5480,9 @@ public:
      *         Gregorio Quintana-Orti and Robert van de Geijn, "Improving the performance of
      *         reduction to Hessenberg form," ACM Transactions on Mathematical Software,
      *         32(2):180-194, June 2006.                                                         */
-    static void dlahr2(int n, int k, int nb, real* A, int lda, real* tau, real* T, int ldt,
-                       real* Y, int ldy)
+    static void dlahr2(int const n, int const k, int const nb, real* const A, int const lda,
+                       real* const tau, real* const T, int const ldt, real* const Y, int const ldy)
+                       const
     {
         // Quick return if possible
         if (n<=1)
@@ -5616,9 +5634,11 @@ public:
      * \authors Univ. of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                       */
-    static void dlaln2(bool ltrans, int na, int nw, real smin, real ca, real const* A, int lda,
-                       real d1, real d2, real const* B, int ldb, real wr, real wi, real* X,
-                       int ldx, real& scale, real& xnorm, int& info)
+    static void dlaln2(bool const ltrans, int const na, int const nw, real const smin,
+                       real const ca, real const* const A, int const lda, real const d1,
+                       real const d2, real const* const B, int const ldb, real const wr,
+                       real const wi, real* const X, int const ldx, real& scale, real& xnorm,
+                       int& info) const
     {
         const bool ZSWAP[4] = {false, false, true,  true};
         const bool RSWAP[4] = {false, true,  false, true};
@@ -5995,7 +6015,8 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date June 2016                                                                           */
-    static void dlamrg(int n1, int n2, real const* a, int dtrd1, int dtrd2, int* index)
+    static void dlamrg(int n1, int n2, real const* const a, int const dtrd1, int const dtrd2,
+                       int* const index) const
     {
         int ind1, ind2;
         if (dtrd1>0)
@@ -6091,7 +6112,8 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                       */
-    static real dlange(char const* norm, int m, int n, real const* A, int lda, real* work)
+    static real dlange(char const* const norm, int const m, int const n, real const* const A,
+                       int const lda, real* const work) const
     {
         int i, j, ldacol;
         real scale, sum, dlange=ZERO, temp;
@@ -6151,7 +6173,7 @@ public:
                 }
             }
             dlange = ZERO;
-            for (i=0; i<m; m++)
+            for (i=0; i<m; i++)
             {
                 temp = work[i];
                 if (dlange<temp || std::isnan(temp))
@@ -6203,7 +6225,8 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                       */
-    static real dlanst(char const* norm, int n, real const* d, real const* e)
+    static real dlanst(char const* const norm, int const n, real const* const d,
+                       real const* const e) const
     {
         int i;
         real anorm, sum;
@@ -6306,7 +6329,7 @@ public:
      *     the risk of cancellation errors, when computing real eigenvalues, and to ensure,
      *     if possible, that $|\{rt1r}| \ge |\{rt2r}|$.                                          */
     static void dlanv2(real& a, real& b, real& c, real& d, real& rt1r, real& rt1i, real& rt2r,
-                       real& rt2i, real& cs, real& sn)
+                       real& rt2i, real& cs, real& sn) const
     {
         const real MULTPL = FOUR;
         real aa, bb, bcmax, bcmis, cc, cs1, dd, eps, p, sab, sac, scale, sigma, sn1, tau, temp, z;
@@ -6437,7 +6460,7 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date June 2017                                                                           */
-    static real dlapy2(real x, real y)
+    static real dlapy2(real const x, real const y) const
     {
         if (std::isnan(x))
         {
@@ -6529,8 +6552,9 @@ public:
      * References:\n
      *     LAPACK Working Note 176
      *     <a href="http://www.netlib.org/lapack/lawnspdf/lawn176.pdf">[PDF]</a>                 */
-    static void dlaqp2(int m, int n, int offset, real* A, int lda, int* jpvt, real* tau, real* vn1,
-                       real* vn2, real* work)
+    static void dlaqp2(int const m, int const n, int const offset, real* const A, int const lda,
+                       int* const jpvt, real* const tau, real* const vn1, real* const vn2,
+                       real* const work) const
     {
         int mn = std::min(m-offset, n);
         real tol3z = std::sqrt(dlamch("Epsilon"));
@@ -6656,8 +6680,10 @@ public:
      * References:\n
      *     LAPACK Working Note 176
      *     <a href="http://www.netlib.org/lapack/lawnspdf/lawn176.pdf">[PDF]</a>                 */
-    static void dlaqps(int m, int n, int offset, int nb, int& kb, real* A, int lda, int* jpvt,
-                       real* tau, real* vn1, real* vn2, real* auxv, real* F, int ldf)
+    static void dlaqps(int const m, int const n, int const offset, int const nb, int& kb,
+                       real* const A, int const lda, int* const jpvt, real* const tau,
+                       real* const vn1, real* const vn2, real* const auxv, real* const F,
+                       int const ldf) const
     {
         int lastrk = std::min(m, n+offset) - 1;
         int lsticc = -1;
@@ -6805,8 +6831,8 @@ public:
      * \remark
      *     Contributors:\n
      *     Karen Braman and Ralph Byers, Department of Mathematics, University of Kansas, USA    */
-    static void dlaqr1(int n, real const* H, int ldh, real sr1, real si1, real sr2, real si2,
-                       real* v)
+    static void dlaqr1(int const n, real const* const H, int const ldh, real const sr1,
+                       real const si1, real const sr2, real const si2, real* const v) const
     {
         real H21S, H31S, S;
         if (n==2)
@@ -6959,10 +6985,12 @@ public:
      * \remark
      *     Contributors:\n
      *         Karen Braman and Ralph Byers, Department of Mathematics, University of Kansas, USA*/
-    static void dlaqr2(bool wantt, bool wantz, int n, int ktop, int kbot, int nw, real* H, int ldh,
-                       int iloz, int ihiz, real* Z, int ldz, int& ns, int& nd, real* sr, real* si,
-                       real* V, int ldv, int nh, real* T, int ldt, int nv, real* Wv, int ldwv,
-                       real* work, int lwork)
+    static void dlaqr2(bool const wantt, bool const wantz, int const n, int const ktop,
+                       int const kbot, int const nw, real* const H, int const ldh, int const iloz,
+                       int const ihiz, real* const Z, int const ldz, int& ns, int& nd,
+                       real* const sr, real* const si, real* const V, int const ldv, int const nh,
+                       real* const T, int const ldt, int const nv, real* const Wv, int const ldwv,
+                       real* const work, int const lwork) const
     {
         // Estimate optimal workspace.
         int jw = std::min(nw, kbot-ktop+1);
@@ -7442,9 +7470,10 @@ public:
      *         volume 23, pages 929--947, 2002.\n\n
      *     K. Braman, R. Byers and R. Mathias, The Multi-Shift QR Algorithm Part II: Aggressive
      *     Early Deflation, SIAM Journal of Matrix Analysis, volume 23, pages 948--973, 2002.    */
-    static void dlaqr4(bool wantt, bool wantz, int n, int ilo, int ihi, real* H, int ldh, real* wr,
-                       real* wi, int iloz, int ihiz, real* Z, int ldz, real* work, int lwork,
-                       int& info)
+    static void dlaqr4(bool const wantt, bool const wantz, int const n, int const ilo,
+                       int const ihi, real* const H, int const ldh, real* const wr, real* const wi,
+                       int const iloz, int const ihiz, real* const Z, int const ldz,
+                       real* const work, int const lwork, int& info) const
     {
         // Matrices of order NTINY or smaller must be processed by dlahqr because of insufficient
         // subdiagonal scratch space. (This is a hard limit.)
@@ -7904,10 +7933,12 @@ public:
      *     K. Braman, R. Byers and R. Mathias, The Multi-Shift QR Algorithm Part I: Maintaining
      *     Well Focused Shifts, and Level 3 Performance, SIAM Journal of Matrix Analysis,
      *     volume 23, pages 929--947, 2002.                                                      */
-    static void dlaqr5(bool wantt, bool wantz, int kacc22, int n, int ktop, int kbot, int nshfts,
-                       real* sr, real* si, real* H, int ldh, int iloz, int ihiz, real* Z, int ldz,
-                       real* V, int ldv, real* U, int ldu, int nv, real* Wv, int ldwv, int nh,
-                       real* Wh, int ldwh)
+    static void dlaqr5(bool const wantt, bool const wantz, int const kacc22, int const n,
+                       int const ktop, int const kbot, int const nshfts, real* const sr,
+                       real* const si, real* const H, int const ldh, int const iloz,
+                       int const ihiz, real* const Z, int const ldz, real* const V, int const ldv,
+                       real* const U, int const ldu, int const nv, real* const Wv, int const ldwv,
+                       int const nh, real* const Wh, int const ldwh) const
     {
         // If there are no shifts, then there is nothing to do.
         if (nshfts<2)
@@ -8503,8 +8534,9 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                       */
-    static void dlarf(char const* side, int m, int n, real const* v, int incv, real tau, real* C,
-                      int ldc, real* work)
+    static void dlarf(char const* const side, int const m, int const n, real const* const v,
+                      int const incv, real const tau, real* const C, int const ldc,
+                      real* const work) const
     {
         int i, lastv=0, lastc=0;
         bool applyleft = (std::toupper(side[0])=='L');
@@ -8599,11 +8631,11 @@ public:
      *     the block reflector).
      *
      * \param[in] V
-     *     an array, dimension (§ldv,§k) if §storev = 'C'\n
-     *     &emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;
-     *                         (§ldv,§m) if §storev = 'R' and §side = 'L'\n
-     *     &emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;
-     *                         (§ldv,§n) if §storev = 'R' and §side = 'R'\n
+     *     an array, dimension
+     *         - (§ldv,§k) if §storev = 'C'
+     *         - (§ldv,§m) if §storev = 'R' and §side = 'L'
+     *         - (§ldv,§n) if §storev = 'R' and §side = 'R'
+     *         .
      *     The matrix $V$. See remarks.
      *
      * \param[in] ldv
@@ -8658,9 +8690,10 @@ public:
      *         $V=\b{bm} v_1 & v_1 &  1  &     &   \\
      *                   v_2 & v_2 & v_2 & 1   &   \\
      *                   v_3 & v_3 & v_3 & v_3 & 1 \e{bm}$                                       */
-    static void dlarfb(char const* side, char const* trans, char const* direct, char const* storev,
-                       int m, int n, int k, real* V, int ldv, real const* T, int ldt, real* C,
-                       int ldc, real* Work, int ldwork)
+    static void dlarfb(char const* const side, char const* const trans, char const* const direct,
+                       char const* const storev, int const m, int const n, int const k,
+                       real const* const V, int const ldv, real const* const T, int const ldt,
+                       real* const C, int const ldc, real* const Work, int const ldwork) const
     {
         // Quick return if possible
         if (m<=0 || n<=0)
@@ -9082,7 +9115,7 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date November 2017                                                                       */
-    static void dlarfg(int n, real& alpha, real* x, int incx, real& tau)
+    static void dlarfg(int const n, real& alpha, real* const x, int const incx, real& tau) const
     {
         int j, knt;
         real beta, rsafmin, safmin, xnorm;
@@ -9202,8 +9235,9 @@ public:
      *         $V = \b{bm} v_1 & v_1 &  1  &     &   \\
      *                     v_2 & v_2 & v_2 &  1  &   \\
      *                     v_3 & v_3 & v_3 & v_3 & 1 \e{bm}$                                     */
-    static void dlarft(char const* direct, char const* storev, int n, int k, real const* V, int ldv,
-                       real const* tau, real* T, int ldt)
+    static void dlarft(char const* const direct, char const* const storev, int const n,
+                       int const k, real const* const V, int const ldv, real const* const tau,
+                       real* const T, int const ldt) const
     {
         // Quick return if possible
         if (n==0)
@@ -9411,8 +9445,8 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                       */
-    static void dlarfx(char const* side, int m, int n, real const* v, real tau, real* C, int ldc,
-                       real* work)
+    static void dlarfx(char const* const side, int const m, int const n, real const* const v,
+                       real const tau, real* const C, int const ldc, real* const work) const
     {
         if (tau==ZERO)
         {
@@ -9981,7 +10015,7 @@ public:
      *     This routine calls the auxiliary routine §dlaruv to generate random real numbers from a
      *     uniform (0,1) distribution, in batches of up to 128 using vectorisable code. The Box-
      *     Muller method is used to transform numbers from a uniform to a normal distribution.   */
-    static void dlarnv(int idist, int* iseed, int n, real* x)
+    static void dlarnv(int const idist, int* const iseed, int const n, real* const x) const
     {
         const real TWOPI = real(6.2831853071795864769252867663);
         const int LV = 128;
@@ -10060,7 +10094,7 @@ public:
      * \remark
      * This version has a few statements commented out for thread safety (machine parameters are
      * computed on each entry). 10 feb 03, SJH.                                                  */
-    static void dlartg(real f, real g, real& cs, real& sn, real& r)
+    static void dlartg(real const f, real const g, real& cs, real& sn, real& r) const
     {
         //static bool first = true;
         /*static*/ real safmn2, safmx2;
@@ -10168,7 +10202,7 @@ public:
      *    Math. Comp. 189, pp 331-344, 1990).
      *    48-bit integers are stored in 4 integer array elements with 12 bits per element. Hence
      *    the routine is portable across machines with integers of 32 bits or more.              */
-    static void dlaruv(int* iseed, int n, real* x)
+    static void dlaruv(int* const iseed, int const n, real* const x) const
     {
         const int LV = 128;
         const int IPW2 = 4096;
@@ -10373,7 +10407,7 @@ public:
      *     occur if the largest singular value is within a factor of 2 of overflow.)
      *     Underflow is harmless if underflow is gradual. Otherwise, results may correspond to a
      *     matrix modified by perturbations of size near the underflow threshold.                */
-    static void dlas2(real f, real g, real h, real& ssmin, real& ssmax)
+    static void dlas2(real const f, real const g, real const h, real& ssmin, real& ssmax) const
     {
         real fa = fabs(f);
         real ga = fabs(g);
@@ -10495,8 +10529,9 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date June 2016                                                                           */
-    static void dlascl(char const* type, int kl, int ku, real cfrom, real cto, int m, int n,
-                       real* A, int lda, int& info)
+    static void dlascl(char const* const type, int const kl, int const ku, real const cfrom,
+                       real const cto, int const m, int const n, real* const A, int const lda,
+                       int& info) const
     {
         // Test the input arguments
         info = 0;
@@ -10780,8 +10815,9 @@ public:
      *     Contributors:\n
      *     Ming Gu and Huan Ren, Computer Science Division,
      *     University of California at Berkeley, USA                                             */
-    static void dlasd0(int n, int sqre, real* d, real* e, real* U, int ldu, real* Vt, int ldvt,
-                       int smlsiz, int* iwork, real* work, int& info)
+    static void dlasd0(int const n, int const sqre, real* const d, real* const e, real* const U,
+                       int const ldu, real* const Vt, int const ldvt, int const smlsiz,
+                       int* const iwork, real* const work, int& info) const
     {
         // Test the input parameters.
         info = 0;
@@ -11004,8 +11040,9 @@ public:
      *     Contributors:\n
      *     Ming Gu and Huan Ren, Computer Science Division,
      *     University of California at Berkeley, USA                                             */
-    static void dlasd1(int nl, int nr, int sqre, real* d, real& alpha, real& beta, real* U,
-                       int ldu, real* Vt, int ldvt, int* idxq, int* iwork, real* work, int& info)
+    static void dlasd1(int const nl, int const nr, int const sqre, real* const d, real& alpha,
+                       real& beta, real* const U, int const ldu, real* const Vt, int const ldvt,
+                       int* const idxq, int* const iwork, real* const work, int& info) const
     {
         // Test the input parameters.
         info = 0;
@@ -11198,10 +11235,12 @@ public:
      *     Contributors:\n
      *     Ming Gu and Huan Ren, Computer Science Division,
      *     University of California at Berkeley, USA                                             */
-    static void dlasd2(int nl, int nr, int sqre, int& k, real* d, real* z, real alpha, real beta,
-                       real* U, int ldu, real* Vt, int ldvt, real* dsigma, real* U2, int ldu2,
-                       real* Vt2, int ldvt2, int* idxp, int* idx, int* idxc, int* idxq,
-                       int* coltyp, int& info)
+    static void dlasd2(int const nl, int const nr, int const sqre, int& k, real* const d,
+                       real* const z, real const alpha, real const beta, real* const U,
+                       int const ldu, real* const Vt, int const ldvt, real* const dsigma,
+                       real* const U2, int const ldu2, real* const Vt2, int const ldvt2,
+                       int* const idxp, int* const idx, int* const idxc, int* const idxq,
+                       int* const coltyp, int& info) const
     {
         // Test the input parameters.
         info = 0;
@@ -11608,9 +11647,11 @@ public:
      *     Contributors:\n
      *     Ming Gu and Huan Ren, Computer Science Division,
      *     University of California at Berkeley, USA                                             */
-    static void dlasd3(int nl, int nr, int sqre, int k, real* d, real* Q, int ldq, real* dsigma,
-                       real* U, int ldu, real const* U2, int ldu2, real* Vt, int ldvt, real* Vt2,
-                       int ldvt2, int const* idxc, int const* ctot, real* z, int& info)
+    static void dlasd3(int const nl, int const nr, int const sqre, int const k, real* const d,
+                       real* const Q, int const ldq, real* const dsigma, real* const U,
+                       int const ldu, real const* const U2, int const ldu2, real* const Vt,
+                       int const ldvt, real* const Vt2, int const ldvt2, int const* const idxc,
+                       int const* const ctot, real* const z, int& info) const
     {
         // Test the input parameters.
         info = 0;
@@ -11876,8 +11917,9 @@ public:
      * \remark
      *     Contributors:\n
      *     Ren-Cang Li, Computer Science Division, University of California at Berkeley, USA     */
-    static void dlasd4(int n, int i, real const* d, real const* z, real* delta, real rho,
-                       real& sigma, real* work, int& info)
+    static void dlasd4(int const n, int const i, real const* const d, real const* const z,
+                       real* const delta, real const rho, real& sigma, real* const work, int& info)
+                       const
     {
         /* orgati
          *
@@ -12829,8 +12871,8 @@ public:
      * \remark
      *     Contributors:\n
      *     Ren-Cang Li, Computer Science Division, University of California at Berkeley, USA     */
-    static void dlasd5(int i, real const* d, real const* z, real* delta, real rho, real& dsigma,
-                       real* work)
+    static void dlasd5(int const i, real const* const d, real const* const z, real* const delta,
+                       real const rho, real& dsigma, real* const work) const
     {
         real b, c, tau;
         real del = d[1] - d[0];
@@ -13065,10 +13107,12 @@ public:
      *     Contributors:\n
      *     Ming Gu and Huan Ren, Computer Science Division,
      *     University of California at Berkeley, USA                                             */
-    static void dlasd6(int icompq, int nl, int nr, int sqre, real* d, real* vf, real* vl,
-                       real& alpha, real& beta, int* idxq, int* perm, int& givptr, int* Givcol,
-                       int ldgcol, real* Givnum, int ldgnum, real* Poles, real* difl, real* Difr,
-                       real* z, int& k, real& c, real& s, real* work, int* iwork, int& info)
+    static void dlasd6(int const icompq, int const nl, int const nr, int const sqre, real* const d,
+                       real* const vf, real* const vl, real& alpha, real& beta, int* const idxq,
+                       int* const perm, int& givptr, int* const Givcol, int const ldgcol,
+                       real* const Givnum, int const ldgnum, real* const Poles, real* const difl,
+                       real* const Difr, real* const z, int& k, real& c, real& s, real* const work,
+                       int* const iwork, int& info) const
     {
         // Test the input parameters.
         info = 0;
@@ -13272,11 +13316,13 @@ public:
      *     Contributors:\n
      *     Ming Gu and Huan Ren, Computer Science Division,
      *     University of California at Berkeley, USA                                             */
-    static void dlasd7(int icompq, int nl, int nr, int sqre, int& k, real* d, real* z, real* zw,
-                       real* vf, real* vfw, real* vl, real* vlw, real alpha, real beta,
-                       real* dsigma, int* idx, int* idxp, int* idxq, int* perm, int& givptr,
-                       int* Givcol, int ldgcol, real* Givnum, int ldgnum, int& c, int& s,
-                       int& info)
+    static void dlasd7(int const icompq, int const nl, int const nr, int const sqre, int& k,
+                       real* const d, real* const z, real* const zw, real* const vf,
+                       real* const vfw, real* const vl, real* const vlw, real const alpha,
+                       real const beta, real* const dsigma, int* const idx, int* const idxp,
+                       int* const idxq, int* const perm, int& givptr, int* const Givcol,
+                       int const ldgcol, real* const Givnum, int const ldgnum, int& c, int& s,
+                       int& info) const
     {
         // Test the input parameters.
         info = 0;
@@ -13611,8 +13657,9 @@ public:
      *     Contributors:\n
      *     Ming Gu and Huan Ren, Computer Science Division,
      *     University of California at Berkeley, USA                                             */
-    static void dlasd8(int icompq, int k, real* d, real* z, real* vf, real* vl, real* difl,
-                       real* Difr, int lddifr, real* dsigma, real* work, int& info)
+    static void dlasd8(int const icompq, int const k, real* const d, real* const z, real* const vf,
+                       real* const vl, real* const difl, real* const Difr, int const lddifr,
+                       real* const dsigma, real* const work, int& info) const
     {
         // Test the input parameters.
         info = 0;
@@ -13858,10 +13905,12 @@ public:
      *     Contributors:\n
      *     Ming Gu and Huan Ren, Computer Science Division,
      *     University of California at Berkeley, USA                                             */
-    static void dlasda(int icompq, int smlsiz, int n, int sqre, real* d, real* e, real* U, int ldu,
-                       real* Vt, int* k, real* Difl, real* Difr, real* Z, real* Poles, int* Givptr,
-                       int* Givcol, int ldgcol, int* Perm, real* Givnum, real* c, real* s,
-                       real* work, int* iwork, int& info)
+    static void dlasda(int const icompq, int const smlsiz, int const n, int const sqre,
+                       real* const d, real* const e, real* const U, int const ldu, real* const Vt,
+                       int* const k, real* const Difl, real* const Difr, real* const Z,
+                       real* const Poles, int* const Givptr, int* const Givcol, int const ldgcol,
+                       int* const Perm, real* const Givnum, real* const c, real* const s,
+                       real* const work, int* const iwork, int& info) const
     {
         // Test the input parameters.
         info = 0;
@@ -14181,9 +14230,10 @@ public:
      *     Contributors:\n
      *     Ming Gu and Huan Ren, Computer Science Division,
      *     University of California at Berkeley, USA                                             */
-    static void dlasdq(char const* uplo, int sqre, int n, int ncvt, int nru, int ncc, real* d,
-                       real* e, real* Vt, int ldvt, real* U, int ldu, real* C, int ldc, real* work,
-                       int& info)
+    static void dlasdq(char const* const uplo, int const sqre, int const n, int const ncvt,
+                       int const nru, int const ncc, real* const d, real* const e, real* const Vt,
+                       int const ldvt, real* const U, int const ldu, real* const C, int const ldc,
+                       real* const work, int& info) const
     {
         // Test the input parameters.
         info = 0;
@@ -14396,7 +14446,8 @@ public:
      *     Contributors:\n
      *     Ming Gu and Huan Ren, Computer Science Division,
      *     University of California at Berkeley, USA                                             */
-    static void dlasdt(int n, int& lvl, int& nd, int* inode, int* ndiml, int* ndimr, int msub)
+    static void dlasdt(int const n, int& lvl, int& nd, int* const inode, int* const ndiml,
+                       int* const ndimr, int const msub) const
     {
         // Find the number of levels on the tree.
         lvl = int(std::log(real(std::max(1, n))/real(msub+1)) / std::log(TWO)) + 1;
@@ -14460,7 +14511,8 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                        */
-    static void dlaset(char const* uplo, int m, int n, real alpha, real beta, real* A, int lda)
+    static void dlaset(char const* const uplo, int const m, int const n, real const alpha,
+                       real const beta, real* const A, int const lda) const
     {
         int i, j, ldaj;
         if (toupper(uplo[0])=='U')
@@ -14546,7 +14598,8 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                        */
-    static void dlasq1(int n, real* d, real* e, real* work, int& info)
+    static void dlasq1(int const n, real* const d, real* const e, real* const work, int& info)
+                       const
     {
         int i, iinfo;
         real eps, scale, safmin, sigmn, sigmx, temp;
@@ -14675,7 +14728,7 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                       */
-    static void dlasq2(int n, real* Z, int& info)
+    static void dlasq2(int const n, real* const Z, int& info) const
     {
         /* Local Variables: §i0:§n0 defines a current unreduced segment of §Z. The shifts are
          * accumulated in §sigma. Iteration count is in §iter. Ping-pong is controlled by §pp
@@ -15158,10 +15211,10 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date June 2016                                                                           */
-    static void dlasq3(int i0, int& n0, real* Z, int& pp, real& dmin, real& sigma, real& desig,
-                       real qmax, int& nfail, int& iter, int& ndiv, bool ieee, int& ttype,
-                       real& dmin1, real& dmin2, real& dn, real& dn1, real& dn2, real& g,
-                       real& tau)
+    static void dlasq3(int const i0, int& n0, real* const Z, int& pp, real& dmin, real& sigma,
+                       real& desig, real& qmax, int& nfail, int& iter, int& ndiv, bool const ieee,
+                       int& ttype, real& dmin1, real& dmin2, real& dn, real& dn1, real& dn2,
+                       real& g, real& tau) const
     {
         const real CBIAS = real(1.50);
         int n0in = n0;
@@ -15361,8 +15414,10 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date June 2016                                                                           */
-    static void dlasq4(int i0, int n0, real const* Z, int pp, int n0in, real dmin, real dmin1,
-                       real dmin2, real dn, real dn1, real dn2, real& tau, int& ttype, real& g)
+    static void dlasq4(int const i0, int const n0, real const* const Z, int const pp,
+                       int const n0in, real const dmin, real const dmin1, real const dmin2,
+                       real const dn, real const dn1, real const dn2, real& tau, int& ttype,
+                       real& g) const
     {
         const real CNST1 = real(0.563); // CNST1 = 9/16
         const real CNST2 = real(1.01);
@@ -15710,9 +15765,9 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date June 2017                                                                            */
-    static void dlasq5(int i0, int n0, real* Z, int pp, real tau, real sigma, real& dmin,
-                       real& dmin1, real& dmin2, real& dn, real& dnm1, real& dnm2, bool ieee,
-                       real eps)
+    static void dlasq5(int const i0, int const n0, real* const Z, int const pp, real tau,
+                       real const sigma, real& dmin, real& dmin1, real& dmin2, real& dn,
+                       real& dnm1, real& dnm2, bool const ieee, real const eps) const
     {
         if ((n0-i0-1)<=0)
         {
@@ -16011,8 +16066,8 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                        */
-    static void dlasq6(int i0, int n0, real* Z, int pp, real& dmin, real& dmin1, real& dmin2,
-                       real& dn, real& dnm1, real& dnm2)
+    static void dlasq6(int const i0, int const n0, real* const Z, int const pp, real& dmin,
+                       real& dmin1, real& dmin2, real& dn, real& dnm1, real& dnm2) const
     {
         if ((n0-i0-1)<=0)
         {
@@ -16231,8 +16286,9 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                       */
-    static void dlasr(char const* side, char const* pivot, char const* direct, int m, int n,
-                      real const* c, real const* s, real* A, int lda)
+    static void dlasr(char const* const side, char const* const pivot, char const* const direct,
+                      int const m, int const n, real const* const c, real const* const s,
+                      real* const A, int const lda) const
     {
         int i, info, j, aind1, aind2, aind3, aind4;
         real ctemp, stemp, temp;
@@ -16575,7 +16631,7 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date June 2016                                                                            */
-    static void dlasrt(char const* id, int n, real* d, int& info)
+    static void dlasrt(char const* const id, int const n, real* const d, int& info) const
     {
         const int SELECT = 20;
         // Test the input parameters.
@@ -16817,7 +16873,8 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                       */
-    static void dlassq(int n, real const* x, int incx, real& scale, real& sumsq)
+    static void dlassq(int const n, real const* const x, int const incx, real& scale, real& sumsq)
+                       const
     {
         if (n>0)
         {
@@ -16884,8 +16941,8 @@ public:
      *         may occur if the largest singular value is within a factor of 2 of overflow.)\n
      *     Underflow is harmless if underflow is gradual. Otherwise, results may correspond to a
      *     matrix modified by perturbations of size near the underflow threshold.                */
-    static void dlasv2(real f, real g, real h, real& ssmin, real& ssmax, real& snr, real& csr,
-                       real& snl, real& csl)
+    static void dlasv2(real const f, real const g, real const h, real& ssmin, real& ssmax,
+                       real& snr, real& csr, real& snl, real& csl) const
     {
         bool gasmal, swap;
         int pmax;
@@ -17090,9 +17147,10 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date June 2016                                                                           */
-    static void dlasy2(bool ltranl, bool ltranr, int isgn, int n1, int n2, real const* Tl,
-                       int ldtl, real const* Tr, int ldtr, real const* B, int ldb, real& scale,
-                       real* X, int ldx, real& xnorm, int& info)
+    static void dlasy2(bool const ltranl, bool const ltranr, int const isgn, int const n1,
+                       int const n2, real const* const Tl, int const ldtl, real const* const Tr,
+                       int const ldtr, real const* const B, int const ldb, real& scale,
+                       real* const X, int const ldx, real& xnorm, int& info) const
     {
         const bool BSWPIV[4] = {false, true, false, true};
         const bool XSWPIV[4] = {false, false, true, true};
@@ -17415,8 +17473,8 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                       */
-    static void dorg2r(int m, int n, int k, real* A, int lda, real const* tau, real* work,
-                       int& info)
+    static void dorg2r(int const m, int const n, int const k, real* const A, int const lda,
+                       real const* const tau, real* const work, int& info) const
     {
         // Test the input arguments
         info = 0;
@@ -17546,8 +17604,9 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date April 2012                                                                          */
-    static void dorgbr(char const* vect, int m, int n, int k, real* A, int lda, real const* tau,
-                       real* work, int lwork, int& info)
+    static void dorgbr(char const* const vect, int const m, int const n, int const k,
+                       real* const A, int const lda, real const* const tau, real* const work,
+                       int const lwork, int& info) const
     {
         // Test the input arguments
         info = 0;
@@ -17738,8 +17797,8 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                       */
-    static void dorgl2(int m, int n, int k, real* A, int lda, real const* tau, real* work,
-                       int& info)
+    static void dorgl2(int const m, int const n, int const k, real* const A, int const lda,
+                       real const* const tau, real* const work, int& info) const
     {
         // Test the input arguments
         info = 0;
@@ -17857,8 +17916,8 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                       */
-    static void dorglq(int m, int n, int k, real* A, int lda, real const* tau, real* work,
-                       int lwork, int& info)
+    static void dorglq(int const m, int const n, int const k, real* const A, int const lda,
+                       real const* const tau, real* const work, int const lwork, int& info) const
     {
         // Test the input arguments
         info = 0;
@@ -18026,8 +18085,8 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                       */
-    static void dorgqr(int m, int n, int k, real* A, int lda, real const* tau, real* work,
-                       int lwork, int& info)
+    static void dorgqr(int const m, int const n, int const k, real* const A, int const lda,
+                       real const* const tau, real* const work, int const lwork, int& info) const
     {
         // Test the input arguments
         info = 0;
@@ -18210,8 +18269,9 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                       */
-    static void dorm2r(char const* side, char const* trans, int m, int n, int k, real* A, int lda,
-                       real const* tau, real* C, int ldc, real* work, int& info)
+    static void dorm2r(char const* const side, char const* const trans, int const m, int const n,
+                       int const k, real* const A, int const lda, real const* const tau,
+                       real* const C, int const ldc, real* const work, int& info) const
     {
         // Test the input arguments
         bool left   = (std::toupper(side[0]) =='L');
@@ -18386,9 +18446,10 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                       */
-    static void dormhr(char const* side, char const* trans, int m, int n, int ilo, int ihi,
-                       real const* A, int lda, real const* tau, real* C, int ldc, real* work,
-                       int lwork, int& info)
+    static void dormhr(char const* const side, char const* const trans, int const m, int const n,
+                       int const ilo, int const ihi, real const* const A, int const lda,
+                       real const* const tau, real* const C, int const ldc, real* const work,
+                       int const lwork, int& info) const
     {
         // Test the input arguments
         info = 0;
@@ -18564,8 +18625,10 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                       */
-    static void dormqr(char const* side, char const* trans, int m, int n, int k, real* A, int lda,
-                       real const* tau, real* C, int ldc, real* work, int lwork, int& info)
+    static void dormqr(char const* const side, char const* const trans, int const m, int const n,
+                       int const k, real* const A, int const lda, real const* const tau,
+                       real* const C, int const ldc, real* const work, int const lwork, int& info)
+                       const
     {
         const int NBMAX = 64;
         const int LDT   = NBMAX + 1;
@@ -18850,9 +18913,11 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date June 2016                                                                           */
-    static void dstebz(char const* range, char const* order, int n, real vl, real vu, int il,
-                       int iu, real abstol, real const* d, real const* e, int& m, int& nsplit,
-                       real* w, int* iblock, int* isplit, real* work, int* iwork, int& info)
+    static void dstebz(char const* const range, char const* const order, int const n,
+                       real const vl, real const vu, int const il, int const iu, real const abstol,
+                       real const* const d, real const* const e, int& m, int& nsplit,
+                       real* const w, int* const iblock, int* const isplit, real* const work,
+                       int* const iwork, int& info) const
     {
         const real FUDGE = 2.1;
         const real RELFAC = 2.0;
@@ -19397,9 +19462,10 @@ public:
      *         MAXITS, integer, default=5: The maximum number of iterations performed.\n
      *         EXTRA,  integer, default=2: The number of iterations performed after norm growth
      *                                     criterion is satisfied, should be at least 1.         */
-    static void dstein(int n, real const* d, real const* e, int m, real const* w,
-                       int const* iblock, int const* isplit, real* Z, int ldz, real* work,
-                       int* iwork, int* ifail, int& info)
+    static void dstein(int const n, real const* const d, real const* const e, int const m,
+                       real const* const w, int const* const iblock, int const* const isplit,
+                       real* const Z, int const ldz, real* const work, int* const iwork,
+                       int* const ifail, int& info) const
     {
         const real ODM3 = real(1.0e-3);
         const real ODM1 = real(1.0e-1);
@@ -19724,9 +19790,10 @@ public:
      *     scaling to make the the code robust against possible overflow.\n
      *     Each eigenvector is normalized so that the element of largest magnitude has magnitude 1;
      *     here the magnitude of a complex number ($x$,$y$) is taken to be $|x| + |y|$.          */
-    static void dtrevc3(char const* side, char const* howmny, bool* select, int n, real const* T,
-                        int ldt, real* Vl, int ldvl, real* Vr, int ldvr, int mm, int& m,
-                        real* work, int lwork, int& info)
+    static void dtrevc3(char const* const side, char const* const howmny, bool* const select,
+                        int const n, real const* const T, int const ldt, real* const Vl,
+                        int const ldvl, real* const Vr, int const ldvr, int const mm, int& m,
+                        real* const work, int const lwork, int& info) const
     {
         const int NBMIN=8, NBMAX=128;
         // Decode and test the input parameters
@@ -20824,8 +20891,9 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                       */
-    static void dtrexc(char const* compq, int n, real* T, int ldt, real* Q, int ldq, int& ifst,
-                       int& ilst, real* work, int& info)
+    static void dtrexc(char const* const compq, int const n, real* const T, int const ldt,
+                       real* const Q, int const ldq, int& ifst, int& ilst, real* const work,
+                       int& info) const
     {
         // Decode and test the input arguments.
         info = 0;
@@ -21111,7 +21179,7 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                       */
-    static int ieeeck(int ispec, real Zero, real One)
+    static int ieeeck(int const ispec, real const Zero, real const One) const
     {
         real posinf = One / Zero;
         if (posinf<=One)
@@ -21204,7 +21272,7 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                       */
-    static int iladlc(int m, int n, real const* A, int lda)
+    static int iladlc(int const m, int const n, real const* const A, int const lda) const
     {
         int ila, lastcol=lda*(n-1);
         // Quick test for the common case where one corner is non-zero.
@@ -21248,7 +21316,7 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                       */
-    static int iladlr(int m, int n, real const* A, int lda)
+    static int iladlr(int const m, int const n, real const* const A, int const lda) const
     {
         int lastrow = m - 1;
         // Quick test for the common case where one corner is non - zero.
@@ -21348,8 +21416,8 @@ public:
      *            §strtri as follows:\n
      *                §nb = §ilaenv(1, 'STRTRI', §uplo[0]+§diag[0], §n, -1, -1, -1);\n
      *                if ($\{nb}\le 1$) $\{nb} = \max(1,\{n})$;                                     */
-    static int ilaenv(int ispec, char const* name, char const* opts, int n1, int n2, int n3,
-                      int n4)
+    static int ilaenv(int const ispec, char const* const name, char const* const opts,
+                      int const n1, int const n2, int const n3, int const n4) const
     {
         bool sname, cname;
         char c1;
@@ -22166,8 +22234,8 @@ public:
      *             &Select structured matrix multiply.\\
      *             &(See \(\{ispec}\) = 16 above for details.) Default: 3.
      *     \end{tabular}\f]                                                                      */
-    static int iparmq(int ispec, char const* name, char const* opts, int n, int ilo, int ihi,
-                      int lwork)
+    static int iparmq(int const ispec, char const* const name, char const* const opts, int const n,
+                      int const ilo, int const ihi, int const lwork) const
     {
         const int INMIN=12, INWIN=13, INIBL=14, ISHFTS=15, IACC22=16, NMIN=75, K22MIN=14,
                   KACMIN=14, NIBBLE=14, KNWSWP=500;
@@ -22298,7 +22366,7 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                       */
-    static void xerbla(char const* srname, int info)
+    static void xerbla(char const* const srname, int const info) const
     {
         std::cerr << "On entry to " << srname << " parameter number " << info
                   << " had an illegal value.";

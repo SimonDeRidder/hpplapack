@@ -67,8 +67,8 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                       */
-    void dlagge(int m, int n, int kl, int ku, real const* d, real* A, int lda, int* iseed,
-                       real* work, int& info)
+    void dlagge(int const m, int const n, int const kl, int const ku, real const* const d,
+                real* const A, int const lda, int* const iseed, real* const work, int& info) const
     {
         // Test the input arguments
         info = 0;
@@ -318,8 +318,8 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                       */
-    void dlagsy(int n, int k, real const* d, real* A, int lda, int* iseed, real* work,
-                       int& info)
+    void dlagsy(int const n, int const k, real const* const d, real* const A, int const lda,
+                int* const iseed, real* const work, int& info) const
     {
         // Test the input arguments
         info = 0;
@@ -453,7 +453,7 @@ public:
      *     for b = 48', Math. Comp. 189, pp 331-344, 1990).\n
      *     48-bit integers are stored in 4 integer array elements with 12 bits per element. Hence
      *     the routine is portable across machines with integers of 32 bits or more.             */
-    real dlaran(int* iseed)
+    real dlaran(int* const iseed) const
     {
         const int M1 = 494;
         const int M2 = 322;
@@ -518,7 +518,7 @@ public:
      *     This routine calls the auxiliary routine §dlaran to generate a random real number from a
      *     uniform (0,1) distribution. The Box-Muller method is used to transform numbers from a
      *     uniform to a normal distribution.                                                     */
-    real dlarnd(int idist, int* iseed)
+    real dlarnd(int const idist, int* const iseed) const
     {
         // Generate a real random number from a uniform (0,1) distribution
         real t1 = dlaran(iseed);
@@ -659,8 +659,8 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                       */
-    void dlarot(bool lrows, bool lleft, bool lright, int nl, real c, real s, real* A,
-                       int lda, real& xleft, real& xright)
+    void dlarot(bool const lrows, bool const lleft, bool const lright, int const nl, real const c,
+                real const s, real* const A, int const lda, real& xleft, real& xright) const
     {
         // Set up indices, arrays for ends
         int iinc, inext;
@@ -785,8 +785,8 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                       */
-    void dlatm1(int mode, real cond, int irsign, int idist, int* iseed, real* d, int n,
-                       int& info)
+    void dlatm1(int const mode, real const cond, int const irsign, int const idist,
+                int* const iseed, real* const d, int const n, int& info) const
     {
         // Decode and Test the input parameters. Initialize flags & seed.
         info = 0;
@@ -1087,9 +1087,10 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                       */
-    void dlatms(int m, int n, const char* dist, int* iseed, const char* sym, real* d,
-                       int mode, real cond, real dmax, int kl, int ku, char const* pack, real* A,
-                       int lda, real* work, int& info)
+    void dlatms(int const m, int const n, char const* const dist, int* const iseed,
+                char const* const sym, real* const d, int const mode, real const cond,
+                real const dmax, int const kl, int const ku, char const* const pack, real* const A,
+                int const lda, real* const work, int& info) const
     {
         //
         // 1)    Decode and Test the input parameters. Initialize flags & seed.

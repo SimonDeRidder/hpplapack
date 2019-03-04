@@ -51,7 +51,7 @@ private:
         int iparms[100]; //!< struct containing parameters. used in §ilaenv, §iparmq
     } claenv;            //!< A classwide leanvstruct instance
 
-    Testing_matgen<real> MatGen; //!< matgen instance
+    Testing_matgen<real> const MatGen; //!< matgen instance
 
 public:
 
@@ -107,7 +107,7 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                        */
-    void alahd(std::ostream& iounit, char const* path)
+    void alahd(std::ostream& iounit, char const* const path) const
     {
         if (!iounit.good())
         {
@@ -852,8 +852,8 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                       */
-    void alareq(char const* path, int nmats, bool* dotype, int ntypes, std::istream& nin,
-                std::ostream& nout)
+    void alareq(char const* const path, int const nmats, bool* const dotype, int const ntypes,
+                std::istream& nin, std::ostream& nout) const
     {
         int i;
         if (nmats>=ntypes)
@@ -996,7 +996,8 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                        */
-    void alasum(char const* type, std::ostream& nout, int nfail, int nrun, int nerrs)
+    void alasum(char const* const type, std::ostream& nout, int const nfail, int const nrun,
+                int const nerrs)
     {
         char typecopy[4];
         std::strncpy(typecopy, type, 3);
@@ -1084,7 +1085,7 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date April 2012                                                                          */
-    void dchkaa(const int NMAX, const int MAXIN, const int MAXRHS, const int MATMAX,
+    void dchkaa(int const NMAX, int const MAXIN, int const MAXRHS, int const MATMAX,
                 std::istream& nin, std::ostream& nout)
     {
         /*
@@ -2179,9 +2180,11 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                       */
-    void dchkq3(bool const* dotype, int nm, int const* mval, int nn, int const* nval,
-                       int nnb, int const* nbval, int const* nxval, real thresh, real* A,
-                       real* CopyA, real* S, real* tau, real* work, int* iwork, std::ostream& nout)
+    void dchkq3(bool const* const dotype, int const nm, int const* const mval, int const nn,
+                int const* const nval, int const nnb, int const* const nbval,
+                int const* const nxval, real const thresh, real* const A, real* const CopyA,
+                real* const S, real* const tau, real* const work, int* const iwork,
+                std::ostream& nout)
     {
         const int NTYPES = 6;
         const int NTESTS = 3;
@@ -2346,7 +2349,7 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                       */
-    void dlaord(char const* job, int n, real* x, int incx)
+    void dlaord(char const* const job, int const n, real* const x, int const incx)
     {
         int i, ix, ixnext;
         real temp;
@@ -2443,8 +2446,9 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                        */
-    real dqpt01(int m, int n, int k, real const* A, real* Af, int lda, real
-                       const* tau, int const* jpvt, real* work, int lwork)
+    real dqpt01(int const m, int const n, int const k, real const* const A, real* const Af,
+                int const lda, real const* const tau, int const* const jpvt, real* const work,
+                int const lwork)
     {
         // Test if there is enough workspace
         if (lwork<m*n+n)
@@ -2529,8 +2533,8 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                       */
-    real dqrt11(int m, int k, real* A, int lda, real const* tau, real* work,
-                       int lwork)
+    real dqrt11(int const m, int const k, real* const A, int const lda, real const* const tau,
+                real* const work, int const lwork)
     {
         // Test for sufficient workspace
         if (lwork<(m*m+m))
@@ -2586,7 +2590,8 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                       */
-    real dqrt12(int m, int n, real const* A, int lda, real const* s, real* work, int lwork)
+    real dqrt12(int const m, int const n, real const* const A, int const lda, real const* const s,
+                real* const work, int const lwork)
     {
         // Test that enough workspace is supplied
         int mn = std::min(m, n);
@@ -2686,7 +2691,8 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                       */
-    void icopy(int n, int const* sx, int incx, int* sy, int incy)
+    void icopy(int const n, int const* const sx, int const incx, int* const sy, int const incy)
+               const
     {
         if (n<=0)
         {
@@ -2800,8 +2806,8 @@ public:
      *         §strtri as follows:\n
      *            §nb = §ilaenv(1, 'STRTRI', §UPLO[0]+§DIAG[0], §n, -1, -1, -1);\n
      *            if (§nb$\le 1$) §nb = $\max(1,\{n})$</li></ol>                                 */
-    virtual int ilaenv(int ispec, char const* name, char const* opts, int n1, int n2, int n3,
-                       int n4)
+    virtual int ilaenv(int const ispec, char const* const name, char const* const opts,
+                       int const n1, int const n2, int const n3, int const n4) const
     {
         if (ispec>=1 && ispec<=5)
         {
@@ -2897,7 +2903,7 @@ public:
      *                  &                & indicating that xerbla was called\\
      *     snramc.srnam & char*          & Expected name of calling subroutine\\
      *     \end{tabular}$                                                                        */
-    virtual void xerbla(const char* srname, int info)
+    virtual void xerbla(const char* const srname, int const info)
     {
         infoc.lerr = true;
         if (info!=infoc.info)
@@ -2955,7 +2961,7 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                       */
-    void xlaenv(int ispec, int nvalue)
+    void xlaenv(int const ispec, int const nvalue)
     {
         if (ispec>=1 && ispec<=9)
         {
