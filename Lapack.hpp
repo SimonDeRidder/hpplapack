@@ -3431,6 +3431,91 @@ public:
         }
     }
 
+    /*! §dlae2 computes the eigenvalues of a 2 by 2 symmetric matrix.
+     *
+     * §dlae2  computes the eigenvalues of a 2 by 2 symmetric matrix\n
+     *     $\b{bm} \{a} & \{b} \\
+     *             \{b} & \{c} \e{bm}$.\n
+     * On return, §rt1 is the eigenvalue of larger absolute value, and §rt2 is the eigenvalue of
+     * smaller absolute value.
+     * \param[in]  a   The [0,0] element of the 2 by 2 matrix.
+     * \param[in]  b   The [0,1] and [1,0] elements of the 2 by 2 matrix.
+     * \param[in]  c   The [1,1] element of the 2 by 2 matrix.
+     * \param[out] rt1 The eigenvalue of larger absolute value.
+     * \param[out] rt2 The eigenvalue of smaller absolute value.
+     * \authors Univ. of Tennessee
+     * \authors Univ. of California Berkeley
+     * \authors Univ. of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016
+     * \remark
+     *     §rt1 is accurate to a few ulps barring over/underflow.\n
+     *     §rt2 may be inaccurate if there is massive cancellation in the determinant
+     *     $\{a}\{c}-\{b}\{b}$; higher precision or correctly rounded or correctly truncated
+     *     arithmetic would be needed to compute §rt2 accurately in all cases.\n
+     *     Overflow is possible only if §rt1 is within a factor of 5 of overflow. Underflow is
+     *     harmless if the input data is 0 or exceeds $\{underflow\_threshold}/\{macheps}.$      */
+    static void dlae2(real const a, real const b, real const c, real& rt1, real& rt2) const
+    {
+        real acmn, acmx, rt;
+        {
+            // Compute the eigenvalues
+            real adf = std::fabs(a-c);
+            real ab  = std::fabs(b+b);
+            if (std::fabs(a)>std::fabs(c))
+            {
+                acmx = a;
+                acmn = c;
+            }
+            else
+            {
+                acmx = c;
+                acmn = a;
+            }
+            {
+                real temp;
+                if (adf>ab)
+                {
+                    temp = ab / adf;
+                    rt = adf * std::sqrt(ONE+temp*temp);
+                }
+                else if (adf<ab)
+                {
+                    temp = adf / ab;
+                    rt = ab  * std::sqrt(ONE+temp*temp);
+                }
+                else
+                {
+                    // Includes case ab=adf=0
+                    rt = ab * std::sqrt(TWO);
+                }
+            }
+        }
+        real sm = a + c;
+        if (sm<ZERO)
+        {
+            rt1 = HALF*(sm-rt);
+            // Order of execution important.
+            // To get fully accurate smaller eigenvalue, the next line needs to be executed in
+            // higher precision.
+            rt2 = (acmx/rt1)*acmn - (b/rt1)*b;
+        }
+        else if (sm>ZERO)
+        {
+            rt1 = HALF * (sm+rt);
+            // Order of execution important.
+            // To get fully accurate smaller eigenvalue, the next line needs to be executed in
+            // higher precision.
+            rt2 = (acmx/rt1)*acmn - (b/rt1)*b;
+        }
+        else
+        {
+            // Includes case rt1 = rt2 = 0
+            rt1 =  HALF * rt;
+            rt2 = -HALF * rt;
+        }
+}
+
     /*! §dlaebz computes the number of eigenvalues of a real symmetric tridiagonal matrix which are
      *  less than or equal to a given value, and performs other tasks required by the routine
      *  §dstebz.
@@ -5029,7 +5114,7 @@ public:
      *          those eigenvalues which have been successfully computed.\n
      *    &emsp;If $\{info}>0$ and §wantt is false, then on exit, the remaining unconverged
      *          eigenvalues are the eigenvalues of the upper Hessenberg matrix rows and columns
-     *          §ilo thorugh $\{info}-1$ of the final, output value of §H.\n
+     *          §ilo through $\{info}-1$ of the final, output value of §H.\n
      *    &emsp;If $\{info}>0$ and §wantt is true, then on exit\n
      *    &emsp;(*)&emsp;&emsp;$(\text{initial value of }\{H})U = U(\text{final value of }\{H})$\n
      *    &emsp;where $U$ is an orthognal matrix. The final value of §H is upper Hessenberg and
@@ -7339,6 +7424,490 @@ public:
                     Blas<real>::dgemm("N", "N", kln, jw, jw, ONE, &Z[krow+ztop], ldz, V, ldv, ZERO,
                                       Wv, ldwv);
                     dlacpy("A", kln, jw, Wv, ldwv, &Z[krow+ztop], ldz);
+                }
+            }
+        }
+        // Return the number of deflations ...
+        nd = jw - ns;
+        // ... and the number of shifts. (Subtracting infqr from the spike length takes care of the
+        // case of a rare QR failure while calculating eigenvalues of the deflation window.)
+        ns -= infqr;
+        // Return optimal workspace.
+        work[0] = real(lwkopt);
+    }
+
+    /*! §dlaqr3 performs the orthogonal similarity transformation of a Hessenberg matrix to detect
+     *  and deflate fully converged eigenvalues from a trailing principal submatrix (aggressive
+     *  early deflation).
+     *
+     * Aggressive early deflation:\n
+     * §dlaqr3 accepts as input an upper Hessenberg matrix $H$ and performs an orthogonal
+     * similarity transformation designed to detect and deflate fully converged eigenvalues from a
+     * trailing principal submatrix. On output $H$ has been overwritten by a new Hessenberg matrix
+     * that is a perturbation of an orthogonal similarity transformation of $H$. It is to be hoped
+     * that the final version of $H$ has many zero subdiagonal entries.
+     * \param[in] wantt
+     *     If §true, then the Hessenberg matrix $H$ is fully updated so that the quasi-triangular
+     *     Schur factor may be computed (in cooperation with the calling subroutine).\n
+     *     If §false, then only enough of $H$ is updated to preserve the eigenvalues.
+     *
+     * \param[in] wantz
+     *     If §true, then the orthogonal matrix $Z$ is updated so that the orthogonal Schur factor
+     *     may be computed (in cooperation with the calling subroutine).\n
+     *     If §false, then $Z$ is not referenced.
+     *
+     * \param[in] n
+     *     The order of the matrix $H$ and (if §wantz is §true) the order of the orthogonal matrix
+     *     $Z$.
+     *
+     * \param[in] ktop
+     *     It is assumed that either $\{ktop}=0$ or $H[\{ktop},\{ktop}-1]=0$. §kbot and §ktop
+     *     together determine an isolated block along the diagonal of the Hessenberg matrix.\n
+     *     NOTE: zero-based index!
+     *
+     * \param[in] kbot
+     *     It is assumed without a check that either $\{kbot}=\{n}-1$ or $H[\{kbot}+1,\{kbot}]=0$.
+     *     §kbot and §ktop together determine an isolated block along the diagonal of the
+     *     Hessenberg matrix.\n
+     *     NOTE: zero-based index!
+     *
+     * \param[in] nw Deflation window size. $1\le\{nw}\le(\{kbot}-\{ktop}+1)$.
+     *
+     * \param[in,out] H
+     *     an array, dimension (§ldh,§n)\n
+     *     On input the initial §n by §n section of §H stores the Hessenberg matrix undergoing
+     *     aggressive early deflation.\n
+     *     On output §H has been transformed by an orthogonal similarity transformation, perturbed,
+     *     and then returned to Hessenberg form that (it is to be hoped) has some zero subdiagonal
+     *     entries.
+     *
+     * \param[in] ldh
+     *     Leading dimension of §H just as declared in the calling subroutine. $\{n}\le\{ldh}$.
+     *
+     * \param[in] iloz, ihiz
+     *     Specify the rows of §Z to which transformations must be applied if §wantz is §true.
+     *     $0\le\{iloz}\le\{ihiz}<\{n}$.\n
+     *     NOTE: zero-based indices!
+     *
+     * \param[in,out] Z
+     *     an array, dimension (§ldz,§n)\n
+     *     If §wantz is §true, then on output, the orthogonal similarity transformation mentioned
+     *     above has been accumulated into $\{Z}[\{iloz}:\{ihiz},\{iloz}:\{ihiz}]$ from the right.
+     *     \n If §wantz is §false, then §Z is unreferenced.
+     *
+     * \param[in] ldz
+     *     The leading dimension of §Z just as declared in the calling subroutine. $1\le\{ldz}$.
+     *
+     * \param[out] ns
+     *     The number of unconverged (ie approximate) eigenvalues returned in §sr and §si that may
+     *     be used as shifts by the calling subroutine.
+     *
+     * \param[out] nd     The number of converged eigenvalues uncovered by this subroutine.
+     * \param[out] sr, si
+     *     arrays, dimension ($\{kbot}+1$)\n
+     *     On output, the real and imaginary parts of approximate eigenvalues that may be used for
+     *     shifts are stored in $\{sr}[\{kbot}-\{nd}-\{ns}+1]$ through $\{sr}[\{kbot}-\{nd}]$ and
+     *     $\{si}[\{kbot}-\{nd}-\{ns}+1]$ through $\{si}[\{kbot}-\{nd}]$, respectively.\n
+     *     The real and imaginary parts of converged eigenvalues are stored in
+     *     $\{sr}[\{kbot}-\{nd}+1]$ through $\{sr}[\{kbot}]$ and $\{si}[\{kbot}-\{nd}+1]$ through
+     *     $\{si}[\{kbot}]$, respectively.
+     *
+     * \param[out] V   an array, dimension (§ldv,§nw)\n An §nw by §nw work array.
+     * \param[in]  ldv
+     *     The leading dimension of §V just as declared in the calling subroutine.
+     *     $\{nw}\le\{ldv}$.
+     *
+     * \param[in]  nh  The number of columns of §T. $\{nh}\ge\{nw}$.
+     * \param[out] T   an array, dimension (§ldt,§nw)
+     * \param[in]  ldt
+     *     The leading dimension of §T just as declared in the calling subroutine.
+     *     $\{nw}\le\{ldt}$.
+     *
+     * \param[in] nv
+     *     The number of rows of work array §Wv available for workspace. $\{nv}\ge\{nw}$.
+     *
+     * \param[out] Wv   an array, dimension (§ldwv,§nw)
+     * \param[in]  ldwv
+     *     The leading dimension of §W just as declared in the calling subroutine.
+     *     $\{nw}\le\{ldwv}$.
+     *
+     * \param[out] work
+     *     an array, dimension (§lwork)\n
+     *     On exit, $\{work}[0]$ is set to an estimate of the optimal value of §lwork for the given
+     *     values of §n, §nw, §ktop and §kbot.
+     *
+     * \param[in] lwork
+     *     The dimension of the work array §work. $\{lwork}=2\{nw}$ suffices, but greater
+     *     efficiency may result from larger values of §lwork.\n
+     *     If $\{lwork}=-1$, then a workspace query is assumed; §dlaqr3 only estimates the optimal
+     *     workspace size for the given values of §n, §nw, §ktop and §kbot. The estimate is
+     *     returned in $\{work}[0]$. No error message related to §lwork is issued by §XERBLA.
+     *     Neither §H nor §Z are accessed.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date June 2016
+     * \remark
+     *     Contributors:\n
+     *         Karen Braman and Ralph Byers, Department of Mathematics, University of Kansas, USA*/
+    static void dlaqr3(bool const wantt, bool const wantz, int const n, int const ktop,
+                       int const kbot, int const nw, real* const H, int const ldh, int const iloz,
+                       int const ihiz, real* const Z, int const ldz, int& ns, int& nd,
+                       real* const sr, real* const si, real* const V, int const ldv, int const nh,
+                       real* const T, int const ldt, int const nv, real* const Wv, int const ldwv,
+                       real* const work, int const lwork) const
+    {
+        // Estimate optimal workspace.
+        int jw = std::min(nw, kbot-ktop+1);
+        int info, infqr, lwkopt;
+        if (jw<=2)
+        {
+            lwkopt = 1;
+        }
+        else
+        {
+            // Workspace query call to dgehrd
+            dgehrd(jw, 0, jw-2, T, ldt, work, work, -1, info);
+            int lwk1 = int(work[0]);
+            // Workspace query call to dormhr
+            dormhr("R", "N", jw, jw, 0, jw-2, T, ldt, work, V, ldv, work, -1, info);
+            int lwk2 = int(work[0]);
+            // Workspace query call to dlaqr4
+            dlaqr4(true, true, jw, 0, jw-1, T, ldt, sr, si, 0, jw-1, V, ldv, work, -1, infqr);
+            int lwk3 = int(work[0]);
+            // Optimal workspace
+            lwkopt = std::max(jw+std::max(lwk1, lwk2), lwk3);
+        }
+        // Quick return in case of workspace query.
+        if (lwork==-1)
+        {
+            work[0] = real(lwkopt);
+            return;
+        }
+        // Nothing to do for an empty active block ...
+        ns = 0;
+        nd = 0;
+        work[0] = ONE;
+        if (ktop>kbot)
+        {
+            return;
+        }
+        // ... nor for an empty deflation window.
+        if (nw<1)
+        {
+            return;
+        }
+        // Machine constants
+        real safmin = dlamch("SAFE MINIMUM");
+        real safmax = ONE / safmin;
+        dlabad(safmin, safmax);
+        real ulp = dlamch("PRECISION");
+        real smlnum = safmin * (real(n)/ulp);
+        // Setup deflation window
+        jw = std::min(nw, kbot-ktop+1);
+        int kwtop = kbot - jw + 1;
+        real s;
+        if (kwtop==ktop)
+        {
+            s = ZERO;
+        }
+        else
+        {
+            s = H[kwtop+ldh*(kwtop-1)];
+        }
+        if (kbot==kwtop)
+        {
+            // 1 by 1 deflation window: not much to do
+            sr[kwtop] = H[kwtop+ldh*kwtop];
+            si[kwtop] = ZERO;
+            ns = 1;
+            nd = 0;
+            if (std::fabs(s) <= std::max(smlnum, ulp*std::fabs(H[kwtop+ldh*kwtop])))
+            {
+                ns = 0;
+                nd = 1;
+                if (kwtop>ktop)
+                {
+                    H[kwtop+ldh*(kwtop-1)] = ZERO;
+                }
+            }
+            work[0] = ONE;
+            return;
+        }
+        /* Convert to spike-triangular form. (In case of a rare QR failure, this routine continues
+         * to do aggressive early deflation using that part of the deflation window that converged
+         * using infqr here and there to keep track.)                                            */
+        dlacpy("U", jw, jw, &H[kwtop+ldh*kwtop], ldh, T, ldt);
+        Blas<real>::dcopy(jw-1, &H[kwtop+1+ldh*kwtop], ldh+1, &T[1], ldt+1);
+        dlaset("A", jw, jw, ZERO, ONE, V, ldv);
+        int nmin = ilaenv(12, "DLAQR3", "SV", jw, 1, jw, lwork);
+        if (jw>nmin)
+        {
+            dlaqr4(true, true, jw, 0, jw-1, T, ldt, &sr[kwtop], &si[kwtop], 0, jw-1, V, ldv, work,
+                   lwork, infqr);
+        }
+        else
+        {
+            dlahqr(true, true, jw, 0, jw-1, T, ldt, &sr[kwtop], &si[kwtop], 0, jw-1, V, ldv,
+                   infqr);
+        }
+        // dtrexc needs a clean margin near the diagonal
+        for (int j=0; j<jw-3; j++)
+        {
+            T[j+2+ldt*j] = ZERO;
+            T[j+3+ldt*j] = ZERO;
+        }
+        if (jw>2)
+        {
+            T[jw-1+ldt*(jw-3)] = ZERO;
+        }
+        // Deflation detection loop
+        ns = jw;
+        int ifst, ilst = infqr;
+        real foo;
+        bool bulge;
+        while (ilst<ns)
+        {
+            if (ns==1)
+            {
+                bulge = false;
+            }
+            else
+            {
+                bulge = (T[ns-1+ldt*(ns-2)]!=ZERO);
+            }
+            // Small spike tip test for deflation
+            if (!bulge)
+            {
+                // Real eigenvalue
+                foo = std::fabs(T[ns-1+ldt*(ns-1)]);
+                if (foo==ZERO)
+                {
+                    foo = std::fabs(s);
+                }
+                if (std::fabs(s*V[ldv*(ns-1)]) <= std::max(smlnum, ulp*foo))
+                {
+                    // Deflatable
+                    ns--;
+                }
+                else
+                {
+                    // Undeflatable. Move it up out of the way. (DTREXC cannot fail in this case.)
+                    ifst = ns - 1;
+                    dtrexc("V", jw, T, ldt, V, ldv, ifst, ilst, work, info);
+                    ilst++;
+                }
+            }
+            else
+            {
+                // Complex conjugate pair
+                foo = std::fabs(T[ns-1+ldt*(ns-1)])
+                      + std::sqrt(std::fabs(T[ns-1+ldt*(ns-2)]))*std::sqrt(std::fabs(T[ns-2+ldt*(ns-1)]));
+                if (foo==ZERO)
+                {
+                    foo = std::fabs(s);
+                }
+                if (std::max(std::fabs(s*V[ldv*(ns-1)]), std::fabs(s*V[ldv*(ns-2)]))
+                    <= std::max(smlnum, ulp*foo))
+                {
+                    // Deflatable
+                    ns -= 2;
+                }
+                else
+                {
+                    /* Undeflatable. Move them up out of the way. Fortunately, DTREXC does the
+                     * right thing with ilst in case of a rare exchange failure.                 */
+                    ifst = ns - 1;
+                    dtrexc("V", jw, T, ldt, V, ldv, ifst, ilst, work, info);
+                    ilst += 2;
+                }
+            }
+        } // End deflation detection loop
+        // Return to Hessenberg form
+        if (ns==0)
+        {
+            s = ZERO;
+        }
+        int i;
+        if (ns<jw)
+        {
+            // sorting diagonal blocks of T improves accuracy for graded matrices.
+            // Bubble sort deals well with exchange failures.
+            real evi, evk;
+            int k, kend;
+            bool sorted = false;
+            i = ns;
+            while (!sorted)
+            {
+                sorted = true;
+                kend = i - 1;
+                i = infqr;
+                if (i==ns-1)
+                {
+                    k = i + 1;
+                }
+                else if (T[i+1+ldt*i]==ZERO)
+                {
+                    k = i + 1;
+                }
+                else
+                {
+                    k = i + 2;
+                }
+                while (k<=kend)
+                {
+                    if (k==i+1)
+                    {
+                        evi = std::fabs(T[i+ldt*i]);
+                    }
+                    else
+                    {
+                        evi = std::fabs(T[i+ldt*i])
+                              + std::sqrt(std::fabs(T[i+1+ldt*i]))*std::sqrt(std::fabs(T[i+ldt*(i+1)]));
+                    }
+                    if (k==kend)
+                    {
+                        evk = std::fabs(T[k+ldt*k]);
+                    }
+                    else if (T[k+1+ldt*k]==ZERO)
+                    {
+                        evk = std::fabs(T[k+ldt*k]);
+                    }
+                    else
+                    {
+                        evk = std::fabs(T[k+ldt*k])
+                              + std::sqrt(std::fabs(T[k+1+ldt*k]))*std::sqrt(std::fabs(T[k+ldt*(k+1)]));
+                    }
+                    if (evi>=evk)
+                    {
+                        i = k;
+                    }
+                    else
+                    {
+                        sorted = false;
+                        ifst = i;
+                        ilst = k;
+                        dtrexc("V", jw, T, ldt, V, ldv, ifst, ilst, work, info);
+                        if (info==0)
+                        {
+                            i = ilst;
+                        }
+                        else
+                        {
+                            i = k;
+                        }
+                    }
+                    if (i==kend)
+                    {
+                        k = i + 1;
+                    }
+                    else if (T[i+1+ldt*i]==ZERO)
+                    {
+                        k = i + 1;
+                    }
+                    else
+                    {
+                        k = i + 2;
+                    }
+                }
+            }
+        }
+        // Restore shift/eigenvalue array from T
+        real aa, bb, cc, dd, cs, sn;
+        i = jw - 1;
+        while (i>=infqr)
+        {
+            if (i==infqr)
+            {
+                sr[kwtop+i] = T[i+ldt*i];
+                si[kwtop+i] = ZERO;
+                i--;
+            }
+            else if (T[i+ldt*(i-1)]==ZERO)
+            {
+                sr[kwtop+i] = T[i+ldt*i];
+                si[kwtop+i] = ZERO;
+                i--;
+            }
+            else
+            {
+                aa = T[i-1+ldt*(i-1)];
+                cc = T[i+ldt*(i-1)];
+                bb = T[i-1+ldt*i];
+                dd = T[i+ldt*i];
+                dlanv2(aa, bb, cc, dd, sr[kwtop+i-1], si[kwtop+i-1], sr[kwtop+i], si[kwtop+i],
+                       cs, sn);
+                i -= 2;
+            }
+        }
+        if (ns<jw || s==ZERO)
+        {
+            if (ns>1 && s!=ZERO)
+            {
+                // Reflect spike back into lower triangle
+                Blas<real>::dcopy(ns, V, ldv, work, 1);
+                real beta = work[0];
+                real tau;
+                dlarfg(ns, beta, &work[1], 1, tau);
+                work[0] = ONE;
+                dlaset("L", jw-2, jw-2, ZERO, ZERO, &T[2], ldt);
+                dlarf("L", ns, jw, work, 1, tau, T, ldt, &work[jw]);
+                dlarf("R", ns, ns, work, 1, tau, T, ldt, &work[jw]);
+                dlarf("R", jw, ns, work, 1, tau, V, ldv, &work[jw]);
+                dgehrd(jw, 1-1, ns-1, T, ldt, work, &work[jw], lwork-jw, info);
+            }
+            // Copy updated reduced window into place
+            if (kwtop>0)
+            {
+                H[kwtop+ldh*(kwtop-1)] = s * V[0];
+            }
+            dlacpy("U", jw, jw, T, ldt, &H[kwtop+ldh*kwtop], ldh);
+            Blas<real>::dcopy(jw-1, &T[1], ldt+1, &H[kwtop+1+ldh*kwtop], ldh+1);
+            // Accumulate orthogonal matrix in order update H and Z, if requested.
+            if (ns>1 && s!=ZERO)
+            {
+                dormhr("R", "N", jw, ns, 0, ns-1, T, ldt, work, V, ldv, &work[jw], lwork-jw,
+                       info);
+            }
+            // Update vertical slab in H
+            int ltop;
+            if (wantt)
+            {
+                ltop = 0;
+            }
+            else
+            {
+                ltop = ktop;
+            }
+            int kln, krow;
+            for (krow=ltop; krow<kwtop; krow+=nv)
+            {
+                kln = std::min(nv, kwtop-krow);
+                Blas<real>::dgemm("N", "N", kln, jw, jw, ONE, &H[krow+ldh*kwtop], ldh, V, ldv, ZERO,
+                                  Wv, ldwv);
+                dlacpy("A", kln, jw, Wv, ldwv, &H[krow+ldh*kwtop], ldh);
+            }
+            // Update horizontal slab in H
+            if (wantt)
+            {
+                for (int kcol=kbot+1; kcol<n; kcol+=nh)
+                {
+                    kln = std::min(nh, n-kcol);
+                    Blas<real>::dgemm("C", "N", jw, kln, jw, ONE, V, ldv, &H[kwtop+ldh*kcol], ldh,
+                                      ZERO, T, ldt);
+                    dlacpy("A", jw, kln, T, ldt, &H[kwtop+ldh*kcol], ldh);
+                }
+            }
+            // Update vertical slab in Z
+            if (wantz)
+            {
+                for (krow=iloz; krow<=ihiz; krow+=nv)
+                {
+                    kln = std::min(nv, ihiz-krow+1);
+                    Blas<real>::dgemm("N", "N", kln, jw, jw, ONE, &Z[krow+ldz*kwtop], ldz, V, ldv,
+                                      ZERO, Wv, ldwv);
+                    dlacpy("A", kln, jw, Wv, ldwv, &Z[krow+ldz*kwtop], ldz);
                 }
             }
         }
