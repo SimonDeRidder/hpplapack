@@ -2335,16 +2335,15 @@ public:
      *
      * §dgehrd reduces a real general matrix $A$ to upper Hessenberg form $H$ by an orthogonal
      * similarity transformation: $Q^T A Q = H$.
-     * \param[in] n   The order of the matrix $A$. $\{n} \ge 0$.
-     * \param[in] ilo,
-     *            ihi It is assumed that $A$ is already upper triangular in rows and columns
-     *            $0:\{ilo}-1$ and $\{ihi}+1:\{n}-1$. §ilo and §ihi are normally set by a
-     *            previous call to §dgebal; otherwise they should be set to 0 and $\{n}-1$
-     *            respectively.\n
-     *            See Remark.\n
-     *            $0 \le \{ilo} \le \{ihi} < \{n}$, if $\{n} > 0$;\n
-     *            $\{ilo} = 0$ and $\{ihi} = -1$,   if $\{n} = 0$.\n
-     *            NOTE: zero-based indices!
+     * \param[in] n        The order of the matrix $A$. $\{n} \ge 0$.
+     * \param[in] ilo, ihi
+     *     It is assumed that $A$ is already upper triangular in rows and columns $0:\{ilo}-1$ and
+     *     $\{ihi}+1:\{n}-1$. §ilo and §ihi are normally set by a previous call to §dgebal;
+     *     otherwise they should be set to 0 and $\{n}-1$ respectively.\n
+     *     See Remark.\n
+     *     $0\le\{ilo}\le\{ihi}<\{n}$, if $\{n}>0$;\n
+     *     $\{ilo}=0$ and $\{ihi}=-1$, if $\{n}=0$.\n
+     *     NOTE: zero-based indices!
      *
      * \param[in,out] A
      *     an array, dimension (§lda,§n)\n
@@ -2985,6 +2984,314 @@ public:
             dgeqr2(m-i, n-i, &A[i+lda*i], lda, &tau[i], work, iinfo);
         }
         work[0] = iws;
+    }
+
+    /*! §dhseqr
+     *
+     * §dhseqr computes the eigenvalues of a Hessenberg matrix $H$ and, optionally, the matrices
+     * $T$ and $Z$ from the Schur decomposition $H=ZTZ^T$, where $T$ is an upper quasi-triangular
+     * matrix (the Schur form), and $Z$ is the orthogonal matrix of Schur vectors.\n
+     * Optionally $Z$ may be postmultiplied into an input orthogonal matrix $Q$ so that this
+     * routine can give the Schur factorization of a matrix $A$ which has been reduced to the
+     * Hessenberg form $H$ by the orthogonal matrix $Q$: $A=QHQ^T=(QZ)T(QZ)^T$.
+     * \param[in] job
+     *     ='E': compute eigenvalues only;\n
+     *     ='S': compute eigenvalues and the Schur form $T$.
+     *
+     * \param[in] compz
+     *     = 'N': no Schur vectors are computed;\n
+     *     = 'I': $Z$ is initialized to the unit matrix and the matrix $Z$ of Schur vectors of $H$
+     *            is returned;\n
+     *     = 'V': $Z$ must contain an orthogonal matrix $Q$ on entry, and the product $QZ$ is
+     *            returned.
+     *
+     * \param[in] n The order of the matrix $H$. $n\ge 0$.
+     * \param[in] ilo, ihi
+     *     It is assumed that §H is already upper triangular in rows and columns $0:\{ilo}-1$ and
+     *     $\{ihi}+1:\{n}-1$. §ilo and §ihi are normally set by a previous call to §dgebal, and
+     *     then passed to §dgehrd when the matrix output by §dgebal is reduced to Hessenberg form.
+     *     Otherwise §ilo and §ihi should be set to 0 and $\{n}-1$ respectively.\n If $\{n}>0$,
+     *     then $0\le\{ilo}\le\{ihi}<\{n}$.\n If $\{n}=0$, then $\{ilo}=0$ and $\{ihi}=-1$.\n
+     *     NOTE: zero-based indices!
+     *
+     * \param[in,out] H
+     *     an array, dimension (§ldh,§n)\n
+     *     On entry, the upper Hessenberg matrix $H$.\n
+     *     On exit, if $\{info}=0$ and §job ='S', then §H contains the upper quasi-triangular
+     *     matrix $T$ from the Schur decomposition (the Schur form); 2 by 2 diagonal blocks
+     *     (corresponding to complex conjugate pairs of eigenvalues) are returned in standard form,
+     *     with $\{H}[i,i]=\{H}[i+1,i+1]$ and $\{H}[i+1,i]\{H}[i,i+1]<0$. If $\{info}=0$ and
+     *     §job ='E', the contents of §H are unspecified on exit. (The output value of §H when
+     *     $\{info}>0$ is given under the description of §info below.)\n
+     *     Unlike earlier versions of §dhseqr, this subroutine may explicitly set $\{H}[i,j]=0$ for
+     *     $i>j$ and $j=0,1,\ldots\{ilo}-1$ or $j=\{ihi}+1,\{ihi}+2,\ldots\{n}-1$.
+     *
+     * \param[in]  ldh    The leading dimension of the array §H. $\{ldh}\ge\max(1,\{n})$.
+     * \param[out] wr, wi
+     *     arrays, dimension (§n)\n
+     *     The real and imaginary parts, respectively, of the computed eigenvalues. If two
+     *     eigenvalues are computed as a complex conjugate pair, they are stored in consecutive
+     *     elements of §wr and §wi, say the $i$-th and $i+1$-th, with $\{wi}[i]>0$ and
+     *     $\{wi}[i+1]<0$. If §job ='S', the eigenvalues are stored in the same order as on the
+     *     diagonal of the Schur form returned in §H, with $\{wr}[i]=\{H}[i,i]$ and, if
+     *     $\{H}[i:i+1,i:i+1]$ is a 2 by 2 diagonal block,
+     *     $\{wi}[i]=\sqrt{-\{H}[i+1,i]\{H}[i,i+1]}$ and $\{wi}[i+1]=-\{wi}[i]$.
+     *
+     * \param[in,out] Z
+     *     an array, dimension (§ldz,§n)\n
+     *     If §compz ='N', §Z is not referenced.\n
+     *     If §compz ='I', on entry §Z need not be set and on exit, if $\{info}=0$, §Z contains the
+     *     orthogonal matrix $Z$ of the Schur vectors of $H$.\n
+     *     If §compz ='V', on entry §Z must contain an §n by §n matrix $Q$, which is assumed to be
+     *     equal to the unit matrix except for the submatrix $\{Z}[\{ilo}:\{ihi},\{ilo}:\{ihi}]$.
+     *     On exit, if $\{info}=0$, §Z contains $QZ$.\n
+     *     Normally $Q$ is the orthogonal matrix generated by §dorghr after the call to §dgehrd
+     *     which formed the Hessenberg matrix $H$. (The output value of §Z when $\{info}>0$ is
+     *     given under the description of §info below.)
+     *
+     * \param[in] ldz
+     *     The leading dimension of the array §Z. if §compz ='I' or §compz ='V', then
+     *     $\{ldz}\ge\max(1,\{n})$. Otherwize, $\{ldz}\ge 1$.
+     *
+     * \param[out] work
+     *     an array, dimension (§lwork)\n
+     *     On exit, if $\{info}=0$, $\{work}[0]$ returns an estimate of the optimal value for
+     *     §lwork.
+     *
+     * \param[in] lwork
+     *     The dimension of the array §work. $\{lwork}\ge\max(1,\{n})$ is sufficient and delivers
+     *     very good and sometimes optimal performance. However, §lwork as large as $11\{n}$ may be
+     *     required for optimal performance. A workspace query is recommended to determine the
+     *     optimal workspace size.\n
+     *     If $\{lwork}=-1$, then §dhseqr does a workspace query. In this case, §dhseqr checks the
+     *     input parameters and estimates the optimal workspace size for the given values of §n,
+     *     §ilo and §ihi. The estimate is returned in $\{work}[0]$. No error message related to
+     *     §lwork is issued by §xerbla. Neither §H nor §Z are accessed.
+     *
+     * \param[out] info
+     *     - =0: successful exit
+     *     - <0: if $\{info}=-i$, the $i$-th argument had an illegal value
+     *     - >0: if $\{info}=i$, §dhseqr failed to compute all of the eigenvalues. Elements
+     *           $0:\{ilo}-1$ and $i:\{n}-1$ of §wr and §wi contain those eigenvalues which have
+     *           been successfully computed. (Failures are rare.)
+     *           - If §job ='E', then on exit, the remaining unconverged eigenvalues are the
+     *             eigenvalues of the upper Hessenberg matrix rows and columns §ilo through
+     *             $\{info}-1$ of the final, output value of §H.
+     *           - If §job ='S', then on exit\n
+     *                 $(\text{initial value of }\{H})U = U(\text{final value of }\{H})$&emsp;(*)\n
+     *             where $U$ is an orthogonal matrix. The final value of §H is upper Hessenberg and
+     *             quasi-triangular in rows and columns §info through §ihi.
+     *           - If §compz ='V', then on exit\n
+     *                 $(\text{final value of }\{Z}) = (\text{initial value of }\{Z})U$\n
+     *             where $U$ is the orthogonal matrix in (*) (regard less of the value of §job.)
+     *           - If §compz ='I', then on exit\n
+     *                 $(\text{final value of }Z) = U$\n
+     *             where $U$ is the orthogonal matrix in (*) (regardless of the value of §job.)
+     *           - If §compz ='N', then §Z is not accessed.
+     *
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016
+     * \remark
+     *     Contributors:\n
+     *         Karen Braman and Ralph Byers, Department of Mathematics, University of Kansas, USA
+     *     \n\n
+     *     Further Details:\n
+     *         Default values supplied by
+     *             $\{ilaenv(ISPEC,'DHSEQR',job[0]+compz[0],n,ilo+1,ihi+1,lwork)}$.\n
+     *         It is suggested that these defaults be adjusted in order to attain best performance
+     *         in each particular computational environment.
+     *         - §ISPEC=12: The §dlahqr vs §dlaqr0 crossover point.
+     *                      Default: 75. (Must be at least 11.)
+     *         - §ISPEC=13: Recommended deflation window size. This depends on §ilo, §ihi and §NS.
+     *                      §NS is the number of simultaneous shifts returned by
+     *                      $\{ilaenv(ISPEC=15)}$.  (See §ISPEC=15 below.)\n
+     *                      The default for $(\{ihi}-\{ilo}+1)\le 500$ is §NS.\n
+     *                      The default for $(\{ihi}-\{ilo}+1)>500$ is $3\{NS}/2$.
+     *         - §ISPEC=14: Nibble crossover point. (See §iparmq for details.)
+     *                      Default: 14% of deflation window size.
+     *         - §ISPEC=15: Number of simultaneous shifts in a multishift QR iteration.
+     *                      If $\{ihi}-\{ilo}+1$ is ...\n
+     *                      $\begin{tabular}{rrl}
+     *                           greater than or equal to & but less than & the default is \\
+     *                                                  1 &            30 & \{NS} = 2(+)   \\
+     *                                                 30 &            60 & \{NS} = 4(+)   \\
+     *                                                 60 &           150 & \{NS} = 10(+)  \\
+     *                                                150 &           590 & \{NS} = **     \\
+     *                                                590 &          3000 & \{NS} = 64     \\
+     *                                               3000 &          6000 & \{NS} = 128    \\
+     *                                               6000 &      infinity & \{NS} = 256
+     *                       \end{tabular}$
+     *                      - (+) By default some or all matrices of this order are passed to the
+     *                            implicit double shift routine §dlahqr and this parameter is
+     *                            ignored. See §ISPEC=12 above and comments in §iparmq for details.
+     *                      - (**) The asterisks (**) indicate an ad-hoc function of §n increasing
+     *                             from 10 to 64.
+     *                      .
+     *         - §ISPEC=16: Select structured matrix multiply. If the number of simultaneous shifts
+     *                      (specified by §ISPEC=15) is less than 14, then the default for
+     *                      §ISPEC=16 is 0. Otherwise the default for §ISPEC=16 is 2.
+     *
+     *     \n\n
+     *     References:\n
+     *         K. Braman, R. Byers and R. Mathias, The Multi-Shift QR Algorithm Part I: Maintaining
+     *         Well Focused Shifts, and Level 3 Performance, SIAM Journal of Matrix Analysis,
+     *         volume 23, pages 929--947, 2002.\n
+     *         \n
+     *         K. Braman, R. Byers and R. Mathias, The Multi-Shift QR Algorithm Part II: Aggressive
+     *         Early Deflation, SIAM Journal of Matrix Analysis, volume 23, pages 948--973, 2002.*/
+    static void dhseqr(char const* const job, char const* const compz, int const n, int const ilo,
+                       int const ihi, real* const H, int const ldh, real* const wr, real* const wi,
+                       real* const Z, int const ldz, real* const work, int const lwork, int& info)
+    {
+        /* Matrices of order NTINY or smaller must be processed by §dlahqr because of insufficient
+         * subdiagonal scratch space. (This is a hard limit.)                                    */
+        int const NTINY = 11;
+        /* NL allocates some local workspace to help small matrices through a rare §dlahqr failure.
+         * NL > NTINY = 11 is required and NL <= nmin = ilaenv(ISPEC=12,...) is recommended.
+         * (The default value of nmin is 75.)  Using NL = 49 allows up to six simultaneous shifts
+         * and a 16 by 16 deflation window.                                                      */
+        int const NL = 49;
+        // Decode and check the input parameters.
+        bool wantt = (std::toupper(job[0])=='S');
+        bool initz = (std::toupper(compz[0])=='I');
+        bool wantz = (initz || (std::toupper(compz[0])=='V'));
+        work[0] = real(std::max(1, n));
+        bool lquery = (lwork==-1);
+        info = 0;
+        if (!(std::toupper(job[0])=='E') && !wantt)
+        {
+            info = -1;
+        }
+        else if (!(std::toupper(compz[0])=='N') && !wantz)
+        {
+            info = -2;
+        }
+        else if (n<0)
+        {
+            info = -3;
+        }
+        else if (ilo<0 || ilo>std::max(0, n-1))
+        {
+            info = -4;
+        }
+        else if (ihi<std::min(ilo, n-1) || ihi>=n)
+        {
+            info = -5;
+        }
+        else if (ldh<std::max(1, n))
+        {
+            info = -7;
+        }
+        else if (ldz<1 || (wantz && ldz<std::max(1, n)))
+        {
+            info = -11;
+        }
+        else if (lwork<std::max(1, n) && !lquery)
+        {
+            info = -13;
+        }
+        if (info!=0)
+        {
+            // Quick return in case of invalid argument.
+            xerbla("DHSEQR", -info);
+            return;
+        }
+        else if (n==0)
+        {
+            // Quick return in case n = 0; nothing to do.
+            return;
+        }
+        else if (lquery)
+        {
+            // Quick return in case of a workspace query
+            dlaqr0(wantt, wantz, n, ilo, ihi, H, ldh, wr, wi, ilo, ihi, Z, ldz, work, lwork, info);
+            // Ensure reported workspace size is backward-compatible with previous LAPACK versions.
+            work[0] = std::max(real(std::max(1, n)), work[0]);
+            return;
+        }
+        else
+        {
+            // copy eigenvalues isolated by dgebal
+            int i;
+            for (i=0; i<ilo; i++)
+            {
+                wr[i] = H[i+ldh*i];
+                wi[i] = ZERO;
+            }
+            for (i=ihi+1; i<n; i++)
+            {
+                wr[i] = H[i+ldh*i];
+                wi[i] = ZERO;
+            }
+            // Initialize Z, if requested
+            if (initz)
+            {
+                dlaset("A", n, n, ZERO, ONE, Z, ldz);
+            }
+            // Quick return if possible
+            if (ilo==ihi)
+            {
+                wr[ilo] = H[ilo+ldh*ilo];
+                wi[ilo] = ZERO;
+                return;
+            }
+            // dlahqr/dlaqr0 crossover point
+            char concat[3];
+            concat[0] = job[0];
+            concat[1] = compz[0];
+            concat[2] = '\0';
+            int nmin = std::max(NTINY, ilaenv(12, "DHSEQR", concat, n, ilo+1, ihi+1, lwork));
+            // dlaqr0 for big matrices; dlahqr for small ones
+            if (n>nmin)
+            {
+                dlaqr0(wantt, wantz, n, ilo, ihi, H, ldh, wr, wi, ilo, ihi, Z, ldz, work, lwork,
+                       info);
+            }
+            else
+            {
+                // Small matrix
+                dlahqr(wantt, wantz, n, ilo, ihi, H, ldh, wr, wi, ilo, ihi, Z, ldz, info);
+                if (info>0)
+                {
+                    // A rare dlahqr failure!  dlaqr0 sometimes succeeds when dlahqr fails.
+                    int kbot = info - 1;
+                    if (n>=NL)
+                    {
+                        // Larger matrices have enough subdiagonal scratch space to call dlaqr0
+                        // directly.
+                        dlaqr0(wantt, wantz, n, ilo, kbot, H, ldh, wr, wi, ilo, ihi, Z, ldz, work,
+                               lwork, info);
+                    }
+                    else
+                    {
+                        // Tiny matrices don't have enough subdiagonal scratch space to benefit
+                        // from dlaqr0. Hence, tiny matrices must be copied into a larger array
+                        // before calling dlaqr0.
+                        real Hl[NL*NL];
+                        real workl[NL];
+                        dlacpy("A", n, n, H, ldh, Hl, NL);
+                        Hl[n+NL*(n-1)] = ZERO;
+                        dlaset("A", NL, NL-n, ZERO, ZERO, &Hl[NL*n], NL);
+                        dlaqr0(wantt, wantz, NL, ilo, kbot, Hl, NL, wr, wi, ilo, ihi, Z, ldz,
+                               workl, NL, info);
+                        if (wantt || info!=0)
+                        {
+                            dlacpy("A", n, n, Hl, NL, H, ldh);
+                        }
+                    }
+                }
+            }
+            // Clear out the trash, if necessary.
+            if ((wantt || info!=0) && n>2)
+            {
+                dlaset("L", n-2, n-2, ZERO, ZERO, &H[2], ldh);
+            }
+            // Ensure reported workspace size is backward-compatible with previous LAPACK versions.
+            work[0] = std::max(real(std::max(1, n)), work[0]);
+        }
     }
 
     /* disnan replaced by std::isnan */
@@ -4289,6 +4596,143 @@ public:
         if (scale)
         {
             tau *= sclinv;
+        }
+    }
+
+    /*! §dlaev2 computes the eigenvalues and eigenvectors of a 2 by 2 symmetric/Hermitian matrix.
+     *
+     * §dlaev2 computes the eigendecomposition of a 2 by 2 symmetric matrix\n
+     *     $\b{bm} \{a} & \{b} \\
+     *             \{b} & \{c} \e{bm}$\n
+     * On return, §rt1 is the eigenvalue of the larger absolute value, §rt2 is the eigenvalue of
+     * the smaller absolute value, and (§cs1,§sn1) is the unit right eigenvector for §rt1, giving
+     * the decomposition\n
+     *     $\b{bm}\{cs1} & \{sn1}\\
+     *           -\{sn1} & \{cs1}\e{bm}\b{bm}\{a} & \{b}\\
+     *                                       \{b} & \{c}\e{bm}\b{bm}\{cs1} & -\{sn1}\\
+     *                                                              \{sn1} &  \{cs1}\e{bm}
+     *      = \b{bm}\{rt1} &   0   \\
+     *                 0   & \{rt2}\e{bm}$.
+     * \param[in] a The [0,0] element of the 2 by 2 matrix.
+     * \param[in] b
+     *     The [0,1] element and the conjugate of the [1,0] element of the 2 by 2 matrix.
+     *
+     * \param[in]  c        The [1,1] element of the 2 by 2 matrix.
+     * \param[out] rt1      The eigenvalue of larger absolute value.
+     * \param[out] rt2      The eigenvalue of smaller absolute value.
+     * \param[out] cs1, sn1 The vector [§cs1,§sn1] is a unit right eigenvector for §rt1.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016
+     * \remark
+     *     §rt1 is accurate to a few ulps barring over/underflow.\n
+     *     §rt2 may be inaccurate if there is massive cancellation in the determinant
+     *     $\{a}\{c}-\{b}\{b}$; higher precision or correctly rounded or correctly truncated
+     *     arithmetic would be needed to compute §rt2 accurately in all cases.\n
+     *     §cs1 and §sn1 are accurate to a few ulps barring over/underflow.\n
+     *     Overflow is possible only if §rt1 is within a factor of 5 of overflow.\n
+     *     Underflow is harmless if the input data is 0 or exceeds
+     *     $\{underflow\_threshold}/\{macheps}$.                                                 */
+    static void dlaev2(real const a, real const b, real const c, real& rt1, real& rt2, real& cs1,
+                       real &sn1)
+    {
+        // Compute the eigenvalues
+        real sm  = a + c;
+        real df  = a - c;
+        real adf = std::fabs(df);
+        real tb  = b + b;
+        real ab  = std::fabs(tb);
+        real acmn, acmx;
+        if (std::fabs(a)>std::fabs(c))
+        {
+            acmx = a;
+            acmn = c;
+        }
+        else
+        {
+            acmx = c;
+            acmn = a;
+        }
+        real rt, tn;
+        if (adf>ab)
+        {
+            tn = ab  / adf;
+            rt = adf * std::sqrt(ONE+tn*tn);
+        }
+        else if (adf<ab)
+        {
+            tn = adf / ab;
+            rt = ab  * std::sqrt(ONE+tn*tn);
+        }
+        else
+        {
+            // Includes case ab=adf=0
+            rt = ab * std::sqrt(TWO);
+        }
+        int sgn1;
+        if (sm<ZERO)
+        {
+            rt1 = HALF * (sm-rt);
+            sgn1 = -1;
+            // Order of execution important. To get fully accurate smaller eigenvalue,
+            // next line needs to be executed in higher precision.
+            rt2 = (acmx/rt1)*acmn - (b/rt1)*b;
+        }
+        else if (sm>ZERO)
+        {
+            rt1 = HALF * (sm+rt);
+            sgn1 = 1;
+            // Order of execution important. To get fully accurate smaller eigenvalue,
+            // next line needs to be executed in higher precision.
+            rt2 = (acmx/rt1)*acmn - (b/rt1)*b;
+        }
+        else
+        {
+            // Includes case rt1 = rt2 = 0
+            rt1  =  HALF * rt;
+            rt2  = -HALF * rt;
+            sgn1 = 1;
+        }
+        // Compute the eigenvector
+        int sgn2;
+        real cs;
+        if (df>=ZERO)
+        {
+            cs   = df + rt;
+            sgn2 = 1;
+        }
+        else
+        {
+            cs   = df - rt;
+            sgn2 = -1;
+        }
+        if (std::fabs(cs)>ab)
+        {
+            real ct = -tb / cs;
+            sn1     = ONE / std::sqrt(ONE+ct*ct);
+            cs1     = ct  * sn1;
+        }
+        else
+        {
+            if (ab==ZERO)
+            {
+                cs1 = ONE;
+                sn1 = ZERO;
+            }
+            else
+            {
+                tn  = -cs / tb;
+                cs1 = ONE / std::sqrt(ONE+tn*tn);
+                sn1 = tn  * cs1;
+            }
+        }
+        if (sgn1==sgn2)
+        {
+            tn  =  cs1;
+            cs1 = -sn1;
+            sn1 =  tn;
         }
     }
 
