@@ -486,7 +486,6 @@ public:
                                    &iq[start+givcol*n], n, &iq[start+perm*n],
                                    &q[start+(givnum+qstart)*n], &q[start+(ic+qstart)*n],
                                    &q[start+(is+qstart)*n], &work[wstart], iwork, info);
-                            //TODO: convert iq[start+givcol*n] and iq[start+perm*n] to zero-based!
                         }
                         if (info!=0)
                         {
@@ -3145,6 +3144,7 @@ public:
     static void dhseqr(char const* const job, char const* const compz, int const n, int const ilo,
                        int const ihi, real* const H, int const ldh, real* const wr, real* const wi,
                        real* const Z, int const ldz, real* const work, int const lwork, int& info)
+                       const
     {
         /* Matrices of order NTINY or smaller must be processed by §dlahqr because of insufficient
          * subdiagonal scratch space. (This is a hard limit.)                                    */
@@ -4636,7 +4636,7 @@ public:
      *     Underflow is harmless if the input data is 0 or exceeds
      *     $\{underflow\_threshold}/\{macheps}$.                                                 */
     static void dlaev2(real const a, real const b, real const c, real& rt1, real& rt2, real& cs1,
-                       real &sn1)
+                       real &sn1) const
     {
         // Compute the eigenvalues
         real sm  = a + c;
@@ -5579,7 +5579,8 @@ public:
      *     conservative Ahues & Tisseur stopping criterion (LAWN 122, 1997).                     */
     static void dlahqr(bool const wantt, bool const wantz, int const n, int const ilo,
                        int const ihi, real* const H, int const ldh, real* const wr, real* const wi,
-                       int const iloz, int const ihiz, real* const Z, int const ldz, int& info) const
+                       int const iloz, int const ihiz, real* const Z, int const ldz, int& info)
+                       const
     {
         const real DAT1 = THREE / FOUR;
         const real DAT2 = real(-0.4375);
@@ -7449,7 +7450,7 @@ public:
     static void dlaqr0(bool const wantt, bool const wantz, int const n, int const ilo,
                        int const ihi, real* const H, int const ldh, real* const wr, real* const wi,
                        int const iloz, int const ihiz, real* const Z, int const ldz,
-                       real* const work, int const lwork, int& info)
+                       real* const work, int const lwork, int& info) const
     {
         // Matrices of order NTINY or smaller must be processed by dlahqr because of insufficient
         // subdiagonal scratch space. (This is a hard limit.)
@@ -10934,7 +10935,7 @@ public:
      *     On entry, the §m by §n matrix $C$.\n
      *     On exit, §C is overwritten by the matrix $H C$ if §side = 'L', or $C H$ if §side = 'R'.
      *
-     * \param[in]  ldc  The leading dimension of the array §C. $\{LDA}\ge\max(1,\{m})$.
+     * \param[in]  ldc  The leading dimension of the array §C. $\{ldc}\ge\max(1,\{m})$.
      * \param[out] work
      *     an array, dimension\n &emsp; (§n) if §side = 'L'\n
      *                               or (§m) if §side = 'R'\n
@@ -19262,6 +19263,144 @@ public:
         work[0] = lwkopt;
     }
 
+    /*! §dorghr
+     *
+     * §dorghr generates a real orthogonal matrix $Q$ which is defined as the product of
+     * $\{ihi}-\{ilo}$ elementary reflectors of order §n, as returned by §dgehrd: \n
+     *     $Q = H(\{ilo}) H(\{ilo}+1) \ldots H(\{ihi}-1)$.
+     * \param[in] n        The order of the matrix $Q$. $\{n}\ge 0$.
+     * \param[in] ilo, ihi
+     *     §ilo and §ihi must have the same values as in the previous call of §dgehrd. $Q$ is equal
+     *     to the unit matrix except in the submatrix $Q[\{ilo}+1:\{ihi},\{ilo}+1:\{ihi}]$.
+     *     $0\le\{ilo}\le\{ihi}<\{n}$, if $\{n}>0$; $\{ilo}=0$ and $\{ihi}=-1$, if $\{n}=0$.\n
+     *     NOTE: Zero-based indices!
+     *
+     * \param[in,out] A
+     *     an array, dimension (§lda,§n)\n
+     *     On entry, the vectors which define the elementary reflectors, as returned by §dgehrd.\n
+     *     On exit, the §n by §n orthogonal matrix $Q$.
+     *
+     * \param[in] lda The leading dimension of the array §A. $\{lda}\ge\max(1,\{n})$.
+     * \param[in] tau
+     *     an array, dimension ($\{n}-1$)\n
+     *     $\{tau}[i]$ must contain the scalar factor of the elementary reflector $H(i)$, as
+     *     returned by §dgehrd.
+     *
+     * \param[out] work
+     *     an array, dimension ($\max(1,\{lwork})$)\n
+     *     On exit, if $\{info}=0$, $\{work}[0]$ returns the optimal §lwork.
+     *
+     * \param[in] lwork
+     *     The dimension of the array §work. $\{lwork}\ge\{ihi}-\{ilo}$.\n
+     *     For optimum performance $\{lwork}\ge(\{ihi}-\{ilo})\{nb}$, where §nb is the optimal
+     *     blocksize.\n
+     *     If $\{lwork}=-1$, then a workspace query is assumed; the routine only calculates the
+     *     optimal size of the §work array, returns this value as the first entry of the §work
+     *     array, and no error message related to §lwork is issued by §xerbla.
+     *
+     * \param[out] info
+     *     =0: successful exit\n
+     *     <0: if $\{info}=-i$, the $i$-th argument had an illegal value
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                       */
+    static void dorghr(int const n, int const ilo, int const ihi, real* const A, int const lda,
+                       real const* const tau, real* const work, int const lwork, int& info) const
+    {
+        // Test the input arguments
+        info = 0;
+        int nh = ihi - ilo;
+        bool lquery = (lwork==-1);
+        if (n<0)
+        {
+            info = -1;
+        }
+        else if (ilo<0 || ilo>std::max(0, n-1))
+        {
+            info = -2;
+        }
+        else if (ihi<std::min(ilo, n-1) || ihi>=n)
+        {
+            info = -3;
+        }
+        else if (lda<std::max(1, n))
+        {
+            info = -5;
+        }
+        else if (lwork<std::max(1, nh) && !lquery)
+        {
+            info = -8;
+        }
+        int lwkopt, nb;
+        if (info==0)
+        {
+            nb = ilaenv(1, "DORGQR", " ", nh, nh, nh, -1);
+            lwkopt = std::max(1, nh) * nb;
+            work[0] = lwkopt;
+        }
+        if (info!=0)
+        {
+            xerbla("DORGHR", -info);
+            return;
+        }
+        else if (lquery)
+        {
+            return;
+        }
+        // Quick return if possible
+        if (n==0)
+        {
+            work[0] = 1;
+            return;
+        }
+        // Shift the vectors which define the elementary reflectors one column to the right, and
+        // set the first ilo+1 and the last n-ihi-1 rows and columns to those of the unit matrix
+        int i, j, ldaj;
+        for (j=ihi; j>ilo; j--)
+        {
+            ldaj = lda * j;
+            for (i=0; i<j; i++)
+            {
+                A[i+ldaj] = ZERO;
+            }
+            for (i=j+1; i<=ihi; i++)
+            {
+                A[i+ldaj] = A[i+ldaj-lda];
+            }
+            for (i=ihi+1; i<n; i++)
+            {
+                A[i+ldaj] = ZERO;
+            }
+        }
+        for (j=0; j<=ilo; j++)
+        {
+            ldaj = lda * j;
+            for (i=0; i<n; i++)
+            {
+                A[i+ldaj] = ZERO;
+            }
+            A[j+ldaj] = ONE;
+        }
+        for (j=ihi+1; j<n; j++)
+        {
+            ldaj = lda * j;
+            for (i=0; i<n; i++)
+            {
+                A[i+ldaj] = ZERO;
+            }
+            A[j+ldaj] = ONE;
+        }
+        if (nh>0)
+        {
+            // Generate Q[ilo+1:ihi,ilo+1:ihi]
+            int iinfo;
+            dorgqr(nh, nh, nh, &A[ilo+1+lda*(ilo+1)], lda, &tau[ilo], work, lwork, iinfo);
+        }
+        work[0] = lwkopt;
+    }
+
     /*! §dorgl2
      *
      * §dorgl2 generates an §m by §n real matrix $Q$ with orthonormal rows, which is defined as the
@@ -21177,6 +21316,459 @@ public:
         }
     }
 
+    /*! §dsteqr
+     *
+     * §dsteqr computes all eigenvalues and, optionally, eigenvectors of a symmetric tridiagonal
+     * matrix using the implicit QL or QR method. The eigenvectors of a full or band symmetric
+     * matrix can also be found if §dsytrd or §dsptrd or §dsbtrd has been used to reduce this
+     * matrix to tridiagonal form.
+     * \param[in] compz
+     *     ='N': Compute eigenvalues only.\n
+     *     ='V': Compute eigenvalues and eigenvectors of the original symmetric matrix. On entry,
+     *           $Z$ must contain the orthogonal matrix used to reduce the original matrix to
+     *           tridiagonal form.
+     *     ='I': Compute eigenvalues and eigenvectors of the tridiagonal matrix. $Z$ is initialized
+     *           to the identity matrix.
+     *
+     * \param[in]     n The order of the matrix. $\{n}\ge 0$.
+     * \param[in,out] d
+     *     an array, dimension (§n)\n
+     *     On entry, the diagonal elements of the tridiagonal matrix.\n
+     *     On exit, if $\{info}=0$, the eigenvalues in ascending order.
+     *
+     * \param[in,out] e
+     *     an array, dimension ($\{n}-1$)\n
+     *     On entry, the $\{n}-1$ subdiagonal elements of the tridiagonal matrix.\n
+     *     On exit, §e has been destroyed.
+     *
+     * \param[in,out] Z
+     *     an array, dimension (§ldz,§n)\n
+     *     On entry, if §compz ='V', then §Z contains the orthogonal matrix used in the reduction
+     *     to tridiagonal form.\n
+     *     On exit, if $\{info}=0$, then if §compz ='V', §Z contains the orthonormal eigenvectors
+     *     of the original symmetric matrix, and if §compz ='I', §Z contains the orthonormal
+     *     eigenvectors of the symmetric tridiagonal matrix.
+     *     If §compz ='N', then §Z is not referenced.
+     *
+     * \param[in] ldz
+     *     The leading dimension of the array §Z. $\{ldz}\ge 1$, and if eigenvectors are desired,
+     *     then $\{ldz}\ge\max(1,\{n})$.
+     *
+     * \param[out] work
+     *     an array, dimension ($\max(1,2\{n}-2)$)\n
+     *     If §compz ='N', then §work is not referenced.
+     *
+     * \param[out] info
+     *     =0: successful exit\n
+     *     <0: if $\{info}=-i$, the $i$-th argument had an illegal value.\n
+     *     >0: the algorithm has failed to find all the eigenvalues in a total of $30\{n}$
+     *         iterations; if $\{info}=i$, then $i$ elements of §e have not converged to zero;
+     *         on exit, §d and §e contain the elements of a symmetric tridiagonal matrix which is
+     *         orthogonally similar to the original matrix.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                       */
+    static void dsteqr(char const* const compz, int const n, real* const d, real* const e,
+                       real* const Z, int const ldz, real* const work, int& info) const
+    {
+        int const MAXIT = 30;
+        // Test the input parameters.
+        info = 0;
+        int icompz;
+        if (std::toupper(compz[0])=='N')
+        {
+            icompz = 0;
+        }
+        else if (std::toupper(compz[0])=='V')
+        {
+            icompz = 1;
+        }
+        else if (std::toupper(compz[0])=='I')
+        {
+            icompz = 2;
+        }
+        else
+        {
+            icompz = -1;
+        }
+        if (icompz<0)
+        {
+            info = -1;
+        }
+        else if (n<0)
+        {
+            info = -2;
+        }
+        else if (ldz<1 || (icompz>0 && ldz<std::max(1, n)))
+        {
+            info = -6;
+        }
+        if (info!=0)
+        {
+            xerbla("DSTEQR", -info);
+            return;
+        }
+        // Quick return if possible
+        if (n==0)
+        {
+            return;
+        }
+        if (n==1)
+        {
+            if (icompz==2)
+            {
+                Z[0] = ONE;
+            }
+            return;
+        }
+        // Determine the unit roundoff and over/underflow thresholds.
+        real eps = dlamch("E");
+        real eps2 = eps * eps;
+        real safmin = dlamch("S");
+        real safmax = ONE / safmin;
+        real ssfmax = std::sqrt(safmax) / THREE;
+        real ssfmin = std::sqrt(safmin) / eps2;
+        // Compute the eigenvalues and eigenvectors of the tridiagonal matrix.
+        if (icompz==2)
+        {
+            dlaset("Full", n, n, ZERO, ONE, Z, ldz);
+        }
+        int nmaxit = n * MAXIT;
+        int jtot = 0;
+        // Determine where the matrix splits and choose QL or QR iteration for each block,
+        // according to whether top or bottom diagonal element is smaller.
+        int l1 = 0;
+        int nm1 = n - 1;
+        int i, ii, iscale, j, k, l, lend, lendp1, lendsv, lsv, m, mm, mm1;
+        real anorm, b, c, f, g, p, r, rt1, rt2, s, tst;
+        do
+        {
+            if (l1>=n)
+            {
+                // Order eigenvalues and eigenvectors.
+                if (icompz==0)
+                {
+                    // Use Quick Sort
+                    dlasrt("I", n, d, info);
+                }
+                else
+                {
+                    // Use Selection Sort to minimize swaps of eigenvectors
+                    for (ii=1; ii<n; ii++)
+                    {
+                        i = ii - 1;
+                        k = i;
+                        p = d[i];
+                        for (j=ii; j<n; j++)
+                        {
+                            if (d[j]<p)
+                            {
+                                k = j;
+                                p = d[j];
+                            }
+                        }
+                        if (k!=i)
+                        {
+                            d[k] = d[i].
+                            d[i] = p.
+                            dswap(n, &Z[ldz*i], 1, &Z[ldz*k], 1);
+                        }
+                    }
+                }
+                return;
+            }
+            if (l1>0)
+            {
+                e[l1-1] = ZERO;
+            }
+            if (l1<nm1)
+            {
+                for (m=l1; m<nm1; m++)
+                {
+                    tst = std::fabs(e[m]);
+                    if (tst==ZERO)
+                    {
+                        break;
+                    }
+                    if (tst<=(std::sqrt(std::fabs(d[m]))*std::sqrt(std::fabs(d[m+1])))*eps)
+                    {
+                        e[m] = ZERO;
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                m = nm1;
+            }
+            l      = l1;
+            lsv    = l;
+            lend   = m;
+            lendsv = lend;
+            l1 = m + 1;
+            if (lend==l)
+            {
+                continue;
+            }
+            // Scale submatrix in rows and columns l to lend
+            anorm = dlanst("M", lend-l+1, &d[l], &e[l]);
+            iscale = 0;
+            if (anorm==ZERO)
+            {
+                continue;
+            }
+            if (anorm>ssfmax)
+            {
+                iscale = 1;
+                dlascl("G", 0, 0, anorm, ssfmax, lend-l+1, 1, &d[l], n, info);
+                dlascl("G", 0, 0, anorm, ssfmax, lend-l,   1, &e[l], n, info);
+            }
+            else if (anorm<ssfmin)
+            {
+                iscale = 2;
+                dlascl("G", 0, 0, anorm, ssfmin, lend-l+1, 1, &d[l], n, info);
+                dlascl("G", 0, 0, anorm, ssfmin, lend-l,   1, &e[l], n, info);
+            }
+            // Choose between QL and QR iteration
+            if (std::fabs(d[lend])<std::fabs(d[l]))
+            {
+                lend = lsv;
+                l = lendsv;
+            }
+            if (lend>l)
+            {
+                // QL Iteration
+                // Look for small subdiagonal element.
+                while (true)
+                {
+                    if (l!=lend)
+                    {
+                        for (m=l; m<lend; m++)
+                        {
+                            tst = std::fabs(e[m]);
+                            if (tst*tst <= (eps2*std::fabs(d[m]))*std::fabs(d[m+1])+safmin)
+                            {
+                                break;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        m = lend;
+                    }
+                    if (m<lend)
+                    {
+                        e[m] = ZERO;
+                    }
+                    p = d[l];
+                    if (m==l)
+                    {
+                        // Eigenvalue found.
+                        d[l] = p;
+                        l++;
+                        if (l<=lend)
+                        {
+                            continue;
+                        }
+                        break;
+                    }
+                    // If remaining matrix is 2 by 2, use dlae2 or dlaev2 to compute its eigensystem.
+                    if (m==l+1)
+                    {
+                        if (icompz>0)
+                        {
+                            dlaev2(d[l], e[l], d[l+1], rt1, rt2, c, s);
+                            work[l] = c;
+                            work[nm1+l] = s;
+                            dlasr("R", "V", "B", n, 2, &work[l], &work[nm1+l], &Z[ldz*l], ldz);
+                        }
+                        else
+                        {
+                            dlae2(d[l], e[l], d[l+1], rt1, rt2);
+                        }
+                        d[l] = rt1;
+                        d[l+1] = rt2;
+                        e[l] = ZERO;
+                        l += 2;
+                        if (l<=lend)
+                        {
+                            continue;
+                        }
+                        break;
+                    }
+                    if (jtot==nmaxit)
+                    {
+                        break;
+                    }
+                    jtot++;
+                    // Form shift.
+                    g = (d[l+1]-p) / (TWO*e[l]);
+                    r = dlapy2(g, ONE);
+                    g = d[m] - p + (e[l]/(g+std::copysign(r, g)));
+                    s = ONE;
+                    c = ONE;
+                    p = ZERO;
+                    // Inner loop
+                    for (i=m-1; i>=l; i--)
+                    {
+                        f = s * e[i];
+                        b = c * e[i];
+                        dlartg(g, f, c, s, r);
+                        if (i!=m-1)
+                        {
+                            e[i+1] = r;
+                        }
+                        g = d[i+1] - p;
+                        r = (d[i]-g)*s + TWO*c*b;
+                        p = s * r;
+                        d[i+1] = g + p;
+                        g = c*r - b;
+                        // If eigenvectors are desired, then save rotations.
+                        if (icompz>0)
+                        {
+                            work[i] = c;
+                            work[nm1+i] = -s;
+                        }
+                    }
+                    // If eigenvectors are desired, then apply saved rotations.
+                    if (icompz>0)
+                    {
+                        dlasr("R", "V", "B", n, m-l+1, &work[l], &work[nm1+l], &Z[ldz*l], ldz);
+                    }
+                    d[l] -= p;
+                    e[l] = g;
+                }
+            }
+            else
+            {
+                // QR Iteration
+                // Look for small superdiagonal element.
+                while (true)
+                {
+                    if (l!=lend)
+                    {
+                        lendp1 = lend + 1;
+                        for (m=l; m>=lendp1; m--)
+                        {
+                            mm1 = m - 1;
+                            tst = std::fabs(e[mm1]);
+                            if (tst*tst <= (eps2*std::fabs(d[m]))*std::fabs(d[mm1])+safmin)
+                            {
+                                break;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        m = lend;
+                    }
+                    if (m>lend)
+                    {
+                        e[m-1] = ZERO;
+                    }
+                    p = d[l];
+                    if (m==l)
+                    {
+                        // Eigenvalue found.
+                        d[l] = p;
+                        l--;
+                        if (l>=lend)
+                        {
+                            continue;
+                        }
+                        break;
+                    }
+                    // If remaining matrix is 2 by 2, use dlae2 or dlaev2 to compute its eigensystem.
+                    if (m==l-1)
+                    {
+                        if (icompz>0)
+                        {
+                            dlaev2(d[l-1], e[l-1], d[l], rt1, rt2, c, s);
+                            work[m] = c;
+                            work[nm1+m] = s;
+                            dlasr("R", "V", "F", n, 2, &work[m], &work[nm1+m], &Z[ldz*(l-1)], ldz);
+                        }
+                        else
+                        {
+                            dlae2(d[l-1], e[l-1], d[l], rt1, rt2);
+                        }
+                        d[l-1] = rt1;
+                        d[l] = rt2;
+                        e[l-1] = ZERO;
+                        l -= 2;
+                        if (l>=lend)
+                        {
+                            continue;
+                        }
+                        break;
+                    }
+                    if (jtot==nmaxit)
+                    {
+                        break;
+                    }
+                    jtot++;
+                    // Form shift.
+                    g = (d[l-1]-p) / (TWO*e[l-1]);
+                    r = dlapy2(g, ONE);
+                    g = d[m] - p + (e[l-1]/(g+std::copysign(r, g)));
+                    s = ONE;
+                    c = ONE;
+                    p = ZERO;
+                    // Inner loop
+                    for (i=m; i<l; i++)
+                    {
+                        f = s * e[i];
+                        b = c * e[i];
+                        dlartg(g, f, c, s, r);
+                        if (i!=m)
+                        {
+                            e[i-1] = r;
+                        }
+                        g = d[i] - p;
+                        r = (d[i+1]-g)*s + TWO*c*b;
+                        p = s * r;
+                        d[i] = g + p;
+                        g = c*r - b;
+                        // If eigenvectors are desired, then save rotations.
+                        if (icompz>0)
+                        {
+                            work[i] = c;
+                            work[nm1+i] = s;
+                        }
+                    }
+                    // If eigenvectors are desired, then apply saved rotations.
+                    if (icompz>0)
+                    {
+                        dlasr("R", "V", "F", n, l-m+1, &work[m], &work[nm1+m], &Z[ldz*m], ldz);
+                    }
+                    d[l] -= p;
+                    e[l-1] = g;
+                }
+            }
+            // Undo scaling if necessary
+            if (iscale==1)
+            {
+                dlascl("G", 0, 0, ssfmax, anorm, lendsv-lsv+1, 1, &d[lsv], n, info);
+                dlascl("G", 0, 0, ssfmax, anorm, lendsv-lsv,   1, &e[lsv], n, info);
+            }
+            else if (iscale==2)
+            {
+                dlascl("G", 0, 0, ssfmin, anorm, lendsv-lsv+1, 1, &d[lsv], n, info);
+                dlascl("G", 0, 0, ssfmin, anorm, lendsv-lsv,   1, &e[lsv], n, info);
+            }
+            // Check for no convergence to an eigenvalue after a total of n*MAXIT iterations.
+        } while (jtot<nmaxit);
+        for (i=0; i<nm1; i++)
+        {
+            if (e[i]!=ZERO)
+            {
+                info++;
+            }
+        }
+    }
+
     /*! §dsterf
      *
      * §dsterf computes all eigenvalues of a symmetric tridiagonal matrix using the
@@ -21202,7 +21794,7 @@ public:
      * \authors Univ.of Colorado Denver
      * \authors NAG Ltd.
      * \date December 2016                                                                       */
-    static void dsterf(int const n, real* const d, real* const e, int& info)
+    static void dsterf(int const n, real* const d, real* const e, int& info) const
     {
         int const MAXIT = 30;
         // Test the input parameters.
