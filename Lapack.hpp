@@ -2220,6 +2220,370 @@ public:
         work[0] = ws;
     }
 
+    /*! §dgeev computes the eigenvalues and, optionally, the left and/or right eigenvectors for GE
+     *  matrices
+     *
+     * §dgeev computes for an §N by §N real nonsymmetric matrix $A$, the eigenvalues and,
+     * optionally, the left and/or right eigenvectors.\n
+     * The right eigenvector $v_j$ of $A$ satisfies\n
+     *     $A v_j = \lambda_j v_j$\n
+     * where $\lambda_j$ is its eigenvalue.\n
+     * The left eigenvector $u_j$ of $A$ satisfies\n
+     *     $u_j^H A = \lambda_j u_j^H$\n
+     * where $u_j^H$ denotes the conjugate-transpose of $u_j$.\n
+     * The computed eigenvectors are normalized to have Euclidean norm equal to 1 and largest
+     * component real.
+     * \param[in] jobvl
+     *     ='N': left eigenvectors of $A$ are not computed;\n
+     *     ='V': left eigenvectors of $A$ are computed.
+     *
+     * \param[in] jobvr
+     *     = 'N': right eigenvectors of $A$ are not computed;\n
+     *     = 'V': right eigenvectors of $A$ are computed.
+     *
+     * \param[in]     n The order of the matrix $A$. $\{n}\ge 0$.
+     * \param[in,out] A
+     *     an array, dimension (§lda,§n)\n
+     *     On entry, the §n by §n matrix $A$.\n On exit, §A has been overwritten.
+     *
+     * \param[in]  lda    The leading dimension of the array §A. $\{lda}\ge\max(1,\{n})$.
+     * \param[out] wr, wi
+     *     arrays, dimension (§n)\n
+     *     §wr and §wi contain the real and imaginary parts, respectively, of the computed
+     *     eigenvalues. Complex conjugate pairs of eigenvalues appear consecutively with the
+     *     eigenvalue having the positive imaginary part first.
+     *
+     * \param[out] Vl
+     *     an array, dimension (§ldvl,§n)\n
+     *     If §jobvl ='V', the left eigenvectors $u_j$ are stored one after another in the columns
+     *     of §Vl, in the same order as their eigenvalues.\n
+     *     If §jobvl ='N', §Vl is not referenced.\n
+     *     If the $j$-th eigenvalue is real, then $u_j=\{Vl}[:,j]$, the $j$-th column of §Vl. \n
+     *     If the $j$-th and $j+1$-st eigenvalues form a complex conjugate pair, then
+     *     $u_j = \{Vl}[:,j] + i\{Vl}[:,j+1]$ and $u_{j+1} = \{Vl}[:,j] - i\{Vl}[:,j+1]$.
+     *
+     * \param[in] ldvl
+     *     The leading dimension of the array §Vl. $\{ldvl}\ge 1$;
+     *     if §jobvl ='V', $\{ldvl}\ge\{n}$.
+     *
+     * \param[out] Vr
+     *     an array, dimension (§ldvr,§n)\n
+     *     If §jobvr ='V', the right eigenvectors $v_j$ are stored one after another in the columns
+     *     of §Vr, in the same order as their eigenvalues.\n
+     *     If §jobvr ='N', §Vr is not referenced.\n
+     *     If the $j$-th eigenvalue is real, then $v_j=\{Vr}[:,j]$, the $j$-th column of §Vr. \n
+     *     If the $j$-th and $j+1$-st eigenvalues form a complex conjugate pair, then
+     *     $v_j = \{Vr}[:,j] + i\{Vr}[:,j+1]$ and $v_{j+1} = \{Vr}[:,j] - i\{Vr}[:,j+1]$.
+     *
+     * \param[in] ldvr
+     *     The leading dimension of the array §Vr. $\{ldvr}\ge 1$;
+     *     if §jobvr ='V', $\{ldvr}\ge\{n}$.
+     *
+     * \param[out] work
+     *     an array, dimension ($\max(1,\{lwork})$)\n
+     *     On exit, if $\{info}=0$, $\{work}[0]$ returns the optimal §lwork.
+     *
+     * \param[in] lwork
+     *     The dimension of the array §work. $\{lwork}\ge\max(1,3\{n})$, and if §jobvl ='V' or
+     *     §jobvr ='V', $\{lwork}\ge 4\{n}$. For good performance, §lwork must generally be larger.
+     *     \n
+     *     If $\{lwork}=-1$, then a workspace query is assumed; the routine only calculates the
+     *     optimal size of the §work array, returns this value as the first entry of the §work
+     *     array, and no error message related to §lwork is issued by §XERBLA.
+     *
+     * \param[out] info
+     *     =0: successful exit\n
+     *     <0: if $\{info}=-i$, the $i$-th argument had an illegal value.\n.
+     *     >0: if $\{info}=i$, the QR algorithm failed to compute all the eigenvalues, and no
+     *         eigenvectors have been computed; elements $i:\{n}-1$ of §wr and §wi contain
+     *         eigenvalues which have converged.
+     * \authors Univ. of Tennessee
+     * \authors Univ. of California Berkeley
+     * \authors Univ. of Colorado Denver
+     * \authors NAG Ltd.
+     * \date June 2016                                                                           */
+    static void dgeev(char const* const jobvl, char const* const jobvr, int const n, real* const A,
+                      int const lda, real* const wr, real* const wi, real* const Vl,
+                      int const ldvl, real* const Vr, int const ldvr, real* const work,
+                      int const lwork, int& info) const
+    {
+        // Test the input arguments
+        info = 0;
+        bool lquery = (lwork==-1);
+        bool wantvl = (std::toupper(jobvl[0])=='V');
+        bool wantvr = (std::toupper(jobvr[0])=='V');
+        if (!wantvl && std::toupper(jobvl[0])!='N')
+        {
+            info = -1;
+        }
+        else if (!wantvr && std::toupper(jobvr[0])!='N')
+        {
+            info = -2;
+        }
+        else if (n<0)
+        {
+            info = -3;
+        }
+        else if (lda<std::max(1, n))
+        {
+            info = -5;
+        }
+        else if (ldvl<1 || (wantvl && ldvl<n))
+        {
+            info = -9;
+        }
+        else if (ldvr<1 || (wantvr && ldvr<n))
+        {
+            info = -11;
+        }
+        /* Compute workspace
+         * (Note: Comments in the code beginning "Workspace:" describe the minimal amount of
+         *  workspace needed at that point in the code, as well as the preferred amount for good
+         *  performance. NB refers to the optimal block size for the immediately following
+         *  subroutine, as returned by ilaenv. hswork refers to the workspace preferred by dhseqr,
+         *  as calculated below. hswork is computed assuming ilo=0 and ihi=n-1, the worst case.) */
+        int ierr, maxwrk, nout;
+        if (info==0)
+        {
+            int minwrk;
+            if (n==0)
+            {
+                minwrk = 1;
+                maxwrk = 1;
+            }
+            else
+            {
+                maxwrk = 2*n + n*ilaenv(1, "DGEHRD", " ", n, 1, n, 0);
+                int hswork, lwork_trevc;
+                if (wantvl)
+                {
+                    minwrk = 4 * n;
+                    maxwrk = std::max(maxwrk, 2*n+(n-1)*ilaenv(1, "DORGHR", " ", n, 1, n, -1));
+                    dhseqr("S", "V", n, 0, n-1, A, lda, wr, wi, Vl, ldvl, work, -1, info);
+                    hswork = int(work[0]);
+                    maxwrk = std::max(maxwrk, std::max(n+1, n+hswork));
+                    dtrevc3("L", "B", nullptr, n, A, lda, Vl, ldvl, Vr, ldvr, n, nout, work, -1,
+                            ierr);
+                    lwork_trevc = int(work[0]);
+                    maxwrk = std::max(maxwrk, n+lwork_trevc);
+                    maxwrk = std::max(maxwrk, 4*n);
+                }
+                else if (wantvr)
+                {
+                    minwrk = 4*n;
+                    maxwrk = std::max(maxwrk, 2*n+(n-1)*ilaenv(1, "DORGHR", " ", n, 1, n, -1));
+                    dhseqr("S", "V", n, 0, n-1, A, lda, wr, wi, Vr, ldvr, work, -1, info);
+                    hswork = int(work[0]);
+                    maxwrk = std::max(maxwrk, std::max(n+1, n+hswork));
+                    dtrevc3("R", "B", nullptr, n, A, lda, Vl, ldvl, Vr, ldvr, n, nout, work, -1,
+                            ierr);
+                    lwork_trevc = int(work[0]);
+                    maxwrk = std::max(maxwrk, n+lwork_trevc);
+                    maxwrk = std::max(maxwrk, 4*n);
+                }
+                else
+                {
+                   minwrk = 3 * n;
+                   dhseqr("E", "N", n, 0, n-1, A, lda, wr, wi, Vr, ldvr, work, -1, info);
+                   hswork = int(work[0]);
+                   maxwrk = std::max(maxwrk, std::max(n+1, n+hswork));
+                }
+                maxwrk = std::max(maxwrk, minwrk);
+            }
+            work[0] = maxwrk;
+            if (lwork<minwrk && !lquery)
+            {
+                info = -13;
+            }
+        }
+        if (info!=0)
+        {
+            xerbla("DGEEV ", -info);
+            return;
+        }
+        else if (lquery)
+        {
+            return;
+        }
+        // Quick return if possible
+        if (n==0)
+        {
+            return;
+        }
+        // Get machine constants
+        real eps    = dlamch("P");
+        real smlnum = dlamch("S");
+        real bignum = ONE / smlnum;
+        dlabad(smlnum, bignum);
+        smlnum = std::sqrt(smlnum) / eps;
+        bignum = ONE / smlnum;
+        // Scale A if max element outside range [smlnum,bignum]
+        real anrm = dlange("M", n, n, A, lda, nullptr);
+        bool scalea = false;
+        real cscale;
+        if (anrm>ZERO && anrm<smlnum)
+        {
+            scalea = true;
+            cscale = smlnum;
+        }
+        else if (anrm>bignum)
+        {
+            scalea = true;
+            cscale = bignum;
+        }
+        if (scalea)
+        {
+            dlascl("G", 0, 0, anrm, cscale, n, n, A, lda, ierr);
+        }
+        // Balance the matrix
+        // (Workspace: need n)
+        int ibal = 0;
+        int ihi, ilo;
+        dgebal("B", n, A, lda, ilo, ihi, &work[ibal], ierr);
+        // Reduce to upper Hessenberg form
+        // (Workspace: need 3*n, prefer 2*n+n*NB)
+        int itau = ibal + n;
+        int iwrk = itau + n;
+        dgehrd(n, ilo, ihi, A, lda, &work[itau], &work[iwrk], lwork-iwrk, ierr);
+        char side[2];
+        side[1] = '\0';
+        if (wantvl)
+        {
+            // Want left eigenvectors
+            // Copy Householder vectors to Vl
+            side[0] = 'L';
+            dlacpy("L", n, n, A, lda, Vl, ldvl);
+            // Generate orthogonal matrix in Vl
+            // (Workspace: need 3*n-1, prefer 2*n+(n-1)*NB)
+            dorghr(n, ilo, ihi, Vl, ldvl, &work[itau], &work[iwrk], lwork-iwrk, ierr);
+            // Perform QR iteration, accumulating Schur vectors in Vl
+            // (Workspace: need n+1, prefer n+hswork (see comments))
+            iwrk = itau;
+            dhseqr("S", "V", n, ilo, ihi, A, lda, wr, wi, Vl, ldvl, &work[iwrk], lwork-iwrk, info);
+            if (wantvr)
+            {
+                // Want left and right eigenvectors
+                // Copy Schur vectors to Vr
+                side[0] = 'B';
+                dlacpy("F", n, n, Vl, ldvl, Vr, ldvr);
+            }
+        }
+        else if (wantvr)
+        {
+            // Want right eigenvectors
+            // Copy Householder vectors to Vr
+            side[0] = 'R';
+            dlacpy("L", n, n, A, lda, Vr, ldvr);
+            // Generate orthogonal matrix in Vr
+            // (Workspace: need 3*n-1, prefer 2*n+(n-1)*NB)
+            dorghr(n, ilo, ihi, Vr, ldvr, &work[itau], &work[iwrk], lwork-iwrk, ierr);
+            // Perform QR iteration, accumulating Schur vectors in Vr
+            // (Workspace: need n+1, prefer n+hswork (see comments))
+            iwrk = itau;
+            dhseqr("S", "V", n, ilo, ihi, A, lda, wr, wi, Vr, ldvr, &work[iwrk], lwork-iwrk, info);
+        }
+        else
+        {
+            // Compute eigenvalues only
+            // (Workspace: need n+1, prefer n+hswork (see comments))
+            iwrk = itau;
+            dhseqr("E", "N", n, ilo, ihi, A, lda, wr, wi, Vr, ldvr, &work[iwrk], lwork-iwrk, info);
+        }
+        // If info != 0 from dhseqr, then quit
+        if (info==0)
+        {
+            if (wantvl || wantvr)
+            {
+                // Compute left and/or right eigenvectors
+                // (Workspace: need 4*n, prefer n + n + 2*n*NB)
+                dtrevc3(&side, "B", nullptr, n, A, lda, Vl, ldvl, Vr, ldvr, n, nout, &work[iwrk],
+                        lwork-iwrk, ierr);
+            }
+            int i, k, vi, vip;
+            real cs, r, scl, sn, temp1, temp2;
+            if (wantvl)
+            {
+                // Undo balancing of left eigenvectors
+                // (Workspace: need n)
+                dgebak("B", "L", n, ilo, ihi, &work[ibal], n, Vl, ldvl, ierr);
+                // Normalize left eigenvectors and make largest component real
+                for (i=0; i<n; i++)
+                {
+                    vi = ldvl * i;
+                    if (wi[i]==ZERO)
+                    {
+                        scl = ONE / Blas<real>::dnrm2(n, &Vl[vi], 1);
+                        Blas<real>::dscal(n, scl, &Vl[vi], 1);
+                    }
+                    else if (wi[i]>ZERO)
+                    {
+                        vip = vi + ldvl;
+                        scl = ONE / dlapy2(Blas<real>::dnrm2(n, &Vl[vi],  1),
+                                           Blas<real>::dnrm2(n, &Vl[vip], 1));
+                        Blas<real>::dscal(n, scl, &Vl[vi],  1);
+                        Blas<real>::dscal(n, scl, &Vl[vip], 1);
+                        for (k=0; k<n; k++)
+                        {
+                            temp1 = Vl[k+vi];
+                            temp2 = Vl[k+vip];
+                            work[iwrk+k] = temp1*temp1 + temp2*temp2;
+                        }
+                        k = Blas<real>::idamax(n, &work[iwrk], 1);
+                        dlartg(Vl[k+vi], Vl[k+vip], cs, sn, r);
+                        Blas<real>::drot(n, &Vl[vi], 1, &Vl[vip], 1, cs, sn);
+                        Vl[k+vip] = ZERO;
+                    }
+                }
+            }
+            if (wantvr)
+            {
+                // Undo balancing of right eigenvectors
+                // (Workspace: need n)
+                dgebak("B", "R", n, ilo, ihi, &work[ibal], n, Vr, ldvr, ierr);
+                // Normalize right eigenvectors and make largest component real
+                for (i=0; i<n; i++)
+                {
+                    vi = ldvr * i;
+                    if (wi[i]==ZERO)
+                    {
+                        scl = ONE / Blas<real>::dnrm2(n, &Vr[vi], 1);
+                        Blas<real>::dscal(n, scl, &Vr[vi], 1);
+                    }
+                    else if (wi[i]>ZERO)
+                    {
+                        vip = vi + ldvr;
+                        scl = ONE / dlapy2(Blas<real>::dnrm2(n, &Vr[vi],  1),
+                                           Blas<real>::dnrm2(n, &Vr[vip], 1));
+                        Blas<real>::dscal(n, scl, &Vr[vi],  1);
+                        Blas<real>::dscal(n, scl, &Vr[vip], 1);
+                        for (k=0; k<n; k++)
+                        {
+                            temp1 = Vr[k+vi];
+                            temp2 = Vr[k+vip];
+                            work[iwrk+k] = temp1*temp1 + temp2*temp2;
+                        }
+                        k = Blas<real>::idamax(n, &work[iwrk], 1);
+                        dlartg(Vr[k+vi], Vr[k+vip], cs, sn, r);
+                        Blas<real>::drot(n, &Vr[vi], 1, &Vr[vip], 1, cs, sn);
+                        Vr[k+vip] = ZERO;
+                    }
+                }
+            }
+        }
+        // Undo scaling if necessary
+        if (scalea)
+        {
+            dlascl("G", 0, 0, cscale, anrm, n-info, 1, &wr[info], std::max(n-info, 1), ierr);
+            dlascl("G", 0, 0, cscale, anrm, n-info, 1, &wi[info], std::max(n-info, 1), ierr);
+            if (info>0)
+            {
+                dlascl("G", 0, 0, cscale, anrm, ilo, 1, wr, n, ierr);
+                dlascl("G", 0, 0, cscale, anrm, ilo, 1, wi, n, ierr);
+            }
+        }
+        work[0] = maxwrk;
+    }
+
     /*! §dgehd2 reduces a general square matrix to upper Hessenberg form using an unblocked
      *  algorithm.
      *
@@ -3099,7 +3463,7 @@ public:
      *     \n\n
      *     Further Details:\n
      *         Default values supplied by
-     *             $\{ilaenv(ISPEC,'DHSEQR',job[0]+compz[0],n,ilo+1,ihi+1,lwork)}$.\n
+     *             $\{ilaenv(ISPEC,"DHSEQR",job[0]+compz[0],n,ilo+1,ihi+1,lwork)}$.\n
      *         It is suggested that these defaults be adjusted in order to attain best performance
      *         in each particular computational environment.
      *         - §ISPEC=12: The §dlahqr vs §dlaqr0 crossover point.
@@ -22082,6 +22446,354 @@ public:
             if (e[i]!=ZERO)
             {
                 info++;
+            }
+        }
+    }
+
+    /*! §dstevx computes the eigenvalues and, optionally, the left and/or right eigenvectors for
+     *  simmetric tridiagonal matrices.
+     *
+     * §dstevx computes selected eigenvalues and, optionally, eigenvectors of a real symmetric
+     * tridiagonal matrix $A$. Eigenvalues and eigenvectors can be selected by specifying either a
+     * range of values or a range of indices for the desired eigenvalues.
+     * \param[in] jobz
+     *     ='N': Compute eigenvalues only;\n
+     *     ='V': Compute eigenvalues and eigenvectors.
+     *
+     * \param[in] range
+     *     ='A': all eigenvalues will be found.\n
+     *     ='V': all eigenvalues in the half-open interval $]\{vl},\{vu}]$ will be found.\n
+     *     ='I': the §il -th through §iu -th eigenvalues will be found.
+     *
+     * \param[in]     n The order of the matrix. $\{n}\ge 0$.
+     * \param[in,out] d
+     *     an array, dimension (§n)\n
+     *     On entry, the §n diagonal elements of the tridiagonal matrix $A$.\n
+     *     On exit, §d may be multiplied by a constant factor chosen to avoid over/underflow in
+     *     computing the eigenvalues.
+     *
+     * \param[in,out] e
+     *     an array, dimension ($\max(1,\{n}-1)$)\n
+     *     On entry, the $\{n}-1$ subdiagonal elements of the tridiagonal matrix $A$ in elements
+     *     0 to $\{n}-2$ of §e. \n
+     *     On exit, §e may be multiplied by a constant factor chosen to avoid over/underflow in
+     *     computing the eigenvalues.
+     *
+     * \param[in] vl
+     *     If §range ='V', the lower bound of the interval to be searched for eigenvalues.
+     *     $\{vl}<\{vu}$.\n Not referenced if §range ='A' or 'I'.
+     *
+     * \param[in] vu
+     *     If §range ='V', the upper bound of the interval to be searched for eigenvalues.
+     *     $\{vl}<\{vu}$.\n Not referenced if §range ='A' or 'I'.
+     *
+     * \param[in] il
+     *     If §range ='I', the index of the smallest eigenvalue to be returned.\n
+     *     $0\le\{il}\le\{iu}<\{n}$, if $\{n}>0$; $\{il}=0$ and $\{iu}=-1$ if $\{n}=0$.\n
+     *     Not referenced if §range ='A' or 'V'.\n
+     *     NOTE: zero-based index!
+     *
+     * \param[in] iu
+     *     If §range ='I', the index of the largest eigenvalue to be returned.\n
+     *     $0\le\{il}\le\{iu}<\{n}$, if $\{n}>0$; $\{il}=0$ and $\{iu}=-1$ if $\{n}=0$.\n
+     *     Not referenced if §range ='A' or 'V'.\n
+     *     NOTE: zero-based index!
+     *
+     * \param[in] abstol
+     *     The absolute error tolerance for the eigenvalues. An approximate eigenvalue is accepted
+     *     as converged when it is determined to lie in an interval $[a,b]$ of width less than or
+     *     equal to\n
+     *         $\{abstol}+\{EPS}\max(|a|,|b|)$,\n
+     *     where §EPS is the machine precision. If §abstol is less than or equal to zero, then
+     *     $\{EPS}|T|$ will be used in its place, where $|T|$ is the 1-norm of the tridiagonal
+     *     matrix.\n
+     *     Eigenvalues will be computed most accurately when §abstol is set to twice the underflow
+     *     threshold $2\,\{dlamch}('S')$, not zero. If this routine returns with $\{info}>0$,
+     *     indicating that some eigenvectors did not converge, try setting §abstol to
+     *     $2\,\{dlamch}('S')$.\n
+     *     See "Computing Small Singular Values of Bidiagonal Matrices with Guaranteed High
+     *     Relative Accuracy," by Demmel and Kahan, LAPACK Working Note #3.
+     *
+     * \param[out] m
+     *     The total number of eigenvalues found. $0\le\{m}\le\{n}$.
+     *     If §range ='A', $\{m}=\{n}$, and if §range ='I', $\{m}=\{iu}-\{il}+1$.
+     *
+     * \param[out] w
+     *     an array, dimension (§n)\n
+     *     The first §m elements contain the selected eigenvalues in ascending order.
+     *
+     * \param[out] Z
+     *     an array, dimension (§ldz, $\max(1,\{m})$)\n
+     *     If §jobz ='V', then if $\{info}=0$, the first §m columns of §Z contain the orthonormal
+     *     eigenvectors of the matrix $A$ corresponding to the selected eigenvalues, with the
+     *     $i$-th column of §Z holding the eigenvector associated with $\{w}[i]$. If an eigenvector
+     *     fails to converge ($\{info}>0$), then that column of §Z contains the latest
+     *     approximation to the eigenvector, and the index of the eigenvector is returned in
+     *     §ifail. If §jobz ='N', then §Z is not referenced.\n
+     *     Note: the user must ensure that at least $\max(1,\{m})$ columns are supplied in the
+     *     array §Z; if §range ='V', the exact value of §m is not known in advance and an upper
+     *     bound must be used.
+     *
+     * \param[in] ldz
+     *     The leading dimension of the array §Z.
+     *     $\{ldz}\ge 1$, and if §jobz ='V', $\{ldz}\ge\max(1,\{n})$.
+     *
+     * \param[out] work  an array, dimension ($5\{n}$)
+     * \param[out] iwork an integer array, dimension ($5\{n}$)
+     * \param[out] ifail
+     *     an integer array, dimension (§n)\n
+     *     If §jobz ='V', then if $\{info}=0$, the first §m elements of §ifail are $-1$.
+     *     If $\{info}>0$, then §ifail contains the indices of the eigenvectors that failed to
+     *     converge.\n
+     *     If §jobz ='N', then §ifail is not referenced.\n
+     *     NOTE: zero-based indices!
+     *
+     * \param[out] info
+     *     =0: successful exit.\n
+     *     <0: if $\{info}=-i$, the $i$-th argument had an illegal value.\n
+     *     >0: if $\{info}=i$, then $i$ eigenvectors failed to converge.
+     *         Their indices are stored in array §ifail.
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date June 2016                                                                           */
+    static void dstevx(char const* const jobz, char const* const range, int const n, real* const d,
+                       real* const e, real const vl, real const vu, int const il, int const iu,
+                       real const abstol, int& m, real* const w, real* const Z, int const ldz,
+                       real* const work, int* const iwork, int* const ifail, int& info) const
+    {
+        // Test the input parameters.
+        bool wantz  = (std::toupper( jobz[0])=='V');
+        bool alleig = (std::toupper(range[0])=='A');
+        bool valeig = (std::toupper(range[0])=='V');
+        bool indeig = (std::toupper(range[0])=='I');
+        info = 0;
+        if (!wantz && std::toupper(jobz[0])!='N')
+        {
+            info = -1;
+        }
+        else if (!(alleig || valeig || indeig))
+        {
+            info = -2;
+        }
+        else if (n<0)
+        {
+            info = -3;
+        }
+        else
+        {
+            if (valeig)
+            {
+                if (n>0 && vu<=vl)
+                {
+                    info = -7;
+                }
+            }
+            else if (indeig)
+            {
+                if (il<0 || il>std::max(0, n-1))
+                {
+                    info = -8;
+                }
+                else if (iu<std::min(n-1, il) || iu>=n)
+                {
+                    info = -9;
+                }
+            }
+        }
+        if (info==0){
+            if (ldz<1 || (wantz && ldz<n))
+            {
+                info = -14;
+            }
+        }
+        if (info!=0)
+        {
+            xerbla("DSTEVX", -info);
+            return;
+        }
+        // Quick return if possible
+        m = 0;
+        if (n==0)
+        {
+            return;
+        }
+        if (n==1)
+        {
+            if (alleig || indeig)
+            {
+                m = 1;
+                w[0] = d[0];
+            }
+            else
+            {
+                if (vl<d[0] && vu>=d[0])
+                {
+                    m = 1;
+                    w[0] = d[0];
+                }
+            }
+            if (wantz)
+            {
+                Z[0] = ONE;
+            }
+            return;
+        }
+        // Get machine constants.
+        real safmin = dlamch("Safe minimum");
+        real eps    = dlamch("Precision");
+        real smlnum = safmin / eps;
+        real bignum = ONE / smlnum;
+        real rmin   = std::sqrt(smlnum);
+        real rmax   = std::min(std::sqrt(bignum), ONE/std::sqrt(std::sqrt(safmin)));
+        // Scale matrix to allowable range, if necessary.
+        int iscale = 0;
+        real vll, vuu;
+        if (valeig)
+        {
+            vll = vl;
+            vuu = vu;
+        }
+        else
+        {
+            vll = ZERO;
+            vuu = ZERO;
+        }
+        real tnrm = dlanst("M", n, d, e);
+        real sigma;
+        if (tnrm>ZERO && tnrm<rmin)
+        {
+            iscale = 1;
+            sigma = rmin / tnrm;
+        }
+        else if (tnrm>rmax)
+        {
+            iscale = 1;
+            sigma = rmax / tnrm;
+        }
+        if (iscale==1)
+        {
+            Blas<real>::dscal(n,   sigma, d, 1);
+            Blas<real>::dscal(n-1, sigma, e, 1);
+            if (valeig)
+            {
+                vll = vl * sigma;
+                vuu = vu * sigma;
+            }
+        }
+        // If all eigenvalues are desired and abstol is less than zero, then call dsterf or dsteqr.
+        // If this fails for some eigenvalue, then try dstebz
+        bool test = false;
+        if (indeig)
+        {
+            if (il==0 && iu==n-1)
+            {
+                test = true;
+            }
+        }
+        int i, indwrk;
+        bool err = true;
+        if ((alleig || test) && abstol<=ZERO)
+        {
+            Blas<real>::dcopy(n,   d, 1, w,    1);
+            Blas<real>::dcopy(n-1, e, 1, work, 1);
+            indwrk = n;
+            if (!wantz)
+            {
+                dsterf(n, w, work, info);
+            }
+            else
+            {
+                dsteqr("I", n, w, work, Z, ldz, &work[indwrk], info);
+                if (info==0)
+                {
+                    for (i=0; i<n; i++)
+                    {
+                        ifail[i] = -1;
+                    }
+                }
+            }
+            if (info==0)
+            {
+                m = n;
+                err=false;
+            }
+            info = 0;
+        }
+        int indibl;
+        if (err)
+        {
+            // call dstebz and, if eigenvectors are desired, dstein.
+            char order[2];
+            order[1] = '\0';
+            if (wantz)
+            {
+               order[0] = 'B';
+            }
+            else
+            {
+               order[0] = 'E';
+            }
+            indwrk = 0;
+            indibl = 0;
+            int indisp = indibl + n;
+            int indiwo = indisp + n;
+            int nsplit;
+            dstebz(range, order, n, vll, vuu, il, iu, abstol, d, e, m, nsplit, w, &iwork[indibl],
+                   &iwork[indisp], &work[indwrk], &iwork[indiwo], info);
+            if (wantz)
+            {
+                dstein(n, d, e, m, w, &iwork[indibl], &iwork[indisp], Z, ldz, &work[indwrk],
+                       &iwork[indiwo], ifail, info);
+            }
+        }
+        // If matrix was scaled, then rescale eigenvalues appropriately.
+        if (iscale==1)
+        {
+            int imax;
+            if (info==0)
+            {
+                imax = m;
+            }
+            else
+            {
+                imax = info - 1;
+            }
+            Blas<real>::dscal(imax, ONE/sigma, w, 1);
+        }
+        // If eigenvalues are not in order, then sort them, along with eigenvectors.
+        if (wantz)
+        {
+            int itmp1, j, jj;
+            real tmp1;
+            for (j=0; j<m-1; j++)
+            {
+                i = -1;
+                tmp1 = w[j];
+                for (jj=j+1; jj<m; jj++)
+                {
+                    if (w[jj]<tmp1)
+                    {
+                        i = jj;
+                        tmp1 = w[jj];
+                    }
+                }
+                if (i!=-1)
+                {
+                    itmp1           = iwork[indibl+i];
+                    w[i] = w[j];
+                    iwork[indibl+i] = iwork[indibl+j];
+                    w[j] = tmp1;
+                    iwork[indibl+j] = itmp1;
+                    Blas<real>::dswap(n, &Z[ldz*i], 1, &Z[ldz*j], 1);
+                    if (info!=0)
+                    {
+                        itmp1    = ifail[i];
+                        ifail[i] = ifail[j];
+                        ifail[j] = itmp1;
+                    }
+                }
             }
         }
     }
