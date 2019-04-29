@@ -27,17 +27,18 @@ class Lapack
 private:
     // constants
 
-    static constexpr real NEGONE= real(-1.0); //!< A constant negative one (-1.0)  value
-    static constexpr real ZERO  = real(0.0);  //!< A constant zero         (0.0)   value
-    static constexpr real QURTR = real(0.25); //!< A constant one quarter  (0.25)  value
-    static constexpr real HALF  = real(0.5);  //!< A constant one half     (0.5)   value
-    static constexpr real ONE   = real(1.0);  //!< A constant one          (1.0)   value
-    static constexpr real TWO   = real(2.0);  //!< A constant two          (2.0)   value
-    static constexpr real THREE = real(3.0);  //!< A constant three        (3.0)   value
-    static constexpr real FOUR  = real(4.0);  //!< A constant four         (4.0)   value
-    static constexpr real EIGHT = real(8.0);  //!< A constant eight        (8.0)   value
-    static constexpr real TEN   = real(10.0); //!< A constant ten          (10.0)  value
-    static constexpr real HNDRD = real(100.0);//!< A constant one hundred  (100.0) value
+    static constexpr real NEGONE= real(-1.0);  //!< A constant negative one       (-1.0)  value
+    static constexpr real MEIGTH= real(-0.125);//!< A constant negative one eigth (-0.125)value
+    static constexpr real ZERO  = real(0.0);   //!< A constant zero               (0.0)   value
+    static constexpr real QURTR = real(0.25);  //!< A constant one quarter        (0.25)  value
+    static constexpr real HALF  = real(0.5);   //!< A constant one half           (0.5)   value
+    static constexpr real ONE   = real(1.0);   //!< A constant one                (1.0)   value
+    static constexpr real TWO   = real(2.0);   //!< A constant two                (2.0)   value
+    static constexpr real THREE = real(3.0);   //!< A constant three              (3.0)   value
+    static constexpr real FOUR  = real(4.0);   //!< A constant four               (4.0)   value
+    static constexpr real EIGHT = real(8.0);   //!< A constant eight              (8.0)   value
+    static constexpr real TEN   = real(10.0);  //!< A constant ten                (10.0)  value
+    static constexpr real HNDRD = real(100.0); //!< A constant one hundred        (100.0) value
 
 public:
     // LAPACK INSTALL (alphabetically)
@@ -659,7 +660,6 @@ public:
                        real* const U, int const ldu, real* const C, int const ldc,
                        real* const work, int& info) const
     {
-        const real MEIGTH = real(-0.125);
         const real HNDRTH = real(0.01);
         /* tolmul
          *
@@ -1331,6 +1331,685 @@ public:
                 if (ncc>0)
                 {
                     Blas<real>::dswap(ncc, &C[isub], ldc, &C[n-i-1], ldc);
+                }
+            }
+        }
+    }
+
+    /*! §dbdsvdx
+     *
+     * §dbdsvdx computes the singular value decomposition (SVD) of a real §n by §n (upper or lower)
+     * bidiagonal matrix $B$, $B = U S V^T$, where $S$ is a diagonal matrix with non-negative
+     * diagonal elements (the singular values of $B$), and $U$ and $V^T$ are orthogonal matrices of
+     * left and right singular vectors, respectively.\n
+     * Given an upper bidiagonal $B$ with diagonal $d = [d_0~d_1~\ldots~d_{\{n}-1}]$ and
+     * superdiagonal $e = [e_0~e_1~\ldots~e_{\{n}-2}]$, §DBDSVDX computes the singular value
+     * decompositon of $B$ through the eigenvalues and eigenvectors of the $2\{n}$ by $2\{n}$
+     * tridiagonal matrix\n
+     *     $\{TGK}=\b{bm}  0  & d_0 &     &      &      \\
+     *                    d_0 &  0  & e_0 &      &      \\
+     *                        & e_0 &  0  & d_1  &      \\
+     *                        &     & d_1 &\ddots&\ddots\\
+     *                        &     &     &\ddots&\ddots\e{bm}$\n
+     * If $(s,u,v)$ is a singular triplet of $B$ with $\|u\|=\|v\|=1$, then $(\pm s,q)$, $\|q\|=1$,
+     * are eigenpairs of §TGK, with
+     *     $q=\frac{P\b{bm}u^T&\pm v^T\e{bm}}{\sqrt{2}}$
+     *     $\,=\frac{\b{bm}v_0&u_0&v_1&u_1&\ldots&v_{\{n}-1}&u_{\{n}-1}\e{bm}}{\sqrt{2}}$, and\n
+     *     $P=\b{bm}e_\{n}&e_0&e_{\{n}+1}&e_1&\ldots\e{bm}$.\n
+     * Given a §TGK matrix, one can either
+     *     - a) compute $-s$,$-v$ and change signs so that the singular values (and corresponding
+     *          vectors) are already in descending order (as in §dgesvd or §dgesdd), or
+     *     - b) compute $s$,$v$ and reorder the values (and corresponding vectors).
+     *
+     * §dbdsvdx implements a) by calling §dstevx (bisection plus inverse iteration, to be replaced
+     * with a version of the Multiple Relative Robust Representation algorithm. (See P. Willems and
+     * B. Lang, A framework for the MR^3 algorithm: theory and implementation,
+     * SIAM J. Sci. Comput., 35:740-766, 2013.)
+     * \param[in] uplo
+     *     ='U': $B$ is upper bidiagonal;\n
+     *     ='L': $B$ is lower bidiagonal.
+     *
+     * \param[in] jobz
+     *     ='N': Compute singular values only;\n
+     *     ='V': Compute singular values and singular vectors.
+     *
+     * \param[in] range
+     *     ='A': all singular values will be found.\n
+     *     ='V': all singular values in the half-open interval $[\{vl},\{vu}[$ will be found.\n
+     *     ='I': the §il -th through §iu -th singular values will be found.
+     *
+     * \param[in] n The order of the bidiagonal matrix. $\{n}\ge 0$.
+     * \param[in] d
+     *     an array, dimension (§n)\n The §n diagonal elements of the bidiagonal matrix $B$.
+     *
+     * \param[in] e
+     *     an array, dimension ($\max(1,\{n}-1)$)\n
+     *     The $\{n}-1$ superdiagonal elements of the bidiagonal matrix $B$ in elements 0 to
+     *     $\{n}-2$.
+     *
+     * \param[in] vl
+     *     If §range ='V', the lower bound of the interval to be searched for singular values.
+     *     $\{vu}>\{vl}$.\n Not referenced if §range ='A' or 'I'.
+     *
+     * \param[in] vu
+     *     If §range ='V', the upper bound of the interval to be searched for singular values.
+     *     $\{vu}>\{vl}$.\n Not referenced if §range ='A' or 'I'.
+     *
+     * \param[in] il
+     *     If §range ='I', the index of the smallest singular value to be returned.
+     *     $0\le\{il}\le\{iu}<\min(\{M},\{n})$, if $\min(\{M},\{n})>0$.\n
+     *     Not referenced if §range ='A' or 'V'.\n
+     *     NOTE: zero-based index!
+     *
+     * \param[in] iu
+     *     If §range ='I', the index of the largest singular value to be returned.
+     *     $0\le\{il}\le\{iu}<\min(\{M},\{n})$, if $\min(\{M},\{n})>0$.\n
+     *     Not referenced if §range ='A' or 'V'.\n
+     *     NOTE: zero-based index!
+     *
+     * \param[out] ns
+     *     The total number of singular values found. $0\le\{ns}\le\{n}$.
+     *     If §range ='A', $\{ns}=\{n}$, and if §range ='I', $\{ns}=\{iu}-\{il}+1$.
+     *
+     * \param[out] s
+     *     an array, dimension (§n)\n
+     *     The first §ns elements contain the selected singular values in ascending order.
+     *
+     * \param[out] Z
+     *     an array, dimension (§LDZ,§K)\n
+     *     - If §jobz ='V', then if $\{info}=0$ the first §ns columns of §Z contain the singular
+     *       vectors of the matrix $B$ corresponding to the selected singular values, with $U$ in
+     *       rows 0 to $\{n}-1$ and $V$ in rows §n to $2\{n}-1$, i.e.\n
+     *       $\{Z}=\b{bm} U \\ V \e{bm}$
+     *     - If §jobz ='N', then §Z is not referenced.
+     *     .
+     *     Note: The user must ensure that at least $K=\{ns}+1$ columns are supplied in the array
+     *           §Z; if §range ='V', the exact value of §ns is not known in advance and an upper
+     *           bound must be used.
+     *
+     * \param[in] ldz
+     *     The leading dimension of the array §Z.
+     *     $\{ldz}\ge 1$, and if §jobz ='V', $\{ldz}\ge\max(2,2\{n})$.
+     *
+     * \param[out] work  an array, dimension ($14\{n}$)
+     * \param[out] iwork
+     *     an integer array, dimension ($12\{n}$)\n
+     *     If §jobz ='V', then if $\{info}=0$, the first §ns elements of §iwork are zero.
+     *     If $\{info}>0$, then §iwork contains the indices of the eigenvectors that failed to
+     *     converge in §dstevx.
+     *
+     * \param[out] info
+     *     =0: successful exit.\n
+     *     <0: if $\{info}=-i$, the $i$-th argument had an illegal value\n
+     *     >0: if $\{info}=i$, then $i$ eigenvectors failed to converge in §dstevx. The indices of
+     *         the eigenvectors (as returned by §dstevx) are stored in the array §iwork.
+     *         if $\{info}=2\{n}+1$, an internal error occurred.
+     * \authors Univ. of Tennessee
+     * \authors Univ. of California Berkeley
+     * \authors Univ. of Colorado Denver
+     * \authors NAG Ltd.
+     * \date June 2016                                                                           */
+    static void dbdsvdx(char const* const uplo, char const* const jobz, char const* const range,
+                        int const n, real const* const d, real const* const e, real const vl,
+                        real const vu, int const il, int const iu, int& ns, real* const s,
+                        real* const Z, int const ldz, real* const work, int* const iwork,
+                        int& info) const
+    {
+        real const FUDGE = real(2.0);
+        // Test the input parameters.
+        bool allsv = (std::toupper(range[0])=='A');
+        bool valsv = (std::toupper(range[0])=='V');
+        bool indsv = (std::toupper(range[0])=='I');
+        bool wantz = (std::toupper(jobz[0])=='V');
+        bool lower = (std::toupper(uplo[0])=='L');
+        info = 0;
+        if (std::toupper(uplo[0])!='U' && !lower)
+        {
+            info = -1;
+        }
+        else if (std::toupper(jobz[0])!='N' && !wantz)
+        {
+            info = -2;
+        }
+        else if (!(allsv || valsv || indsv))
+        {
+            info = -3;
+        }
+        else if (n<0)
+        {
+            info = -4;
+        }
+        else if (n>0)
+        {
+            if (valsv)
+            {
+                if (vl<ZERO)
+                {
+                    info = -7;
+                }
+                else if (vu<=vl)
+                {
+                    info = -8;
+                }
+            }
+            else if (indsv)
+            {
+                if (il<0 || il>std::max(0, n-1))
+                {
+                    info = -9;
+                }
+                else if (iu<std::min(n-1, il) || iu>=n)
+                {
+                    info = -10;
+                }
+            }
+        }
+        if (info==0)
+        {
+            if (ldz<1 || (wantz && ldz<n*2))
+            {
+                info = -14;
+            }
+        }
+        if (info!=0)
+        {
+            xerbla("DBDSVDX", -info);
+            return;
+        }
+        // Quick return if possible (n<=1)
+        ns = 0;
+        if (n==0)
+        {
+            return;
+        }
+        if (n==1)
+        {
+            if (allsv || indsv)
+            {
+                ns = 1;
+                s[0] = std::fabs(d[0]);
+            }
+            else
+            {
+                if (vl<std::fabs(d[0]) && vu>=std::fabs(d[0]))
+                {
+                    ns = 1;
+                    s[0] = std::fabs(d[0]);
+                }
+            }
+            if (wantz)
+            {
+                Z[0] = std::copysign(ONE, d[0]);
+                Z[1] = ONE;
+            }
+            return;
+        }
+        real abstol = 2 * dlamch("Safe Minimum");
+        real ulp = dlamch("Precision");
+        real eps = dlamch("Epsilon");
+        real sqrt2 = std::sqrt(TWO);
+        real ortol = std::sqrt(ulp);
+        /* Criterion for splitting is taken from dbdsqr when singular values are computed to
+         * relative accuracy tol. (See J. Demmel and W. Kahan, Accurate singular values of
+         * bidiagonal matrices, SIAM J. Sci. and Stat. Comput., 11:873-912, 1990.)               */
+        real tol = std::max(TEN, std::min(HNDRD, std::pow(eps, MEIGTH))) * eps;
+        // Compute approximate maximum, minimum singular values.
+        int i = Blas<real>::idamax(n, d, 1);
+        real smax = std::fabs(d[i]);
+        i = Blas<real>::idamax(n-1, e, 1);
+        smax = std::max(smax, std::fabs(e[i]));
+        // Compute threshold for neglecting d's and e's.
+        real smin = std::fabs(d[0]);
+        if (smin!=ZERO)
+        {
+            real mu = smin;
+            for (i=1; i<n; i++)
+            {
+                mu = std::fabs(d[i]) * (mu/(mu+std::fabs(e[i-1])));
+                smin = std::min(smin, mu);
+                if (smin==ZERO)
+                {
+                    break;
+                }
+            }
+        }
+        smin /= std::sqrt(real(n));
+        real thresh = tol * smin;
+        // Check for zeros in d and e (splits), i.e. submatrices.
+        for (i=0; i<n-1; i++)
+        {
+            if (std::fabs(d[i])<=thresh)
+            {
+                d[i] = ZERO;
+            }
+            if (std::fabs(e[i])<=thresh)
+            {
+                e[i] = ZERO;
+            }
+        }
+        if (std::fabs(d[n-1])<=thresh)
+        {
+            d[n-1] = ZERO;
+        }
+        // Pointers for arrays used by DSTEVX.
+        int idtgk  = 0;
+        int ietgk  = idtgk + n*2;
+        int itemp  = ietgk + n*2;
+        int iifail = 0;
+        int iiwork = iifail + n*2;
+        // Set rngvx, which corresponds to range for DSTEVX in TGK mode. vl,vu or il,iu are
+        // redefined to conform to implementation a) described in the leading comments.
+        int iltgk  = -1;
+        int iutgk  = -1;
+        real vltgk = ZERO;
+        real vutgk = ZERO;
+        char rngvx[2];
+        rngvx[1] = '\0';
+        if (allsv)
+        {
+            /* All singular values will be found. We aim at -s (see leading comments) with
+             * NGVX = 'I'. il and iu are set later (as iltgk and iutgk) according to the dimension
+             * of the active submatrix.                                                          */
+            rngvx[0] = 'I';
+            if (wantz)
+            {
+                dlaset("F", n*2, n+1, ZERO, ZERO, Z, ldz);
+            }
+        }
+        else if (valsv)
+        {
+            /* Find singular values in a half-open interval. We aim at -s (see leading comments)
+             * and we swap vl and vu (as vutgk and vltgk), changing their signs.                 */
+            rngvx[0] = 'V';
+            vltgk = -vu;
+            vutgk = -vl;
+            for (i=idtgk; i<idtgk+2*n; i++)
+            {
+                work[i] = ZERO;
+            }
+            Blas<real>::dcopy(n,   d, 1, &work[ietgk],   2);
+            Blas<real>::dcopy(n-1, e, 1, &work[ietgk+1], 2);
+            dstevx("N", "V", n*2, &work[idtgk], &work[ietgk], vltgk, vutgk, iltgk, iltgk, abstol,
+                   ns, s, Z, ldz, &work[itemp], &iwork[iiwork], &iwork[iifail], info);
+            if (ns==0)
+            {
+                return;
+            }
+            else
+            {
+                if (wantz)
+                {
+                    dlaset("F", n*2, ns, ZERO, ZERO, Z, ldz);
+                }
+            }
+        }
+        else if (indsv)
+        {
+            /* Find the il-th through the iu-th singular values. We aim at -s (see leading
+             * comments) and indices are mapped into values, therefore mimicking DSTEBZ, where
+             *     GL = GL - FUDGE*TNORM*ulp*n - FUDGE*TWO*PIVMIN
+             *     GU = GU + FUDGE*TNORM*ulp*n + FUDGE*PIVMIN                                    */
+            iltgk = il;
+            iutgk = iu;
+            rngvx[0] = 'V';
+            for (i=idtgk; i<idtgk+2*n; i++)
+            {
+                work[i] = ZERO;
+            }
+            Blas<real>::dcopy(n,   d, 1, &work[ietgk],   2);
+            Blas<real>::dcopy(n-1, e, 1, &work[ietgk+1], 2);
+            dstevx("N", "I", n*2, &work[idtgk], &work[ietgk], vltgk, vltgk, iltgk, iltgk, abstol,
+                   ns, s, Z, ldz, &work[itemp], &iwork[iiwork], &iwork[iifail], info);
+            vltgk = s[0] - FUDGE*smax*ulp*n;
+            for (i=idtgk; i<idtgk+2*n; i++)
+            {
+                work[i] = ZERO;
+            }
+            Blas<real>::dcopy(n,   d, 1, &work[ietgk],   2);
+            Blas<real>::dcopy(n-1, e, 1, &work[ietgk+1], 2);
+            dstevx("N", "I", n*2, &work[idtgk], &work[ietgk], vutgk, vutgk, iutgk, iutgk, abstol,
+                   ns, s, Z, ldz, &work[itemp], &iwork[iiwork], &iwork[iifail], info);
+            vutgk = s[0] + FUDGE*smax*ulp*n;
+            vutgk = std::min(vutgk, ZERO);
+            // If vltgk=vutgk, DSTEVX returns an error message,
+            // so if needed we change vutgk slightly.
+            if (vltgk==vutgk)
+            {
+                vltgk = vltgk - tol;
+            }
+            if (wantz)
+            {
+                dlaset("F", n*2, iu-il+1, ZERO, ZERO, Z, ldz);
+            }
+        }
+        /* Initialize variables and pointers for s, Z, and work.
+         * nru, nrv: number of rows in U and V for the active submatrix
+         * idbeg, isbeg: offsets for the entries of d and s
+         * irowz, icolz: offsets for the rows and columns of Z
+         * irowu, irowv: offsets for the rows of U and V                                         */
+        ns = 0;
+        int nru = 0;
+        int nrv = 0;
+        int idbeg = 0;
+        int isbeg = 0;
+        int irowz = 0;
+        int icolz = 0;
+        int irowu = 1;
+        int irowv = 0;
+        bool split = false;
+        bool sveq0 = false;
+        // Form the tridiagonal TGK matrix.
+        for (i=0; i<n; i++)
+        {
+            s[i] = ZERO;
+        }
+        work[ietgk+2*n-1] = ZERO;
+        for (i=idtgk; i<idtgk+2*n; i++)
+        {
+            work[i] = ZERO;
+        }
+        Blas<real>::dcopy(n,   d, 1, &work[ietgk],   2);
+        Blas<real>::dcopy(n-1, e, 1, &work[ietgk+1], 2);
+        // Check for splits in two levels, outer level in e and inner level in d.
+        int idend, idptr, ieptr, isplt, j, ntgk, nsl, zind1, zind2;
+        real emin, nrmu, nrmv, zjtji;
+        for (ieptr=1; ieptr<n*2; ieptr+=2)
+        {
+            if (work[ietgk+ieptr]==ZERO)
+            {
+                // Split in e (this piece of B is square) or bottom of the (input bidiagonal)
+                // matrix.
+                isplt = idbeg;
+                idend = ieptr - 1;
+                for (idptr=idbeg; idptr<=idend; idptr+=2)
+                {
+                    if (work[ietgk+idptr]==ZERO)
+                    {
+                        // Split in d (rectangular submatrix). Set the number of rows in U and V
+                        // (nru and nrv) accordingly.
+                        if (idptr==idbeg)
+                        {
+                            // d=0 at the top.
+                            sveq0 = true;
+                            if (idbeg==idend)
+                            {
+                                nru = 1;
+                                nrv = 1;
+                            }
+                        }
+                        else if (idptr==idend)
+                        {
+                            // d=0 at the bottom.
+                            sveq0 = true;
+                            nru = (idend-isplt)/2 + 1;
+                            nrv = nru;
+                            if (isplt!=idbeg)
+                            {
+                                nru++;
+                            }
+                        }
+                        else
+                        {
+                            if (isplt==idbeg)
+                            {
+                                // Split: top rectangular submatrix.
+                                nru = (idptr-idbeg)/2;
+                                nrv = nru + 1;
+                            }
+                            else
+                            {
+                                // Split: middle square submatrix.
+                                nru = (idptr-isplt)/2 + 1;
+                                nrv = nru;
+                            }
+                        }
+                    }
+                    else if (idptr==idend)
+                    {
+                        // Last entry of d in the active submatrix.
+                        if (isplt==idbeg)
+                        {
+                            // No split (trivial case).
+                            nru = (idend-idbeg)/2 + 1;
+                            nrv = nru;
+                        }
+                        else
+                        {
+                            // Split: bottom rectangular submatrix.
+                            nrv = (idend-isplt)/2 + 1;
+                            nru = nrv + 1;
+                        }
+                    }
+                    ntgk = nru + nrv;
+                    if (ntgk>0)
+                    {
+                        /* Compute eigenvalues/vectors of the active submatrix according to range:
+                         * if range='A' (allsv) then rngvx = 'I'
+                         * if range='V' (valsv) then rngvx = 'V'
+                         * if range='I' (indsv) then rngvx = 'V'                                 */
+                        iltgk = 0;
+                        iutgk = ntgk/2 - 1;
+                        if (allsv || vutgk==ZERO)
+                        {
+                            if (sveq0 || smin<eps || (ntgk%2)>0)
+                            {
+                                // Special case: eigenvalue equal to zero or very small,
+                                // additional eigenvector is needed.
+                                iutgk++;
+                            }
+                        }
+                        // Workspace needed by DSTEVX:
+                        //  work[itemp:]: 2*5*ntgk
+                        // iwork[0:]    : 2*6*ntgk
+                        dstevx(jobz, rngvx, ntgk, &work[idtgk+isplt], &work[ietgk+isplt], vltgk,
+                               vutgk, iltgk, iutgk, abstol, nsl, &s[isbeg], &Z[irowz+ldz*icolz],
+                               ldz, &work[itemp], &iwork[iiwork], &iwork[iifail], info);
+                        if (info!=0)
+                        {
+                            // Exit with the error code from dstevx.
+                            return;
+                        }
+                        if (nsl==0)
+                        {
+                            emin = dlamch("O");
+                        }
+                        else
+                        {
+                            emin = std::fabs(*std::max_element(&s[isbeg],&s[isbeg+nsl]));
+                        }
+                        if (nsl>0 && wantz)
+                        {
+                            /* Normalize u=Z[[1,3,...],:] and v=Z[[0,2,...],:], changing the sign
+                             * of v as discussed in the leading comments. The norms of u and v may
+                             * be (slightly) different from 1/sqrt(2) if the corresponding
+                             * eigenvalues are very small or too close. We check those norms and,
+                             * if needed, reorthogonalize the vectors.                           */
+                            if (nsl>1 && vutgk==ZERO && (ntgk%2)==0 && emin==ZERO && !split)
+                            {
+                                /* d=0 at the top or bottom of the active submatrix: one eigenvalue
+                                 * is equal to zero; concatenate the eigenvectors corresponding to
+                                 * the two smallest eigenvalues.                                 */
+                                zind1 = ldz * (icolz+nsl-2);
+                                zind2 = zind1 + ldz;
+                                for (i=irowz; i<irowz+ntgk; i++)
+                                {
+                                    Z[i+zind1] = Z[i+zind1] + Z[i+zind2];
+                                    Z[i+zind2] = ZERO;
+                                }
+                                //if (iutgk*2>=ntgk-1)
+                                //{
+                                //    // Eigenvalue equal to zero or very small.
+                                //    nsl--;
+                                //}
+                            }
+                            zind1 = irowu + ldz*icolz;
+                            for (i=0; i<std::min(nsl, nru); i++)
+                            {
+                                zind2 = zind1 + ldz*i;
+                                nrmu = Blas<real>::dnrm2(nru, &Z[zind2], 2);
+                                if (nrmu==ZERO)
+                                {
+                                    info = n*2 + 1;
+                                    return;
+                                }
+                                Blas<real>::dscal(nru, ONE/nrmu, &Z[zind2], 2);
+                                if (nrmu!=ONE && std::fabs(nrmu-ortol)*sqrt2>ONE)
+                                {
+                                    for (j=0; j<i; j++)
+                                    {
+                                        zjtji = -Blas<real>::ddot(nru, &Z[zind1+ldz*j], 2,
+                                                                  &Z[zind2], 2);
+                                        Blas<real>::daxpy(nru, zjtji, &Z[zind1+ldz*j], 2,
+                                                          &Z[zind2], 2);
+                                    }
+                                    nrmu = Blas<real>::dnrm2(nru, &Z[zind2], 2);
+                                    Blas<real>::dscal(nru, ONE/nrmu, &Z[zind2], 2);
+                                }
+                            }
+                            zind1 = irowv + ldz*icolz;
+                            for (i=0; i<std::min(nsl, nrv); i++)
+                            {
+                                zind2 = zind1 + ldz*i;
+                                nrmv = Blas<real>::dnrm2(nrv, &Z[zind2], 2);
+                                if (nrmv==ZERO)
+                                {
+                                    info = n*2 + 1;
+                                    return;
+                                }
+                                Blas<real>::dscal(nrv, -ONE/nrmv, &Z[zind2], 2);
+                                if (nrmv!=ONE && std::fabs(nrmv-ortol)*sqrt2>ONE)
+                                {
+                                    for (j=0; j<i; j++)
+                                    {
+                                        zjtji = -Blas<real>::ddot(nrv, &Z[zind1+ldz*j], 2,
+                                                                  &Z[zind2], 2);
+                                        Blas<real>::daxpy(nru, zjtji, &Z[zind1+ldz*j], 2,
+                                                          &Z[zind2], 2);
+                                    }
+                                    nrmv = Blas<real>::dnrm2(nrv, &Z[zind2], 2);
+                                    Blas<real>::dscal(nrv, ONE/nrmv, &Z[zind2], 2);
+                                }
+                            }
+                            if (vutgk==ZERO && idptr<idend && (ntgk%2)>0)
+                            {
+                                /* d=0 in the middle of the active submatrix (one eigenvalue is
+                                 * equal to zero): save the corresponding eigenvector for later use
+                                 * (when bottom of the active submatrix is reached).             */
+                                split = true;
+                                zind1 = ldz * n;
+                                zind2 = ldz * (ns+nsl-1);
+                                for (i=irowz; i<irowz+ntgk; i++)
+                                {
+                                    Z[i+zind1] = Z[i+zind2];
+                                    Z[i+zind2] = ZERO;
+                                }
+                            }
+                        }// if wantz
+                        nsl = std::min(nsl, nru);
+                        sveq0 = false;
+                        // Absolute values of the eigenvalues of TGK.
+                        for (i=0; i<nsl; i++)
+                        {
+                            s[isbeg+i] = std::fabs(s[isbeg+i]);
+                        }
+                        // Update pointers for TGK, s and Z.
+                        isbeg += nsl;
+                        irowz += ntgk;
+                        icolz += nsl;
+                        irowu = irowz;
+                        irowv = irowz + 1;
+                        isplt = idptr + 1;
+                        ns += nsl;
+                        nru = 0;
+                        nrv = 0;
+                    }// ntgk>0
+                    if (irowz<n*2-1 && wantz)
+                    {
+                        zind1 = ldz * icolz;
+                        for (i=0; i<irowz; i++)
+                        {
+                            Z[i+zind1] = ZERO;
+                        }
+                    }
+                }// idptr loop
+                if (split && wantz)
+                {
+                    // Bring back eigenvector corresponding to eigenvalue equal to zero.
+                    zind1 = ldz * (isbeg-1);
+                    zind2 = ldz * n;
+                    for (i=idbeg; i<=idend-ntgk+1; i++)
+                    {
+                        Z[i+zind1] = Z[i+zind1] + Z[i+zind2];
+                        Z[i+zind2] = 0;
+                    }
+                }
+                irowv--;
+                irowu++;
+                idbeg = ieptr + 1;
+                sveq0 = false;
+                split = false;
+            }// Check for split in e
+        }// ieptr loop
+        // Sort the singular values into decreasing order (insertion sort on singular values, but
+        // only one transposition per singular vector)
+        int k;
+        zind1 = ldz * (ns-1);
+        for (i=0; i<ns-1; i++)
+        {
+            k = 0;
+            smin = s[0];
+            for (j=1; j<ns-i; j++)
+            {
+                if (s[j]<=smin)
+                {
+                    k = j;
+                    smin = s[j];
+                }
+            }
+            if (k!=ns-1-i)
+            {
+                s[k] = s[ns-1-i];
+                s[ns-1-i] = smin;
+                if (wantz)
+                {
+                    Blas<real>::dswap(n*2, &Z[ldz*k], 1, &Z[zind1-ldz*i], 1);
+                }
+            }
+        }
+        // If range='I', check for singular values/vectors to be discarded.
+        if (indsv)
+        {
+            k = iu - il + 1;
+            if (k<ns-1)
+            {
+                for (i=k; i<ns; i++)
+                {
+                    s[i] = ZERO;
+                }
+                if (wantz)
+                {
+                    dlaset("All", 2*n, ns-k, ZERO, ZERO, &Z[ldz*k], ldz);
+                }
+                ns = k;
+            }
+        }
+        // Reorder Z: U=Z[0:n-1,0:ns-1], V=Z[n:n*2-1,0:ns-1].
+        // If B is a lower diagonal, swap U and V.
+        if (wantz)
+        {
+            for (i=0; i<ns; i++)
+            {
+                zind1 = ldz * i;
+                Blas<real>::dcopy(n*2, &Z[zind1], 1, work, 1);
+                if (lower)
+                {
+                    Blas<real>::dcopy(n, &work[1], 2, &Z[n+zind1], 1);
+                    Blas<real>::dcopy(n, &work[0], 2, &Z[zind1], 1);
+                }
+                else
+                {
+                    Blas<real>::dcopy(n, &work[1], 2, &Z[zind1], 1);
+                    Blas<real>::dcopy(n, &work[0], 2, &Z[n+zind1], 1);
                 }
             }
         }
@@ -22564,7 +23243,7 @@ public:
                        real* const work, int* const iwork, int* const ifail, int& info) const
     {
         // Test the input parameters.
-        bool wantz  = (std::toupper( jobz[0])=='V');
+        bool wantz  = (std::toupper(jobz[0]) =='V');
         bool alleig = (std::toupper(range[0])=='A');
         bool valeig = (std::toupper(range[0])=='V');
         bool indeig = (std::toupper(range[0])=='I');

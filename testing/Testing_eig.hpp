@@ -57,7 +57,7 @@ public:
         }
         else
         {
-            nout << "\n All tests for " << typecopy << " routines passed the threshold ( "
+            nout << "\n All tests for " << typecopy << " routines passed the threshold ("
                  << std::setw(6) << nrun << " tests run)\n";
         }
         if (nerrs>0)
@@ -733,6 +733,255 @@ public:
         delete[] dummy;
         delete[] scale;
         delete[] scalin;
+    }
+
+    /*! §dget22
+     *
+     * §dget22 does an eigenvector check.
+     * The basic test is:\n
+     *     $\{result}[0]=\frac{\left|AE-EW\right|}{|A||E|\{ulp}}$\n
+     * using the 1-norm. It also tests the normalization of $E$:\n
+     *     $\{result}[1]=\frac{\max_j{\left|\operatorname{m-norm}(E[j])-1\right|}}{\{n}\,\{ulp}}$\n
+     * where $E[j]$ is the $j$-th eigenvector, and $\operatorname{m-norm}$ is the max-norm of a
+     * vector. If an eigenvector is complex, as determined from $\{wi}[j]$ nonzero, then the
+     * max-norm of the vector $(e_r+\mathrm{i}\cdot e_i)$ is the maximum of\n
+     *     $|e_r[0]|+|e_i[0]|, \ldots, |e_r[\{n}-1]|+|e_i[\{n}-1]|$\n
+     * §W is a block diagonal matrix, with a 1 by 1 block for each real eigenvalue and a 2 by 2
+     * block for each complex conjugate pair.
+     * If eigenvalues $j$ and $j+1$ are a complex conjugate pair, so that $\{wr}[j]=\{wr}[j+1]=w_r$
+     * and $\{wi}[j]=-\{wi}[j+1]=w_i$, then the 2 by 2 block corresponding to the pair will be:\n
+     *     $\b{bm} w_r & w_i \\
+     *            -w_i & w_r \e{bm}$\n
+     * Such a block multiplying an §n by 2 matrix $\b{bm}u_r&u_i\e{bm}$ on the right will be the
+     * same as multiplying $u_r+\mathrm{i}\cdot u_i$ by $w_r+\mathrm{i}\cdot w_i$.\n
+     * To handle various schemes for storage of left eigenvectors, there are options to use
+     * $A$-transpose instead of $A$, $E$-transpose instead of $E$, and/or $W$-transpose instead of
+     * $W$.
+     * \param[in] transa
+     *     Specifies whether or not §A is transposed.\n
+     *     ='N': No transpose\n
+     *     ='T': Transpose\n
+     *     ='C': Conjugate transpose (= Transpose)
+     *
+     * \param[in] transe
+     *     Specifies whether or not §E is transposed.\n
+     *     ='N': No transpose, eigenvectors are in columns of §E \n
+     *     ='T': Transpose, eigenvectors are in rows of §E \n
+     *     ='C': Conjugate transpose (= Transpose)
+     *
+     * \param[in] transw
+     *     Specifies whether or not W is transposed.\n
+     *     ='N': No transpose\n
+     *     ='T': Transpose, use $-\{wi}[j]$ instead of $\{wi}[j]$\n
+     *     ='C': Conjugate transpose, use $-\{wi}[j]$ instead of $\{wi}[j]$
+     *
+     * \param[in] n   The order of the matrix $A$. $\{n}\ge 0$
+     * \param[in] A   an array, dimension (§lda,§n)\n The matrix whose eigenvectors are in $E$.
+     * \param[in] lda The leading dimension of the array §A. $\{lda}\ge\max(1,\{n})$.
+     * \param[in] E
+     *     an array, dimension (§lde,§n)\n
+     *     The matrix of eigenvectors. If §transe ='N', the eigenvectors are stored in the columns
+     *     of §E, if §transe ='T' or 'C', the eigenvectors are stored in the rows of §E.
+     *
+     * \param[in] lde    The leading dimension of the array §E. $\{lde}\ge\max(1,\{n})$.
+     * \param[in] wr, wi
+     *     arrays, dimension (§n)\n
+     *     The real and imaginary parts of the eigenvalues of $A$. Purely real eigenvalues are
+     *     indicated by $\{wi}[j]=0$. Complex conjugate pairs are indicated by
+     *     $\{wr}[j]=\{wr}[j+1]$ and $\{wi}[j]=-\{wi}[j+1]$ non-zero; the real part is assumed to
+     *     be stored in the $j$-th row/column and the imaginary part in the $(j+1)$-th row/column.
+     *
+     * \param[out] work   an array, dimension ($\{n}(\{n}+1)$)
+     * \param[out] result
+     *     an array, dimension (2)\n
+     *     $\{result}[0]=\frac{|AE-EW|}{|A||E|\{ulp}}$\n
+     *     $\{result}[1]=\frac{\max_j|\operatorname{m-norm}(E[j])-1|}{\{n}\cdot\{ulp}}$
+     * \authors Univ.of Tennessee
+     * \authors Univ.of California Berkeley
+     * \authors Univ.of Colorado Denver
+     * \authors NAG Ltd.
+     * \date December 2016                                                                       */
+    void dget22(char const* const transa, char const* const transe, char const* const transw,
+                int const n, real const* const A, int const lda, real const* const E,
+                int const lde, real const* const wr, real const* const wi, real* const work,
+                real* const result) const
+    {
+        // Initialize result (in case n=0)
+        result[0] = ZERO;
+        result[1] = ZERO;
+        if (n<=0)
+        {
+            return;
+        }
+        real unfl = this->dlamch("Safe minimum");
+        real ulp  = this->dlamch("Precision");
+        int itrnse = 0;
+        int ince   = 1;
+        char norma[2], norme[2];
+        norma[0] = 'O';
+        norma[1] = '\0';
+        norme[0] = 'O';
+        norme[1] = '\0';
+        if (std::toupper(transa[0])=='T' || std::toupper(transa[0])=='C')
+        {
+            norma[0] = 'I';
+        }
+        if (std::toupper(transe[0])=='T' || std::toupper(transe[0])=='C')
+        {
+           norme[0] = 'I';
+           itrnse = 1;
+           ince   = lde;
+        }
+        // Check normalization of E
+        real enrmin = ONE / ulp;
+        real enrmax = ZERO;
+        int ecol, ipair, j, jvec;
+        if (itrnse==0)
+        {
+            // Eigenvectors are column vectors.
+            real temp1;
+            ipair = 0;
+            for (jvec=0; jvec<n; jvec++)
+            {
+                temp1 = ZERO;
+                if (ipair==0 && jvec<n-1 && wi[jvec]!=ZERO)
+                {
+                    ipair = 1;
+                }
+                ecol = lde * jvec;
+                if (ipair==1)
+                {
+                    // Complex eigenvector
+                    for (j=0; j<n; j++)
+                    {
+                       temp1 = std::max(temp1, std::fabs(E[j+ecol])+std::fabs(E[j+ecol+lde]));
+                    }
+                    enrmin = std::min(enrmin, temp1);
+                    enrmax = std::max(enrmax, temp1);
+                    ipair = 2;
+                }
+                else if (ipair==2)
+                {
+                    ipair = 0;
+                }
+                else
+                {
+                    // Real eigenvector
+                    for (j=0; j<n; j++)
+                    {
+                        temp1 = std::max(temp1, std::fabs(E[j+ecol]));
+                    }
+                    enrmin = std::min(enrmin, temp1);
+                    enrmax = std::max(enrmax, temp1);
+                    ipair = 0;
+                }
+            }
+        }
+        else
+        {
+            // Eigenvectors are row vectors.
+            for (jvec=0; jvec<n; jvec++)
+            {
+                work[jvec] = ZERO;
+            }
+            for (j=0; j<n; j++)
+            {
+                ipair = 0;
+                for (jvec=0; jvec<n; jvec++)
+                {
+                    if (ipair==0 && jvec<n-1 && wi[jvec]!=ZERO)
+                    {
+                        ipair = 1;
+                    }
+                    ecol = lde * jvec;
+                    if (ipair==1)
+                    {
+                        work[jvec] = std::max(work[jvec],
+                                              std::fabs(E[j+ecol])+std::fabs(E[j+ecol+lde]));
+                        work[jvec+1] = work[jvec];
+                    }
+                    else if (ipair==2)
+                    {
+                        ipair = 0;
+                    }
+                    else
+                    {
+                        work[jvec] = std::max(work[jvec], std::fabs(E[j+ecol]));
+                        ipair = 0;
+                    }
+                }
+            }
+            for (jvec=0; jvec<n; jvec++)
+            {
+                enrmin = std::min(enrmin, work[jvec]);
+                enrmax = std::max(enrmax, work[jvec]);
+            }
+        }
+        // Norm of A:
+        real anorm = std::max(this->dlange(norma, n, n, A, lda, work), unfl);
+        // Norm of E:
+        real enorm = std::max(this->dlange(norme, n, n, E, lde, work), ulp);
+        // Norm of error:
+        // Error =  AE - EW
+        this->dlaset("Full", n, n, ZERO, ZERO, work, n);
+        ipair = 0;
+        int ierow = 0;
+        int iecol = 0;
+        real Wmat[2*2];
+        for (int jcol=0; jcol<n; jcol++)
+        {
+            if (itrnse==1)
+            {
+                ierow = jcol;
+            }
+            else
+            {
+                iecol = jcol;
+            }
+            if (ipair==0 && wi[jcol]!=ZERO)
+            {
+                ipair = 1;
+            }
+            if (ipair==1)
+            {
+                Wmat[0,0] =  wr[jcol];
+                Wmat[1,0] = -wi[jcol];
+                Wmat[0,1] =  wi[jcol];
+                Wmat[1,1] =  wr[jcol];
+                Blas<real>::dgemm(transe, transw, n, 2, 2, ONE, &E[ierow+lde*iecol], lde, Wmat, 2,
+                                  ZERO, &work[n*jcol], n);
+                ipair = 2;
+            }
+            else if (ipair==2)
+            {
+                ipair = 0;
+            }
+            else
+            {
+                Blas<real>::daxpy(n, wr[jcol], &E[ierow+lde*iecol], ince, &work[n*jcol], 1);
+                ipair = 0;
+            }
+        }
+        Blas<real>::dgemm(transa, transe, n, n, n, ONE, A, lda, E, lde, -ONE, work, n);
+        real errnrm = this->dlange("One", n, n, work, n, &work[n*n]) / enorm;
+        // Compute result[0] (avoiding under/overflow)
+        if (anorm>errnrm)
+        {
+            result[0] = (errnrm/anorm) / ulp;
+        }
+        else
+        {
+            if (anorm<ONE)
+            {
+                result[0] = (std::min(errnrm, anorm)/anorm) / ulp;
+            }
+            else
+            {
+                result[0] = std::min(errnrm/anorm, ONE) / ulp;
+            }
+        }
+        // Compute result[1] : the normalization error in E.
+        result[1] = std::max(std::fabs(enrmax-ONE), std::fabs(enrmin-ONE)) / (real(n)*ulp);
     }
 
     // TODO: xlaenv, ilaenv, xerbla
