@@ -29,7 +29,7 @@ $(OBJDIR):
 	mkdir $(OBJDIR)
 
 Lapack_dyn.hpp: ../Lapack.hpp
-	sed -e 's/static //g' -e 's/int ilaenv/virtual int ilaenv/' -e 's/class Lapack/class Lapack_dyn/' -e 's/constexpr/const/' -e 's/void xerbla/virtual void xerbla/' -e 's/public:/public:\n\n    virtual ~Lapack_dyn(){}\n/' $< > $@
+	sed -e 's/static //g' -e 's/int ilaenv/virtual int ilaenv/' -e 's/class Lapack/class Lapack_dyn/' -e 's/constexpr/const/' -e 's/void xerbla/virtual void xerbla/' -e 's/public:/public:\n\n    virtual ~Lapack_dyn(){}\n/' -e 's/\/\*const\*\//const/' $< > $@
 
 clean:
 	$(RM) $(OBJDIR)/*.o *~ $(MAIN) Lapack_dyn.hpp
