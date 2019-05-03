@@ -7866,6 +7866,175 @@ public:
 		return anorm;
 	}
 
+	/*! §dlansy returns the value of the 1-norm, or the Frobenius norm, or the infinity norm, or
+	 *  the element of largest absolute value of a real symmetric matrix.
+	 *
+	 * §dlansy returns the value of the one-norm, or the Frobenius norm, or the infinity-norm, or
+	 * the element of largest absolute value of a real symmetric matrix $A$.
+	 * \param[in] norm Specifies the value to be returned in §dlansy as described below.
+	 * \param[in] uplo
+	 *     Specifies whether the upper or lower triangular part of the symmetric matrix $A$ is to
+	 *     be referenced.\n
+	 *         ='U': Upper triangular part of $A$ is referenced\n
+	 *         ='L': Lower triangular part of $A$ is referenced
+	 *
+	 * \param[in] n
+	 *     The order of the matrix $A$. $\{n}\ge 0$. When $\{n}=0$, §dlansy is set to zero.
+	 *
+	 * \param[in] A
+	 *     an array, dimension (§lda,§n)\n
+	 *     The symmetric matrix $A$.\n
+	 *     If §uplo ='U', the leading §n by §n upper triangular part of §A contains the upper
+	 *     triangular part of the matrix $A$, and the strictly lower triangular part of §A is not
+	 *     referenced.\n
+	 *     If §uplo ='L', the leading §n by §n lower triangular part of §A contains the lower
+	 *     triangular part of the matrix $A$, and the strictly upper triangular part of §A is not
+	 *     referenced.
+	 *
+	 * \param[in] lda The leading dimension of the array §A. $\{lda}\ge\max(\{n},1)$.
+	 *
+	 * \param[out] work
+	 *     an array, dimension ($\max(1,\{LWORK})$),\n
+	 *     where $\{LWORK}\ge\{n}$ when §norm ='I' or '1' or 'O';
+	 *     otherwise, §work is not referenced.
+	 *
+	 * \return
+	 * $\left(\begin{tabular}{ll}
+	 *     \(\max(|\{A}[i,j]|)\), & \{norm} = 'M' or 'm'          \\
+	 *     \(\on{norm1}(\{A})\),  & \{norm} = '1', 'O' or 'o'     \\
+	 *     \(\on{normI}(\{A})\),  & \{norm} = 'I' or 'i'          \\
+	 *     \(\on{normF}(\{A})\),  & \{norm} = 'F', 'f', 'E' or 'e'
+	 *  \end{tabular}\right.$\n
+	 * where $\on{norm1}$ denotes the one-norm of a matrix      (maximum column sum),
+	 *       $\on{normI}$ denotes the infinity-norm of a matrix (maximum row sum) and
+	 *       $\on{normF}$ denotes the Frobenius norm of a matrix (square root of sum of squares).\n
+	 *       Note that $\max(|\{A}[i,j]|)$ is not a consistent matrix norm.
+	 * \authors Univ.of Tennessee
+	 * \authors Univ.of California Berkeley
+	 * \authors Univ.of Colorado Denver
+	 * \authors NAG Ltd.
+	 * \date December 2016                                                                       */
+	static real dlansy(char const* const norm, char const* const uplo, int const n,
+	                   real const* const A, int const lda, real* const work) /*const*/
+	{
+		int i, j, aj;
+		real sum, value;
+		if (n==0)
+		{
+			value = ZERO;
+		}
+		else if (std::toupper(norm[0])=='M')
+		{
+			// Find max(abs(A[i,j])).
+			value = ZERO;
+			if (std::toupper(uplo[0])=='U')
+			{
+				for (j=0; j<n; j++)
+				{
+					aj = lda * j;
+					for (i=0; i<=j; i++)
+					{
+						sum = std::fabs(A[i+aj]);
+						if (value<sum || std::isnan(sum))
+						{
+							value = sum;
+						}
+					}
+				}
+			}
+			else
+			{
+				for (j=0; j<n; j++)
+				{
+					aj = lda * j;
+					for (i=j; i<n; i++)
+					{
+						sum = std::fabs(A[i+aj]);
+						if (value<sum || std::isnan(sum))
+						{
+							value = sum;
+						}
+					}
+				}
+			}
+		}
+		else if (std::toupper(norm[0])=='I' || std::toupper(norm[0])=='O' || norm[0]=='1')
+		{
+			// Find normI(A) (= norm1(A), since A is symmetric).
+			real absa;
+			value = ZERO;
+			if (std::toupper(uplo[0])=='U')
+			{
+				for (j=0; j<n; j++)
+				{
+					aj = lda * j;
+					sum = ZERO;
+					for (i=0; i<j; i++)
+					{
+						absa = std::fabs(A[i+aj]);
+						sum += absa;
+						work[i] += absa;
+					}
+					work[j] = sum + std::fabs(A[j+aj]);
+				}
+				for (i=0; i<n; i++)
+				{
+					sum = work[i];
+					if (value<sum || std::isnan(sum))
+					{
+						value = sum;
+					}
+				}
+			}
+			else
+			{
+				for (i=0; i<n; i++)
+				{
+					work[i] = ZERO;
+				}
+				for (j=0; j<n; j++)
+				{
+					aj = lda * j;
+					sum = work[j] + std::fabs(A[j+aj]);
+					for (i=j+1; i<n; i++)
+					{
+						absa = std::fabs(A[i+aj]);
+						sum += absa;
+						work[i] += absa;
+					}
+					if (value<sum || std::isnan(sum))
+					{
+						value = sum;
+					}
+				}
+			}
+		}
+		else if (std::toupper(norm[0])=='F' || std::toupper(norm[0])=='E')
+		{
+			// Find normF(A).
+			real scale = ZERO;
+			sum = ONE;
+			if (std::toupper(uplo[0])=='U')
+			{
+				for (j=1; j<n; j++)
+				{
+					dlassq(j, &A[lda*j], 1, scale, sum);
+				}
+			}
+			else
+			{
+				for (j=0; j<n-1; j++)
+				{
+					dlassq(n-j-1, &A[j+1+lda*j], 1, scale, sum);
+				}
+			}
+			sum *= 2;
+			dlassq(n, A, lda+1, scale, sum);
+			value = scale * std::sqrt(sum);
+		}
+		return value;
+	}
+
 	/*! §dlanv2 computes the Schur factorization of a real 2 by 2 nonsymmetric matrix in standard
 	 *  form.
 	 *

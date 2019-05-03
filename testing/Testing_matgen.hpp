@@ -166,12 +166,12 @@ public:
 				Blas<real>::dger(m-i, n-i, -tau, &work[n], 1, work, 1, &A[aind], lda);
 			}
 		}
-		// Reduce number of subdiagonals to KL and number of superdiagonals to KU
+		// Reduce number of subdiagonals to kl and number of superdiagonals to ku
 		for (i=0; i<std::max(m-1-kl, n-1-ku); i++)
 		{
 			if (kl<=ku)
 			{
-				// annihilate subdiagonal elements first (necessary if KL==0)
+				// annihilate subdiagonal elements first (necessary if kl==0)
 				if (i<m-1-kl && i<n)
 				{
 					aind = kl+i+lda*i;
@@ -907,6 +907,172 @@ public:
 				}
 			}
 		}
+	}
+
+	/*! §dlatm3
+	 *
+	 * §dlatm3 returns the [§isub,§jsub] entry of a random matrix of dimension (§m,§n) described by
+	 * the other parameters. [§isub,§jsub] is the final position of the [§i,§j] entry after
+	 * pivoting according to §ipvtng and §iwork. §dlatm3 is called by the §dlatmr routine in order
+	 * to build random test matrices. No error checking on parameters is done, because this routine
+	 * is called in a tight loop by §dlatmr which has already checked the parameters.\n
+	 * Use of §dlatm3 differs from §dlatm2 in the order in which the random number generator is
+	 * called to fill in random matrix entries. With §dlatm2, the generator is called to fill in
+	 * the pivoted matrix columnwise. With §dlatm3, the generator is called to fill in the matrix
+	 * columnwise, after which it is pivoted. Thus, §dlatm3 can be used to construct random
+	 * matrices which differ only in their order of rows and/or columns. §dlatm2 is used to
+	 * construct band matrices while avoiding calling the random number generator for entries
+	 * outside the band (and therefore generating random numbers in different orders for different
+	 * pivot orders).\n
+	 * The matrix whose [§isub,§jsub] entry is returned is constructed as follows (this routine
+	 * only computes one entry):
+	 * \li If §isub is outside $[0\ldots\{m}-1]$ or §jsub is outside $[0\ldots\{n}-1]$, return zero
+	 * (this is convenient for generating matrices in band format).
+	 * \li Generate a matrix $A$ with random entries of distribution §idist.
+	 * \li Set the diagonal to §d.
+	 * \li Grade the matrix, if desired, from the left (by §dl) and/or from the right
+	 *     (by §dr or §dl) as specified by §igrade.
+	 * \li Permute, if desired, the rows and/or columns as specified by §ipvtng and §iwork.
+	 * \li Band the matrix to have lower bandwidth §kl and upper bandwidth §ku.
+	 * \li Set random entries to zero as specified by §sparse.
+	 *
+	 * \param[in]     m     Number of rows of matrix.
+	 * \param[in]     n     Number of columns of matrix.
+	 * \param[in]     i     Row of unpivoted entry to be returned.\n NOTE: zero-based index!
+	 * \param[in]     j     Column of unpivoted entry to be returned.\n NOTE: zero-based index!
+	 * \param[in,out] isub  Row of pivoted entry to be returned.\n NOTE: zero-based index!
+	 * \param[in,out] jsub  Column of pivoted entry to be returned.\n NOTE: zero-based index!
+	 * \param[in]     kl    Lower bandwidth.
+	 * \param[in]     ku    Upper bandwidth.
+	 * \param[in]     idist
+	 *     On entry, §idist specifies the type of distribution to be used to generate a random
+	 *     matrix.\n 1: uniform(0, 1)\n 2: uniform(-1, 1)\n 3: normal(0, 1)
+	 *
+	 * \param[in,out] iseed an integer array of dimension (4)\n Seed for random number generator.
+	 * \param[in]     d
+	 *     an array of dimension ($\min(\{i},\{j})+1$)\n Diagonal entries of matrix.
+	 *
+	 * \param[in] igrade
+	 *     Specifies grading of matrix as follows:\n
+	 *     0: no grading\n
+	 *     1: matrix premultiplied by  $\{diag}(\{dl})$\n
+	 *     2: matrix postmultiplied by $\{diag}(\{dr})$\n
+	 *     3: matrix premultiplied by  $\{diag}(\{dl})$ and postmultiplied by $\{diag}(\{dr})$\n
+	 *     4: matrix premultiplied by  $\{diag}(\{dl})$ and postmultiplied by
+	 *        $\{inv}(\{diag}(\{dl}))$\n
+	 *     5: matrix premultiplied by  $\{diag}(\{dl})$ and postmultiplied by $\{diag}(\{dl})$
+	 *
+	 * \param[in] dl
+	 *     an array ($\{i}+1$ or $\{j}+1$, as appropriate)\n
+	 *     Left scale factors for grading matrix.
+	 *
+	 * \param[in] dr
+	 *     an array ($\{i}+1$ or $\{j}+1$, as appropriate)\n
+	 *     Right scale factors for grading matrix.
+	 *
+	 * \param[in] ipvtng
+	 *     On entry specifies pivoting permutations as follows:\n
+	 *     0: none.\n
+	 *     1: row pivoting.\n
+	 *     2: column pivoting.\n
+	 *     3: full pivoting, i.e., on both sides.
+	 *
+	 * \param[in] iwork
+	 *     an integer array ($\{i}+1$ or $\{j}+1$, as appropriate)\n
+	 *     This array specifies the permutation used. The row (or column) originally in position
+	 *     $k$ is in position $\{iwork}[k]$ after pivoting.
+	 *     This differs from §iwork for §dlatm2.\n
+	 *     NOTE: zero-based indices!
+	 *
+	 * \param[in] sparse
+	 *     between 0. and 1.\n
+	 *     On entry specifies the sparsity of the matrix if sparse matix is to be generated.\n
+	 *     §sparse should lie between 0 and 1.\n
+	 *     A uniform(0, 1) random number $x$ is generated and compared to §sparse; if $x$ is larger
+	 *     the matrix entry is unchanged and if $x$ is smaller the entry is set to zero. Thus on
+	 *     the average a fraction §sparse of the entries will be set to zero.
+	 * \authors Univ.of Tennessee
+	 * \authors Univ.of California Berkeley
+	 * \authors Univ.of Colorado Denver
+	 * \authors NAG Ltd.
+	 * \date June 2016                                                                           */
+	real dlatm3(int const m, int const n, int const i, int const j, int& isub, int& jsub,
+	            int const kl, int const ku, int const idist, int* const iseed, real const* const d,
+	            int const igrade, real const* const dl, real const* const dr, int const ipvtng,
+	            int const* const iwork, real const sparse) const
+	{
+		// Check for i and j in range
+		if (i<0 || i>=m || j<0 || j>=n)
+		{
+			isub = i;
+			jsub = j;
+			return ZERO;
+		}
+		// Compute subscripts depending on ipvtng
+		if (ipvtng==0)
+		{
+			isub = i;
+			jsub = j;
+		}
+		else if (ipvtng==1)
+		{
+			isub = iwork[i];
+			jsub = j;
+		}
+		else if (ipvtng==2)
+		{
+			isub = i;
+			jsub = iwork[j];
+		}
+		else if (ipvtng==3)
+		{
+			isub = iwork[i];
+			jsub = iwork[j];
+		}
+		// Check for banding
+		if (jsub>isub+ku || jsub<isub-kl)
+		{
+			return ZERO;
+		}
+		// Check for sparsity
+		if (sparse>ZERO)
+		{
+			if (dlaran(iseed)<sparse)
+			{
+				return ZERO;
+			}
+		}
+		// Compute entry and grade it according to igrade
+		real temp;
+		if (i==j)
+		{
+			temp = d[i];
+		}
+		else
+		{
+			temp = dlarnd(idist, iseed);
+		}
+		if (igrade==1)
+		{
+			temp *= dl[i];
+		}
+		else if (igrade==2)
+		{
+			temp *= dr[j];
+		}
+		else if (igrade==3)
+		{
+			temp *= dl[i] * dr[j];
+		}
+		else if (igrade==4 && i!=j)
+		{
+			temp *= dl[i] / dl[j];
+		}
+		else if (igrade==5)
+		{
+			temp *= dl[i] * dl[j];
+		}
+		return temp;
 	}
 
 	/*! §dlatms
