@@ -1700,6 +1700,310 @@ public:
 		}
 	}
 
+	/*! §dsyrk
+	 *
+	 * §dsyrk performs one of the symmetric rank §k operations\n
+	 *     $C = \alpha A A^T + \beta C$,\n
+	 * or\n
+	 *     $C = \alpha A^T A + \beta C$,\n
+	 * where $\alpha$ and $\beta$ are scalars, $C$ is an §n by §n symmetric matrix and $A$ is an §n
+	 * by §k matrix in the first case and a §k by §n matrix in the second case.
+	 * \param[in] uplo
+	 *     On entry, §uplo specifies whether the upper or lower triangular part of the array §C is
+	 *     to be referenced as follows:\n
+	 *     §uplo ='U' or 'u': Only the upper triangular part of §C is to be referenced.\n
+	 *     §uplo ='L' or 'l': Only the lower triangular part of §C is to be referenced.
+	 *
+	 * \param[in] trans
+	 *     On entry, §trans specifies the operation to be performed as follows:\n
+	 *     §trans ='N' or 'n': $C = \alpha A A^T + \beta C$.\n
+	 *     §trans ='T' or 't': $C = \alpha A^T A + \beta C$.\n
+	 *     §trans ='C' or 'c': $C = \alpha A^T A + \beta C$.
+	 *
+	 * \param[in] n On entry, §n specifies the order of the matrix $C$. §n must be at least zero.
+	 * \param[in] k
+	 *     On entry with §trans ='N' or 'n', §k specifies the number of columns of the matrix $A$,
+	 *     and on entry with §trans ='T' or 't' or 'C' or 'c', §k specifies the number of rows of
+	 *     the matrix $A$. §k must be at least zero.
+	 *
+	 * \param[in] alpha On entry, §alpha specifies the scalar $\alpha$.
+	 * \param[in] A
+	 *     an array, dimension (§lda, §ka),
+	 *     where §ka is §k when §trans ='N' or 'n', and is §n otherwise.\n
+	 *     Before entry with §trans ='N' or 'n', the leading §n by §k part of the array §A must
+	 *     contain the matrix $A$, otherwise the leading §k by §n part of the array §A must contain
+	 *     the matrix $A$.
+	 *
+	 * \param[in] lda
+	 *     On entry, §lda specifies the first dimension of §A as declared in the calling
+	 *     (sub)program. When §trans ='N' or 'n' then §lda must be at least $\max(1,\{n})$,
+	 *     otherwise §lda must be at least $\max(1,\{k})$.
+	 *
+	 * \param[in]     beta On entry, §beta specifies the scalar $\beta$.
+	 * \param[in,out] C
+	 *     an array, dimension (§ldc, §n)\n
+	 *     Before entry with §uplo ='U' or 'u', the leading §n by §n upper triangular part of the
+	 *     array §C must contain the upper triangular part of the symmetric matrix $C$ and the
+	 *     strictly lower triangular part of §C is not referenced.\n
+	 *     On exit, the upper triangular part of the array §C is overwritten by the upper
+	 *     triangular part of the updated matrix.\n
+	 *     Before entry with §uplo ='L' or 'l', the leading §n by §n lower triangular part of the
+	 *     array §C must contain the lower triangular part of the symmetric matrix $C$ and the
+	 *     strictly upper triangular part of §C is not referenced.\n
+	 *     On exit, the lower triangular part of the array §C is overwritten by the lower
+	 *     triangular part of the updated matrix.
+	 *
+	 * \param[in] ldc
+	 *     On entry, §ldc specifies the first dimension of §C as declared in the calling
+	 *     (sub)program. §ldc must be at least$\max(1,\{n})$.
+	 * \authors Univ.of Tennessee
+	 * \authors Univ.of California Berkeley
+	 * \authors Univ.of Colorado Denver
+	 * \authors NAG Ltd.
+	 * \date December 2016
+	 * \remark
+	 *     Level 3 Blas routine.\n\n
+	 *         -- Written on 8-February-1989.\n
+	 *         Jack Dongarra, Argonne National Laboratory.\n
+	 *         Iain Duff, AERE Harwell.\n
+	 *         Jeremy Du Croz, Numerical Algorithms Group Ltd.\n
+	 *         Sven Hammarling, Numerical Algorithms Group Ltd.                                  */
+	static void dsyrk(char const* const uplo, char const* const trans, int const n, int const k,
+	                  real const alpha, real const* const A, int const lda, real const beta,
+	                  real* const C, int const ldc)
+	{
+		// Test the input parameters.
+		int nrowa;
+		if (std::toupper(trans[0])=='N')
+		{
+			nrowa = n;
+		}
+		else
+		{
+			nrowa = k;
+		}
+		bool upper = (std::toupper(uplo[0])=='U');
+		int info = 0;
+		if (!upper && std::toupper(uplo[0])!='L')
+		{
+			info = 1;
+		}
+		else if (std::toupper(trans[0])!='N' && std::toupper(trans[0])!='T'
+		      && std::toupper(trans[0])!='C')
+		{
+			info = 2;
+		}
+		else if (n<0)
+		{
+			info = 3;
+		}
+		else if (k<0)
+		{
+			info = 4;
+		}
+		else if (lda<std::max(1,nrowa))
+		{
+			info = 7;
+		}
+		else if (ldc<std::max(1,n))
+		{
+			info = 10;
+		}
+		if (info!=0)
+		{
+			xerbla("DSYRK ", info);
+			return;
+		}
+		// Quick return if possible.
+		if (n==0 || ((alpha==ZERO||k==0) && beta==ONE))
+		{
+			return;
+		}
+		// And when alpha==zero.
+		int i, j, cj;
+		if (alpha==ZERO)
+		{
+			if (upper)
+			{
+				if (beta==ZERO)
+				{
+					for (j=0; j<n; j++)
+					{
+						cj = ldc * j;
+						for (i=0; i<=j; i++)
+						{
+							C[i+cj] = ZERO;
+						}
+					}
+				}
+				else
+				{
+					for (j=0; j<n; j++)
+					{
+						cj = ldc * j;
+						for (i=0; i<=j; i++)
+						{
+							C[i+cj] *= beta;
+						}
+					}
+				}
+			}
+			else
+			{
+				if (beta==ZERO)
+				{
+					for (j=0; j<n; j++)
+					{
+						cj = ldc * j;
+						for (i=j; i<n; i++)
+						{
+							C[i+cj] = ZERO;
+						}
+					}
+				}
+				else
+				{
+					for (j=0; j<n; j++)
+					{
+						cj = ldc * j;
+						for (i=j; i<n; i++)
+						{
+							C[i+cj] *= beta;
+						}
+					}
+				}
+			}
+			return;
+		}
+		// Start the operations.
+		real temp;
+		int l, a1, a2;
+		if (std::toupper(trans[0])=='N')
+		{
+			// Form  C = alpha*A*A^T + beta*C.
+			if (upper)
+			{
+				for (j=0; j<n; j++)
+				{
+					cj = ldc * j;
+					if (beta==ZERO)
+					{
+						for (i=0; i<=j; i++)
+						{
+							C[i+cj] = ZERO;
+						}
+					}
+					else if (beta!=ONE)
+					{
+						for (i=0; i<=j; i++)
+						{
+							C[i+cj] *= beta;
+						}
+					}
+					for (l=0; l<k; l++)
+					{
+						a1 = lda * l;
+						if (A[j+a1]!=ZERO)
+						{
+							temp = alpha * A[j+a1];
+							for (i=0; i<=j; i++)
+							{
+								C[i+cj] += temp * A[i+a1];
+							}
+						}
+					}
+				}
+			}
+			else
+			{
+				for (j=0; j<n; j++)
+				{
+					cj = ldc * j;
+					if (beta==ZERO)
+					{
+						for (i=j; i<n; i++)
+						{
+							C[i+cj] = ZERO;
+						}
+					}
+					else if (beta!=ONE)
+					{
+						for (i=j; i<n; i++)
+						{
+							C[i+cj] *= beta;
+						}
+					}
+					for (l=0; l<k; l++)
+					{
+						a1 = lda * l;
+						if (A[j+a1]!=ZERO)
+						{
+							temp = alpha * A[j+a1];
+							for (i=j; i<n; i++)
+							{
+								C[i+cj] += temp * A[i+a1];
+							}
+						}
+					}
+				}
+			}
+		}
+		else
+		{
+			// Form  C = alpha*A^T*A + beta*C.
+			if (upper)
+			{
+				for (j=0; j<n; j++)
+				{
+					cj = ldc * j;
+					a1 = lda * j;
+					for (i=0; i<=j; i++)
+					{
+						a2 = lda * i;
+						temp = ZERO;
+						for (l=0; l<k; l++)
+						{
+							temp += A[l+a2] * A[l+a1];
+						}
+						if (beta==ZERO)
+						{
+							C[i+cj] = alpha * temp;
+						}
+						else
+						{
+							C[i+cj] = alpha*temp + beta*C[i+cj];
+						}
+					}
+				}
+			}
+			else
+			{
+				for (j=0; j<n; j++)
+				{
+					cj = ldc * j;
+					a1 = lda * j;
+					for (i=j; i<n; i++)
+					{
+						a2 = lda * i;
+						temp = ZERO;
+						for (l=0; l<k; l++)
+						{
+							temp += A[l+a2] * A[l+a1];
+						}
+						if (beta==ZERO)
+						{
+							C[i+cj] = alpha * temp;
+						}
+						else
+						{
+							C[i+cj] = alpha*temp + beta*C[i+cj];
+						}
+					}
+				}
+			}
+		}
+	}
+
 	/*! §dtrmm
 	 *
 	 * §dtrmm performs one of the matrix-matrix operations\n

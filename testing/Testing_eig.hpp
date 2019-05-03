@@ -991,6 +991,35 @@ public:
 		result[1] = std::max(std::fabs(enrmax-ONE), std::fabs(enrmin-ONE)) / (real(n)*ulp);
 	}
 
+	/*! §dlasum
+	 *
+	 * §dlasum prints a summary of the results from one of the test routines.
+	 * \param[in] type   The LAPACK path name.
+	 * \param[in] iounit The output stream to which results are to be printed.
+	 * \param[in] ie     The number of tests which produced an error.
+	 * \param[in] nrun   The total number of tests.
+	 * \authors Univ.of Tennessee
+	 * \authors Univ.of California Berkeley
+	 * \authors Univ.of Colorado Denver
+	 * \authors NAG Ltd.
+	 * \date December December 2016                                                              */
+	void dlasum(char const* const type, std::ostream& iounit, int const ie, int const nrun) const
+	{
+		char typecopy[4];
+		std::strncpy(typecopy, type, 3);
+		typecopy[3] = '\0';
+		if (ie>0)
+		{
+			iounit << " " << typecopy << ": " << std::setw(4) << ie << " out of " << std::setw(5)
+			       << nrun << " tests failed to pass the threshold";
+		}
+		else
+		{
+			iounit << "\n " << "All tests for " << typecopy << " passed the threshold ("
+			       << std::setw(5) << nrun << " tests run)";
+		}
+	}
+
 	// TODO: xlaenv, ilaenv, xerbla
 };
 
