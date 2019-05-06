@@ -7646,6 +7646,137 @@ public:
 		}
 	}
 
+	/*! §dlangb returns the value of the 1-norm, Frobenius norm, infinity-norm, or the largest
+	 *  absolute value of any element of general band matrix.
+	 *
+	 * §dlangb returns the value of the one-norm, or the Frobenius norm, or the infinity-norm, or
+	 * the element of largest absolute value of an §n by §n band matrix $A$, with §kl sub-diagonals
+	 * and §ku super-diagonals.
+	 * \param[in] norm Specifies the value to be returned by §dlangb as described below.
+	 * \param[in] n
+	 *     The order of the matrix $A$. $\{n}\ge 0$. When $\{n}=0$, §dlangb returns zero.
+	 *
+	 * \param[in] kl The number of sub-diagonals of the matrix $A$. $\{kl}\ge 0$.
+	 * \param[in] ku The number of super-diagonals of the matrix $A$. $\{ku}\ge 0$.
+	 * \param[in] Ab
+	 *     an array, dimension (§ldab,§n)\n
+	 *     The band matrix $A$, stored in rows 0 to $\{kl}+\{ku}$. The $j$-th column of $A$ is
+	 *     stored in the $j$-th column of the array §Ab as follows:\n
+	 *         $\{Ab}[\{ku}+i-j,j]=A[i,j]$ for $\max(0,j-\{ku})\le i\le\min(\{n}-1,j+\{kl})$.
+	 *
+	 * \param[in] ldab The leading dimension of the array §Ab. $\{ldab}\ge\{kl}+\{ku}+1$.
+	 *
+	 * \param[out] work
+	 *     an array, dimension ($\max(1,\{LWORK})$),\n
+	 *     where $\{LWORK}\ge\{n}$ when §norm ='I'; otherwise, §work is not referenced.
+	 *
+	 * \return
+	 * $\left(\begin{tabular}{ll}
+	 *     \(\max(|\{A}[i,j]|)\), & \{norm} = 'M' or 'm'          \\
+	 *     \(\on{norm1}(\{A})\),  & \{norm} = '1', 'O' or 'o'     \\
+	 *     \(\on{normI}(\{A})\),  & \{norm} = 'I' or 'i'          \\
+	 *     \(\on{normF}(\{A})\),  & \{norm} = 'F', 'f', 'E' or 'e'
+	 *  \end{tabular}\right.$\n
+	 * where $\on{norm1}$ denotes the       one-norm of a matrix (maximum column sum),
+	 *       $\on{normI}$ denotes the  infinity-norm of a matrix (maximum row sum) and
+	 *       $\on{normF}$ denotes the Frobenius norm of a matrix (square root of sum of squares).\n
+	 *       Note that $\max(|\{A}[i,j]|)$ is not a consistent matrix norm.
+	 * \authors Univ.of Tennessee
+	 * \authors Univ.of California Berkeley
+	 * \authors Univ.of Colorado Denver
+	 * \authors NAG Ltd.
+	 * \date December 2016                                                                       */
+	static real dlangb(char const* const norm, int const n, int const kl, int const ku,
+	                   real const* const Ab, int const ldab, real* const work) /*const*/
+	{
+		int i, j, k, abj, stop;
+		real sum, value, temp;
+		char upnorm = std::toupper(norm[0]);
+		if (n==0)
+		{
+			value = ZERO;
+		}
+		else if (upnorm=='M')
+		{
+			// Find max(|A[i,j]|).
+			value = ZERO;
+			for (j=0; j<n; j++)
+			{
+				abj = ldab * j;
+				stop = std::min(n+ku-j, kl+ku+1);
+				for (i=std::max(ku-j, 0); i<stop; i++)
+				{
+					temp = std::fabs(Ab[i+abj]);
+					if (value<temp || std::isnan(temp))
+					{
+						value = temp;
+					}
+				}
+			}
+		}
+		else if (upnorm=='O' || norm[0]=='1')
+		{
+			// Find norm1(A).
+			value = ZERO;
+			for (j=0; j<n; j++)
+			{
+				abj = ldab * j;
+				sum = ZERO;
+				stop = std::min(n+ku-j, kl+ku+1);
+				for (i=std::max(ku-j, 0); i<stop; i++)
+				{
+					sum += std::fabs(Ab[i+abj]);
+				}
+				if (value<sum || std::isnan(sum))
+				{
+					value = sum;
+				}
+			}
+		}
+		else if (upnorm=='I')
+		{
+			// Find normI(A).
+			for (i=0; i<n; i++)
+			{
+				work[i] = ZERO;
+			}
+			abj = k + ldab*j;
+			for (j=0; j<n; j++)
+			{
+				k = ku - j;
+				stop = std::min(n, j+kl+1);
+				for (i=std::max(0, j-ku); i<stop; i++)
+				{
+					work[i] += std::fabs(Ab[i+abj]);
+				}
+			}
+			value = ZERO;
+			for (i=0; i<n; i++)
+			{
+				temp = work[i];
+				if (value<temp || std::isnan(temp))
+				{
+					value = temp;
+				}
+			}
+		}
+		else if (upnorm=='F' || upnorm=='E')
+		{
+			// Find normF(A).
+			real scale = ZERO;
+			sum = ONE;
+			int l;
+			for (j=0; j<n; j++)
+			{
+				l = std::max(0, j-ku);
+				k = ku - j + l;
+				dlassq(std::min(n, j+kl+1)-l, &Ab[k+ldab*j], 1, scale, sum);
+			}
+			value = scale * std::sqrt(sum);
+		}
+		return value;
+	}
+
 	/*! §dlange returns the value of the 1-norm, Frobenius norm, infinity-norm, or the largest
 	 *  absolute value of any element of a general rectangular matrix.
 	 *
@@ -7919,11 +8050,12 @@ public:
 	{
 		int i, j, aj;
 		real sum, value;
+		char upnorm = std::toupper(norm[0]);
 		if (n==0)
 		{
 			value = ZERO;
 		}
-		else if (std::toupper(norm[0])=='M')
+		else if (upnorm=='M')
 		{
 			// Find max(abs(A[i,j])).
 			value = ZERO;
@@ -7958,7 +8090,7 @@ public:
 				}
 			}
 		}
-		else if (std::toupper(norm[0])=='I' || std::toupper(norm[0])=='O' || norm[0]=='1')
+		else if (upnorm=='I' || upnorm=='O' || norm[0]=='1')
 		{
 			// Find normI(A) (= norm1(A), since A is symmetric).
 			real absa;
@@ -8009,7 +8141,7 @@ public:
 				}
 			}
 		}
-		else if (std::toupper(norm[0])=='F' || std::toupper(norm[0])=='E')
+		else if (upnorm=='F' || upnorm=='E')
 		{
 			// Find normF(A).
 			real scale = ZERO;

@@ -1020,6 +1020,138 @@ public:
 		}
 	}
 
+	/*! §dort01
+	 *
+	 * §dort01 checks that the matrix $U$ is orthogonal by computing the ratio\n
+	 *     $\{resid} = \frac{\|I - UU^T\|}{\{n} \, \{eps}}$, if §rowcol ='R',\n
+	 * or\n
+	 *     $\{resid} = \frac{\|I - U^TU\|}{\{m} \, \{eps}}$, if §rowcol ='C'.\n
+	 * Alternatively, if there isn't sufficient workspace to form $I - U*U^T$ or $I - U^T*U$, the
+	 * ratio is computed as\n
+	 *     $\{resid} = \max\left(\frac{|I - UU^T|}{\{n} \, \{eps}}\right)$, if §rowcol ='R',\n
+	 * or\n
+	 *     $\{resid} = \max\left(\frac{|I - U^TU|}{\{m} \, \{eps}}\right)$, if §rowcol ='C'.\n
+	 * where §eps is the machine precision. §rowcol is used only if $\{m}=\{n}$;
+	 * if $\{m}>\{n}$, §rowcol is assumed to be 'C', and if $\{m}<\{n}$, §rowcol is assumed to be
+	 * 'R'.
+	 * \param[in] rowcol
+	 *     Specifies whether the rows or columns of $U$ should be checked for orthogonality.
+	 *     Used only if $\{m}=\{n}$.\n
+	 *     ='R': Check for orthogonal rows of $U$\n
+	 *     ='C': Check for orthogonal columns of $U$
+	 *
+	 * \param[in] m The number of rows of the matrix $U$.
+	 * \param[in] n The number of columns of the matrix $U$.
+	 * \param[in] U
+	 *     an array, dimension (§ldu,§N)\n
+	 *     The orthogonal matrix $U$.\n
+	 *     §U is checked for orthogonal columns if $\{m}>\{n}$ or if $\{m}=\{n}$ and §rowcol ='C'.
+	 *     \n §U is checked for orthogonal rows if $\{m}<\{n}$ or if $\{m}=\{n}$ and §rowcol ='R'.
+	 *
+	 * \param[in]  ldu  The leading dimension of the array §U. $\{ldu}\ge\max(1,\{m})$.
+	 * \param[out] work an array, dimension (§lwork)
+	 * \param[in] lwork
+	 *     The length of the array §work. For best performance, §lwork should be at least
+	 *     $\{n}(\{n}+1)$ if §rowcol ='C' or $\{m}(\{m}+1)$ if §rowcol ='R', but the test will be
+	 *     done even if §lwork is 0.
+	 *
+	 * \param[out] resid
+	 *     $\{resid} = \frac{\|I - UU^T\|}{\{n} \, \{eps}}$, if §rowcol ='R', or\n
+	 *     $\{resid} = \frac{\|I - U^TU\|}{\{m} \, \{eps}}$, if §rowcol ='C'.\n
+	 * \authors Univ. of Tennessee
+	 * \authors Univ. of California Berkeley
+	 * \authors Univ. of Colorado Denver
+	 * \authors NAG Ltd.
+	 * \date December 2016                                                                       */
+	void dort01(char const* const rowcol, int const m, int const n, real const* const U,
+	            int const ldu, real* const work, int const lwork, real& resid) const
+	{
+		resid = ZERO;
+		// Quick return if possible
+		if (m<=0 || n<=0)
+		{
+			return;
+		}
+		real eps = this->dlamch("Precision");
+		char transu[2];
+		transu[1] = '\0';
+		int k;
+		if (m<n || (m==n && std::toupper(rowcol[0])=='R'))
+		{
+			transu[0] = 'N';
+			k = n;
+		}
+		else
+		{
+			transu[0] = 'T';
+			k = m;
+		}
+		int mnmin = std::min(m, n);
+		int ldwork;
+		if ((mnmin+1)*mnmin<=lwork)
+		{
+			ldwork = mnmin;
+		}
+		else
+		{
+			ldwork = 0;
+		}
+		int i, j, uj;
+		real tmp;
+		if (ldwork>0)
+		{
+			// Compute I - U*U^T or I - U^T*U.
+			this->dlaset("Upper", mnmin, mnmin, ZERO, ONE, work, ldwork);
+			Blas<real>::dsyrk("Upper", transu, mnmin, k, -ONE, U, ldu, ONE, work, ldwork);
+			// Compute norm(I - U*U^T) / (k * eps) .
+			resid = dlansy("1", "Upper", mnmin, work, ldwork, &work[ldwork*mnmin]);
+			resid = (resid/real(k)) / eps;
+		}
+		else if (transu[0]=='T')
+		{
+			// Find the maximum element in abs(I - U^T*U) / (m * eps)
+			for (j=0; j<n; j++)
+			{
+				uj = ldu * j;
+				for (i=0; i<=j; i++)
+				{
+					if (i!=j)
+					{
+						tmp = ZERO;
+					}
+					else
+					{
+						tmp = ONE;
+					}
+					tmp -= Blas<real>::ddot(m, &U[ldu*i], 1, &U[uj], 1);
+					resid = std::max(resid, std::fabs(tmp));
+				}
+			}
+			resid = (resid/real(m)) / eps;
+		}
+		else
+		{
+			// Find the maximum element in abs(I - U*U') / (n * eps)
+			for (j=0; j<m; j++)
+			{
+				for (i=0; i<=j; i++)
+				{
+					if (i!=j)
+					{
+						tmp = ZERO;
+					}
+					else
+					{
+						tmp = ONE;
+					}
+					tmp -= Blas<real>::ddot(n, &U[j], ldu, &U[i], ldu);
+					resid = std::max(resid, std::fabs(tmp));
+				}
+			}
+			resid = (resid/real(n)) / eps;
+		}
+	}
+
 	// TODO: xlaenv, ilaenv, xerbla
 };
 
