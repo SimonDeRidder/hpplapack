@@ -7667,8 +7667,8 @@ public:
 	 * \param[in] ldab The leading dimension of the array §Ab. $\{ldab}\ge\{kl}+\{ku}+1$.
 	 *
 	 * \param[out] work
-	 *     an array, dimension ($\max(1,\{LWORK})$),\n
-	 *     where $\{LWORK}\ge\{n}$ when §norm ='I'; otherwise, §work is not referenced.
+	 *     an array, dimension ($\max(1,\{lwork})$),\n
+	 *     where $\{lwork}\ge\{n}$ when §norm ='I'; otherwise, §work is not referenced.
 	 *
 	 * \return
 	 * $\left(\begin{tabular}{ll}
@@ -7899,6 +7899,392 @@ public:
 		return dlange;
 	}
 
+	/*! §dlansb returns the value of the 1-norm, or the Frobenius norm, or the infinity norm, or
+	 *  the element of largest absolute value of a symmetric band matrix.
+	 *
+	 * §dlansb returns the value of the one-norm, or the Frobenius norm, or the infinity-norm, or
+	 * the element of largest absolute value of an §n by §n symmetric band matrix $A$, with §k
+	 * super-diagonals.
+	 * \param[in] norm Specifies the value to be returned by §dlansb as described above.
+	 * \param[in] uplo
+	 *     Specifies whether the upper or lower triangular part of the band matrix $A$ is supplied.
+	 *     \n ='U': Upper triangular part is supplied
+	 *     \n ='L': Lower triangular part is supplied
+	 *
+	 * \param[in] n The order of the matrix $A$. $\{n}\ge 0$. When $\{n}=0$, §dlansb returns zero.
+	 * \param[in] k
+	 *     The number of super-diagonals or sub-diagonals of the band matrix $A$. $\{k}\ge 0$.
+	 *
+	 * \param[in] Ab
+	 *     an array, dimension (§ldab,§n)\n
+	 *     The upper or lower triangle of the symmetric band matrix $A$, stored in the first
+	 *     $\{k}+1$ rows of §Ab. The $j$-th column of $A$ is stored in the $j$-th column of the
+	 *     array §Ab as follows:\n
+	 *         if §uplo ='U', $\{Ab}[\{k}+i-j,j] = A[i,j]$ for $\max(0,j-\{k})\le i\le j$;\n
+	 *         if §uplo ='L', $\{Ab}[i-j,j]      = A[i,j]$ for $j\le i\le\min(\{n}-1,j+\{k})$.
+	 *
+	 * \param[in]  ldab The leading dimension of the array §Ab. $\{ldab}\ge\{k}+1$.
+	 * \param[out] work
+	 *     an array, dimension ($\max(1,\{lwork})$),\n
+	 *     where $\{lwork}\ge\{n}$ when §norm ='I' or '1' or 'O';
+	 *     Otherwise, §work is not referenced.
+	 *
+	 * \return
+	 * $\left(\begin{tabular}{ll}
+	 *     \(\max(|\{A}[i,j]|)\), & \{norm} = 'M' or 'm'          \\
+	 *     \(\on{norm1}(\{A})\),  & \{norm} = '1', 'O' or 'o'     \\
+	 *     \(\on{normI}(\{A})\),  & \{norm} = 'I' or 'i'          \\
+	 *     \(\on{normF}(\{A})\),  & \{norm} = 'F', 'f', 'E' or 'e'
+	 *  \end{tabular}\right.$\n
+	 * where $\on{norm1}$ denotes the       one-norm of a matrix (maximum column sum),
+	 *       $\on{normI}$ denotes the  infinity-norm of a matrix (maximum row sum) and
+	 *       $\on{normF}$ denotes the Frobenius norm of a matrix (square root of sum of squares).\n
+	 *       Note that $\max(|\{A}[i,j]|)$ is not a consistent matrix norm.
+	 * \authors Univ. of Tennessee
+	 * \authors Univ. of California Berkeley
+	 * \authors Univ. of Colorado Denver
+	 * \authors NAG Ltd.
+	 * \date December 2016                                                                       */
+	static real dlansb(char const* const norm, char const* const uplo, int const n, int const k,
+	                   real const* const Ab, int const ldab, real* const work) /*const*/
+	{
+		int i, j, l, abj, stop;
+		real sum, value;
+		char upnorm = std::toupper(norm[0]);
+		char upuplo = std::toupper(uplo[0]);
+		if (n==0)
+		{
+			value = ZERO;
+		}
+		else if (upnorm=='M')
+		{
+			// Find max(abs(A(i,j))).
+			value = ZERO;
+			if (upuplo=='U')
+			{
+				for (j=0; j<n; j++)
+				{
+					abj = ldab * j;
+					for (i=std::max(k-j, 0); i<=k; i++)
+					{
+						sum = std::fabs(Ab[i+abj]);
+						if (value < sum || std::isnan(sum))
+						{
+							value = sum;
+						}
+					}
+				}
+			}
+			else
+			{
+				for (j=0; j<n; j++)
+				{
+					abj = ldab * j;
+					stop = std::min(n-j, k+1);
+					for (i=0; i<stop; i++)
+					{
+						sum = std::fabs(Ab[i+abj]);
+						if (value < sum || std::isnan(sum))
+						{
+							value = sum;
+						}
+					}
+				}
+			}
+		}
+		else if (upnorm=='I' || upnorm=='O' || norm[0]=='1')
+		{
+			// Find normI(A) (= norm1(A), since A is symmetric).
+			int labj;
+			real absa;
+			value = ZERO;
+			if (upuplo=='U')
+			{
+				for (j=0; j<n; j++)
+				{
+					abj = ldab * j;
+					sum = ZERO;
+					l = k - j;
+					labj = l + abj;
+					for (i=std::max(0, j-k); i<j; i++)
+					{
+						absa = std::fabs(Ab[i+labj]);
+						sum += absa;
+						work[i] += absa;
+					}
+					work[j] = sum + std::fabs(Ab[k+abj]);
+				}
+				for (i=0; i<n; i++)
+				{
+					sum = work[i];
+					if (value < sum || std::isnan(sum))
+					{
+						value = sum;
+					}
+				}
+			}
+			else
+			{
+				for (i=0; i<n; i++)
+				{
+					work[i] = ZERO;
+				}
+				for (j=0; j<n; j++)
+				{
+					abj = ldab * j;
+					sum = work[j] + std::fabs(Ab[abj]);
+					l = -j;
+					labj = l + abj;
+					stop = std::min(n-1, j+k);
+					for (i=j+1; i<=stop; i++)
+					{
+						absa = std::fabs(Ab[i+labj]);
+						sum += absa;
+						work[i] += absa;
+					}
+					if (value < sum || std::isnan(sum))
+					{
+						value = sum;
+					}
+				}
+			}
+		}
+		else if (upnorm=='F' || upnorm=='E')
+		{
+			// Find normF(A).
+			real scale = ZERO;
+			sum = ONE;
+			if (k>0)
+			{
+				if (upuplo=='U')
+				{
+					for (j=1; j<n; j++)
+					{
+						dlassq(std::min(j, k), &Ab[std::max(k-j, 0)+ldab*j], 1, scale, sum);
+					}
+					l = k;
+				}
+				else
+				{
+					for (j=0; j<n-1; j++)
+					{
+						dlassq(std::min(n-1-j, k), &Ab[1+ldab*j], 1, scale, sum);
+					}
+					l = 0;
+				}
+				sum *= TWO;
+			}
+			else
+			{
+				l = 0;
+			}
+			dlassq(n, &Ab[l], ldab, scale, sum);
+			value = scale * std::sqrt(sum);
+		}
+		return value;
+	}
+
+	/*! §dlansp returns the value of the 1-norm, or the Frobenius norm, or the infinity-norm, or
+	 *  the element of largest absolute value of a symmetric matrix supplied in packed form.
+	 *
+	 * §dlansp returns the value of the one-norm, or the Frobenius norm, or the infinity-norm, or
+	 * the element of largest absolute value of a real symmetric matrix $A$, supplied in packed
+	 * form.
+	 * \param[in] norm Specifies the value to be returned by §dlansp as described above.
+	 * \param[in] uplo
+	 *     Specifies whether the upper or lower triangular part of the symmetric matrix $A$ is
+	 *     supplied.\n
+	 *     ='U': Upper triangular part of $A$ is supplied\n
+	 *     ='L': Lower triangular part of $A$ is supplied
+	 *
+	 * \param[in] n  The order of the matrix $A$. $\{n}\ge 0$. When $\{n}=0$, §dlansp returns zero.
+	 * \param[in] ap
+	 *     an array, dimension ($\{n}(\{n}+1)/2$)\n
+	 *     The upper or lower triangle of the symmetric matrix $A$, packed columnwise in a linear
+	 *     array. The $j$-th column of $A$ is stored in the array §ap as follows:\n
+	 *     if §uplo ='U', $\{ap}[i+j(j+1)/2]       = A[i,j]$ for $0\le i\le j$;\n
+	 *     if §uplo ='L', $\{ap}[i+j(2\{n}-j-1)/2] = A[i,j]$ for $j\le i<\{n}$.
+	 *
+	 * \param[out] work
+	 *     an array, dimension ($\max(1,\{lwork})$),\n
+	 *     where $\{lwork}\ge\{n}$ when §norm ='I' or '1' or 'O';
+	 *     otherwise, §work is not referenced.
+	 *
+	 * \return
+	 * $\left(\begin{tabular}{ll}
+	 *     \(\max(|\{A}[i,j]|)\), & \{norm} = 'M' or 'm'          \\
+	 *     \(\on{norm1}(\{A})\),  & \{norm} = '1', 'O' or 'o'     \\
+	 *     \(\on{normI}(\{A})\),  & \{norm} = 'I' or 'i'          \\
+	 *     \(\on{normF}(\{A})\),  & \{norm} = 'F', 'f', 'E' or 'e'
+	 *  \end{tabular}\right.$\n
+	 * where $\on{norm1}$ denotes the       one-norm of a matrix (maximum column sum),
+	 *       $\on{normI}$ denotes the  infinity-norm of a matrix (maximum row sum) and
+	 *       $\on{normF}$ denotes the Frobenius norm of a matrix (square root of sum of squares).\n
+	 *       Note that $\max(|\{A}[i,j]|)$ is not a consistent matrix norm.
+	 * \authors Univ. of Tennessee
+	 * \authors Univ. of California Berkeley
+	 * \authors Univ. of Colorado Denver
+	 * \authors NAG Ltd.
+	 * \date December 2016                                                                       */
+	static real dlansp(char const* const norm, char const* const uplo, int const n,
+	                   real const* const ap, real* const work) /*const*/
+	{
+		int i, j, k, stop;
+		real absa, sum, value;
+		char upnorm = std::toupper(norm[0]);
+		char upuplo = std::toupper(uplo[0]);
+		if (n==0)
+		{
+			value = ZERO;
+		}
+		else if (upnorm=='M')
+		{
+			// Find max(abs(A(i,j))).
+			value = ZERO;
+			if (upuplo=='U')
+			{
+				k = 0;
+				for (j=0; j<n; j++)
+				{
+					stop = k + j;
+					for (i=k; i<=stop; i++)
+					{
+						sum = std::fabs(ap[i]);
+						if (value < sum || std::isnan(sum))
+						{
+							value = sum;
+						}
+					}
+					k += j + 1;
+				}
+			}
+			else
+			{
+				k = 0;
+				for (j=0; j<n; j++)
+				{
+					stop = k + n - j;
+					for (i=k; i<stop; i++)
+					{
+						sum = std::fabs(ap[i]);
+						if (value < sum || std::isnan(sum))
+						{
+							value = sum;
+						}
+					}
+					k += n - j;
+				}
+			}
+		}
+		else if (upnorm=='I' || upnorm=='O' || norm[0]=='1')
+		{
+			// Find normI(A) (= norm1(A), since A is symmetric).
+			value = ZERO;
+			k = 0;
+			if (upuplo=='U')
+			{
+				for (j=0; j<n; j++)
+				{
+					sum = ZERO;
+					for (i=0; i<j; i++)
+					{
+						absa = std::fabs(ap[k]);
+						sum     += absa;
+						work[i] += absa;
+						k++;
+					}
+					work[j] = sum + std::fabs(ap[k]);
+					k++;
+				}
+				for (i=0; i<n; i++)
+				{
+					sum = work[i];
+					if (value < sum || std::isnan(sum))
+					{
+						value = sum;
+					}
+				}
+			}
+			else
+			{
+				for (i=0; i<n; i++)
+				{
+					work[i] = ZERO;
+				}
+				for (j=0; j<n; j++)
+				{
+					sum = work[j] + std::fabs(ap[k]);
+					k++;
+					for (i=j+1; i<n; i++)
+					{
+						absa = std::fabs(ap[k]);
+						sum     += absa;
+						work[i] += absa;
+						k++;
+					}
+					if (value < sum || std::isnan(sum))
+					{
+						value = sum;
+					}
+				}
+			}
+		}
+		else if (upnorm=='F' || upnorm=='E')
+		{
+			// Find normF(A).
+			real scale = ZERO;
+			sum = ONE;
+			k = 1;
+			if (upuplo=='U')
+			{
+				for (j=1; j<n; j++)
+				{
+					dlassq(j, &ap[k], 1, scale, sum);
+					k += j + 1;
+				}
+			}
+			else
+			{
+				for (j=0; j<n-1; j++)
+				{
+					dlassq(n-j-1, &ap[k], 1, scale, sum);
+					k += n - j;
+				}
+			}
+			sum *= TWO;
+			k = 0;
+			real temp;
+			for (i=0; i<n; i++)
+			{
+				if (ap[k]!=ZERO)
+				{
+					absa = std::fabs(ap[k]);
+					if (scale<absa)
+					{
+						temp = scale / absa;
+						sum = ONE + sum*temp*temp;
+						scale = absa;
+					}
+					else
+					{
+						temp = absa / scale;
+						sum += temp * temp;
+					}
+				}
+				if (upuplo=='U')
+				{
+					k += i + 2;
+				}
+				else
+				{
+					k += n - i;
+				}
+			}
+			value = scale * std::sqrt(sum);
+		}
+		return value;
+	}
+
 	/*! §dlanst returns the value of the 1-norm, or the Frobenius norm, or the infinity norm, or
 	 *  the element of largest absolute value of a real symmetric tridiagonal matrix.
 	 *
@@ -7989,7 +8375,7 @@ public:
 			if (n>1)
 			{
 				dlassq(n-1, e, 1, scale, sum);
-				sum *= 2;
+				sum *= TWO;
 			}
 			dlassq(n, d, 1, scale, sum);
 			anorm = scale * std::sqrt(sum);
@@ -8025,8 +8411,8 @@ public:
 	 * \param[in] lda The leading dimension of the array §A. $\{lda}\ge\max(\{n},1)$.
 	 *
 	 * \param[out] work
-	 *     an array, dimension ($\max(1,\{LWORK})$),\n
-	 *     where $\{LWORK}\ge\{n}$ when §norm ='I' or '1' or 'O';
+	 *     an array, dimension ($\max(1,\{lwork})$),\n
+	 *     where $\{lwork}\ge\{n}$ when §norm ='I' or '1' or 'O';
 	 *     otherwise, §work is not referenced.
 	 *
 	 * \return
@@ -8051,6 +8437,7 @@ public:
 		int i, j, aj;
 		real sum, value;
 		char upnorm = std::toupper(norm[0]);
+		char upuplo = std::toupper(uplo[0]);
 		if (n==0)
 		{
 			value = ZERO;
@@ -8059,7 +8446,7 @@ public:
 		{
 			// Find max(abs(A[i,j])).
 			value = ZERO;
-			if (std::toupper(uplo[0])=='U')
+			if (upuplo=='U')
 			{
 				for (j=0; j<n; j++)
 				{
@@ -8095,7 +8482,7 @@ public:
 			// Find normI(A) (= norm1(A), since A is symmetric).
 			real absa;
 			value = ZERO;
-			if (std::toupper(uplo[0])=='U')
+			if (upuplo=='U')
 			{
 				for (j=0; j<n; j++)
 				{
@@ -8146,7 +8533,7 @@ public:
 			// Find normF(A).
 			real scale = ZERO;
 			sum = ONE;
-			if (std::toupper(uplo[0])=='U')
+			if (upuplo=='U')
 			{
 				for (j=1; j<n; j++)
 				{
@@ -8160,7 +8547,7 @@ public:
 					dlassq(n-j-1, &A[j+1+lda*j], 1, scale, sum);
 				}
 			}
-			sum *= 2;
+			sum *= TWO;
 			dlassq(n, A, lda+1, scale, sum);
 			value = scale * std::sqrt(sum);
 		}
