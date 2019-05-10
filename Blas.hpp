@@ -80,7 +80,7 @@ public:
 	 *
 	 * §daxpy constant times a vector plus a vector.
 	 * Uses unrolled loops for increments equal to one.
-	 * \param[in]     n	number of elements in input vector(s)
+	 * \param[in]     n    number of elements in input vector(s)
 	 * \param[in]     da   On entry, §da specifies the scalar $\alpha$.
 	 * \param[in]     dx   an array, dimension $(1 + (\{n}-1)|\{incx}|)$
 	 * \param[in]     incx storage spacing between elements of §dx
@@ -1047,13 +1047,13 @@ public:
 	/*! §drot
 	 *
 	 * §drot applies a plane rotation.
-	 * \param[in]	 n	number of elements in input vector(s)
+	 * \param[in]     n    number of elements in input vector(s)
 	 * \param[in,out] dx   an array, dimension $(1 + (\{n}-1)|\{incx}|)$
-	 * \param[in]	 incx storage spacing between elements of §dx
+	 * \param[in]     incx storage spacing between elements of §dx
 	 * \param[in,out] dy   an array, dimension $(1 + (\{n}-1)|\{incy}|)$
-	 * \param[in]	 incy storage spacing between elements of §dy
-	 * \param[in]	 c
-	 * \param[in]	 s
+	 * \param[in]     incy storage spacing between elements of §dy
+	 * \param[in]     c
+	 * \param[in]     s
 	 * \authors Univ.of Tennessee
 	 * \authors Univ.of California Berkeley
 	 * \authors Univ.of Colorado Denver
@@ -1107,10 +1107,10 @@ public:
 	/*! §dscal
 	 *
 	 * §dscal scales a vector by a constant. uses unrolled loops for increment equal to one.
-	 * \param[in]	 n	number of elements in input vector(s)
-	 * \param[in]	 da   On entry, da specifies the scalar $\alpha$.
+	 * \param[in]     n    number of elements in input vector(s)
+	 * \param[in]     da   On entry, da specifies the scalar $\alpha$.
 	 * \param[in,out] dx   an array, dimension $(1 + (\{n}-1)|\{incx}|)$
-	 * \param[in]	 incx storage spacing between elements of §dx
+	 * \param[in]     incx storage spacing between elements of §dx
 	 * \authors Univ.of Tennessee
 	 * \authors Univ.of California Berkeley
 	 * \authors Univ.of Colorado Denver
@@ -1165,11 +1165,11 @@ public:
 	/*! §dswap
 	 *
 	 * §dswap interchanges two vectors. Uses unrolled loops for increments equal to one.
-	 * \param[in]	 n	number of elements in input vector(s)
+	 * \param[in]     n    number of elements in input vector(s)
 	 * \param[in,out] dx   an array, dimension $(1 + (\{n}-1)|\{incx}|)$
-	 * \param[in]	 incx storage spacing between elements of §dx
+	 * \param[in]     incx storage spacing between elements of §dx
 	 * \param[in,out] dy   an array, dimension $(1 + (\{n}-1)|\{incy}|)$
-	 * \param[in]	 incy storage spacing between elements of §dy
+	 * \param[in]     incy storage spacing between elements of §dy
 	 * \authors Univ.of Tennessee
 	 * \authors Univ.of California Berkeley
 	 * \authors Univ.of Colorado Denver
