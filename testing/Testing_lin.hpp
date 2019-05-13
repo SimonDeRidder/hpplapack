@@ -114,12 +114,12 @@ public:
 			return;
 		}
 		char pathcopy[4], c1, c3, p2[2], sym[10];
-		strncpy(pathcopy, path, 3);
+		std::strncpy(pathcopy, path, 3);
 		pathcopy[3] = '\0';
-		c1 = toupper(path[0]);
-		c3 = toupper(path[2]);
-		p2[0] = toupper(path[1]);
-		p2[1] = toupper(path[2]);
+		c1 = std::toupper(path[0]);
+		c3 = std::toupper(path[2]);
+		p2[0] = std::toupper(path[1]);
+		p2[1] = std::toupper(path[2]);
 		bool sord = (c1=='S' || c1=='D');
 		if (!(sord || c1=='C' || c1=='Z'))
 		{
@@ -2355,7 +2355,7 @@ public:
 		int i, ix, ixnext;
 		real temp;
 		int inc = abs(incx);
-		if (toupper(job[0])=='I')
+		if (std::toupper(job[0])=='I')
 		{
 			// Sort in increasing order
 			for (i=1; i<n; i++)
@@ -2382,7 +2382,7 @@ public:
 				}
 			}
 		}
-		else if (toupper(job[0])=='D')
+		else if (std::toupper(job[0])=='D')
 		{
 			// Sort in decreasing order
 			for (i=1; i<n; i++)

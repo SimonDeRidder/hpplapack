@@ -494,6 +494,80 @@ public:
 		return rndout;
 	}
 
+	/*! §dlarge
+	 *
+	 * §dlarge pre- and post-multiplies a real general §n by §n matrix $A$ with a random orthogonal
+	 * matrix: $A = UDU^T$.
+	 * \param[in]     n The order of the matrix $A$. $\{n}\ge 0$.
+	 * \param[in,out] A
+	 *     an array, dimension (§lda,§n)\n
+	 *     On entry, the original §n by §n matrix $A$.\n
+	 *     On exit, §A is overwritten by $UAU^T$ for some random orthogonal matrix $U$.
+	 *
+	 * \param[in]     lda   The leading dimension of the array §A. $\{lda}\ge n$.
+	 * \param[in,out] iseed
+	 *     an integer array, dimension (4)\n
+	 *     On entry, the seed of the random number generator; the array elements must be between
+	 *     0 and 4095, and $\{iseed}[3]$ must be odd.\n
+	 *     On exit, the seed is updated.
+	 *
+	 * \param[out] work an array, dimension ($2\{n}$)
+	 * \param[out] info
+	 *     =0: successful exit\n
+	 *     <0: if $\{info}=-i$, the $i$-th argument had an illegal value
+	 * \authors Univ. of Tennessee
+	 * \authors Univ. of California Berkeley
+	 * \authors Univ. of Colorado Denver
+	 * \authors NAG Ltd.
+	 * \date December 2016
+	 * \ingroup double_matgen                                                                    */
+	void dlarge(int const n, real* const A, int const lda, int* const iseed, real* const work,
+	            int& info) const
+	{
+		// Test the input arguments
+		info = 0;
+		if (n<0)
+		{
+			info = -1;
+		}
+		else if (lda<std::max(1, n))
+		{
+			info = -3;
+		}
+		if (info<0)
+		{
+			this->xerbla("DLARGE", -info);
+			return;
+		}
+		// pre- and post-multiply A by random orthogonal matrix
+		real TAU, WA, WB, WN;
+		for (int i=n-1; i>=0; i--)
+		{
+			// generate random reflection
+			this->dlarnv(3, iseed, n-i, work);
+			WN = Blas<real>::dnrm2(n-i, work, 1);
+			WA = std::copysign(WN, work[0]);
+			if (WN==ZERO)
+			{
+				TAU = ZERO;
+			}
+			else
+			{
+				WB = work[0] + WA;
+				Blas<real>::dscal(n-i-1, ONE/WB, &work[1], 1);
+				work[0] = ONE;
+				TAU = WB / WA;
+			}
+			// multiply A[i:n-1,0:n-1] by random reflection from the left
+			Blas<real>::dgemv("Transpose", n-i, n, ONE, &A[i], lda, work, 1, ZERO, &work[n], 1);
+			Blas<real>::dger(n-i, n, -TAU, work, 1, &work[n], 1, &A[i], lda);
+			// multiply A[0:n-1,i:n-1] by random reflection from the right
+			Blas<real>::dgemv("No transpose", n, n-i, ONE, &A[lda*i], lda, work, 1, ZERO, &work[n],
+			                  1);
+			Blas<real>::dger(n, n-i, -TAU, &work[n], 1, work, 1, &A[lda*i], lda);
+		}
+	}
+
 	/*! §dlarnd
 	 *
 	 * §dlarnd returns a random real number from a uniform or normal distribution.

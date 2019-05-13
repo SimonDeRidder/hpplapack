@@ -990,8 +990,8 @@ public:
 	 *
 	 * §dnrm2 returns the euclidean norm of a vector:\n
 	 *     $\sqrt{x^T*x}$
-	 * \param[in] n	number of elements in input vector(s)
-	 * \param[in] x	an array, dimension $(1 + (\{n}-1)|\{incx}|)$
+	 * \param[in] n    number of elements in input vector(s)
+	 * \param[in] x    an array, dimension $(1 + (\{n}-1)|\{incx}|)$
 	 * \param[in] incx storage spacing between elements of §x
 	 * \return The Euclidean norm of §x.
 	 * \authors Univ.of Tennessee

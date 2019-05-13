@@ -991,6 +991,371 @@ public:
 		result[1] = std::max(std::fabs(enrmax-ONE), std::fabs(enrmin-ONE)) / (real(n)*ulp);
 	}
 
+	/*! §dlahd2
+	 *
+	 * §dlahd2 prints header information for the different test paths.
+	 * \param[in] iounit
+	 *     On entry, §iounit specifies the output stream to which the header information should be
+	 *     printed.
+	 *
+	 * \param[in] path
+	 *     On entry, §path contains the name of the path for which the header information is to be
+	 *     printed. Current paths are\n
+	 *     "DHS", "ZHS": Non-symmetric eigenproblem.\n
+	 *     "DST", "ZST": Symmetric eigenproblem.\n
+	 *     "DSG", "ZSG": Symmetric Generalized eigenproblem.\n
+	 *     "DBD", "ZBD": Singular Value Decomposition (SVD)\n
+	 *     "DBB", "ZBB": General Banded reduction to bidiagonal form\n
+	 *     These paths also are supplied in single precision
+	 *     (replace leading D by S and leading Z by C in path names).
+	 * \authors Univ. of Tennessee
+	 * \authors Univ. of California Berkeley
+	 * \authors Univ. of Colorado Denver
+	 * \authors NAG Ltd.
+	 * \date December 2016                                                                       */
+	void dlahd2(std::ostream& iounit, char const* const path) const
+	{
+		if (!iounit.good())
+		{
+			return;
+		}
+		char pathcopy[4];
+		pathcopy[0] = std::toupper(path[0]);
+		pathcopy[1] = std::toupper(path[1]);
+		pathcopy[2] = std::toupper(path[2]);
+		pathcopy[3] = '\0';
+		bool sord = (pathcopy[0]=='S' || pathcopy[0]=='D');
+		char const* str9999 = ":  no header available";
+		if (!sord && !(pathcopy[0]=='C' || pathcopy[0]=='Z'))
+		{
+			iounit << " " << pathcopy << str9999 << std::endl;
+		}
+		char c2[2];
+		std::strncpy(c2, &pathcopy[1], 2);
+		if (std::strncmp(c2, "HS", 2)==0)
+		{
+			char const* str9988 = " Matrix types (see xCHKHS for details): ";
+			char const* str9987 = "\n Special Matrices:\n"
+			    "  1=Zero matrix.                          5=Diagonal: geometr. spaced entries.\n"
+			    "  2=Identity matrix.                      6=Diagonal: clustered entries.\n"
+			    "  3=Transposed Jordan block.              7=Diagonal: large, evenly spaced.\n"
+			    "  4=Diagonal: evenly spaced entries.      8=Diagonal: small, evenly spaced.";
+			char const* str9986a = " Dense, Non-Symmetric Matrices:\n"
+			    "  9=Well-cond., evenly spaced eigenvals. 14=Ill-cond., geomet. spaced eigenals.\n"
+			    " 10=Well-cond., geom. spaced eigenvals.  15=Ill-conditioned, clustered e.vals.\n"
+			    " 11=Well-conditioned, clustered e.vals.  16=Ill-cond., random complex ";
+			char const* str9986b = "\n 12=Well-cond., random complex ";
+			char const* str9986c = "    17=Ill-cond., large rand. complx ";
+			char const* str9986d = "\n 13=Ill-conditioned, evenly spaced.   "
+			                       "   18=Ill-cond., small rand. complx ";
+			char const* str9985 =
+			    " 19=Matrix with random O(1) entries.     21=Matrix with small random entries."
+			    "\n 20=Matrix with large random entries.   ";
+			char const* str9984a =
+			    "\n Tests performed:   (H is Hessenberg, T is Schur, U and Z are ";
+			char const* str9984b = ",\n                    ";
+			char const* str9984c = ", W is a diagonal matrix of eigenvalues,\n"
+			    "                    L and R are the left and right eigenvector matrices)\n"
+			    "  1 = | A - U H U";
+			char const* str9984d = " | / (|A| n ulp)           2 = | I - U U";
+			char const* str9984e = " | / (n ulp)\n  3 = | H - Z T Z";
+			char const* str9984f = " | / (|H| n ulp )           4 = | I - Z Z";
+			char const* str9984g = " | / (n ulp)\n  5 = | A - UZ T (UZ)";
+			char const* str9984h = " | / (|A| n ulp)       6 = | I - UZ (UZ)";
+			char const* str9984i =
+			    " | / (n ulp)\n  7 = | T(e.vects.) - T(no e.vects.) | / (|T| ulp)\n"
+			    "  8 = | W(e.vects.) - W(no e.vects.) | / (|W| ulp)\n"
+			    "  9 = | TR - RW | / (|T| |R| ulp)      10 = | LT - WL | / ( |T| |L| ulp)\n"
+			    " 11= |HX - XW| / (|H| |X| ulp)  (inv.it) 12= |YH - WY| / (|H| |Y| ulp)  (inv.it)";
+			if (sord)
+			{
+				// Real Non-symmetric Eigenvalue Problem:
+				iounit << "\n " << pathcopy << " -- Real Non-symmetric eigenvalue problem\n";
+				// Matrix types
+				iounit << str9988 << '\n';
+				iounit << str9987 << '\n';
+				iounit << str9986a << "pairs " << str9986b << "pairs " << str9986c << "prs."
+				       << str9986d << "prs.\n";
+				iounit << str9985 << '\n';
+				// Tests performed
+				iounit << str9984a << "orthogonal" << str9984b << "'=transpose" << str9984c
+				       << "'" << str9984d << "'" << str9984e << "'" << str9984f << "'" << str9984g
+				       << "'" << str9984h << "'" << str9984i << std::endl;
+			}
+			else
+			{
+				// Complex Non-symmetric Eigenvalue Problem:
+				iounit << "\n " << pathcopy << " -- Complex Non-symmetric eigenvalue problem\n";
+				// Matrix types
+				iounit << str9988 << '\n';
+				iounit << str9987 << '\n';
+				iounit << str9986a << "e.vals" << str9986b << "e.vals" << str9986c << "e.vs"
+				       << str9986d << "e.vs\n";
+				iounit << str9985 << '\n';
+				// Tests performed
+				iounit << str9984a << "unitary" << str9984b << "*=conj.transp." << str9984c << '*'
+				       << str9984d << '*' << str9984e << '*' << str9984f << '*' << std::endl;
+			}
+		}
+		else if (std::strncmp(c2, "ST", 2)==0)
+		{
+			char const* str9983 = " Matrix types (see xDRVST for details): ";
+			char const* str9982 = "\n Special Matrices:\n"
+			    "  1=Zero matrix.                          5=Diagonal: clustered entries.\n"
+			    "  2=Identity matrix.                      6=Diagonal: large, evenly spaced.\n"
+			    "  3=Diagonal: evenly spaced entries.      7=Diagonal: small, evenly spaced.\n"
+			    "  4=Diagonal: geometr. spaced entries.";
+			char const* str9981 = " Matrices:\n"
+			    "  8=Evenly spaced eigenvals.             12=Small, evenly spaced eigenvals.\n"
+			    "  9=Geometrically spaced eigenvals.      13=Matrix with random O(1) entries.\n"
+			    " 10=Clustered eigenvalues.               14=Matrix with large random entries.\n"
+			    " 11=Large, evenly spaced eigenvals.      15=Matrix with small random entries.";
+			if (sord)
+			{
+				// Real Symmetric Eigenvalue Problem:
+				iounit << "\n " << pathcopy << " -- Real Symmetric eigenvalue problem";
+				// Matrix types
+				iounit << str9983 << '\n';
+				iounit << str9982 << '\n';
+				iounit << " Dense Symmetric" << str9981 << '\n';
+				// Tests performed
+				iounit << "\n Tests performed:  See sdrvst.f" << std::endl;
+			}
+			else
+			{
+				// Complex Hermitian Eigenvalue Problem:
+				iounit << "\n " << pathcopy << " -- Complex Hermitian eigenvalue problem\n";
+				// Matrix types
+				iounit << str9983 << '\n';
+				iounit << str9982 << '\n';
+				iounit << " Dense Hermitian" << str9981 << '\n';
+				// Tests performed
+				iounit << "\n Tests performed:  See cdrvst.f" << std::endl;
+			}
+		}
+		else if (std::strncmp(c2, "SG", 2)==0)
+		{
+			char const* str9980 = " Matrix types (see xDRVSG for details): ";
+			char const* str9979 ="\n Special Matrices:\n"
+			    "  1=Zero matrix.                          5=Diagonal: clustered entries.\n"
+			    "  2=Identity matrix.                      6=Diagonal: large, evenly spaced.\n"
+			    "  3=Diagonal: evenly spaced entries.      7=Diagonal: small, evenly spaced.\n"
+			    "  4=Diagonal: geometr. spaced entries.";
+			char const* str9978a = " Dense or Banded ";
+			char const* str9978b = " Matrices: \n"
+			    "  8=Evenly spaced eigenvals.          15=Matrix with small random entries.\n"
+			    "  9=Geometrically spaced eigenvals.   16=Evenly spaced eigenvals, KA=1, KB=1.\n"
+			    " 10=Clustered eigenvalues.            17=Evenly spaced eigenvals, KA=2, KB=1.\n"
+			    " 11=Large, evenly spaced eigenvals.   18=Evenly spaced eigenvals, KA=2, KB=2.\n"
+			    " 12=Small, evenly spaced eigenvals.   19=Evenly spaced eigenvals, KA=3, KB=1.\n"
+			    " 13=Matrix with random O(1) entries.  20=Evenly spaced eigenvals, KA=3, KB=2.\n"
+			    " 14=Matrix with large random entries. 21=Evenly spaced eigenvals, KA=3, KB=3.";
+			if (sord)
+			{
+				// Real Symmetric Generalized Eigenvalue Problem:
+				iounit << "\n " << pathcopy
+				       << " -- Real Symmetric Generalized eigenvalue problem\n";
+				// Matrix types
+				iounit << str9980 << '\n';
+				iounit << str9979 << '\n';
+				iounit << str9978a << "Symmetric" << str9978b << '\n';
+				// Tests performed
+				iounit << "\n Tests performed:   \n"
+				          "(For each pair (A,B), where A is of the given type \n"
+				          " and B is a random well-conditioned matrix. D is \n"
+				          " diagonal, and Z is orthogonal.)\n"
+				          " 1 = DSYGV, with ITYPE=1 and UPLO='U':"
+				          "  | A Z - B Z D | / (|A| |Z| n ulp)     \n"
+				          " 2 = DSPGV, with ITYPE=1 and UPLO='U':"
+				          "  | A Z - B Z D | / (|A| |Z| n ulp)     \n"
+				          " 3 = DSBGV, with ITYPE=1 and UPLO='U':"
+				          "  | A Z - B Z D | / (|A| |Z| n ulp)     \n"
+				          " 4 = DSYGV, with ITYPE=1 and UPLO='L':"
+				          "  | A Z - B Z D | / (|A| |Z| n ulp)     \n"
+				          " 5 = DSPGV, with ITYPE=1 and UPLO='L':"
+				          "  | A Z - B Z D | / (|A| |Z| n ulp)     \n"
+				          " 6 = DSBGV, with ITYPE=1 and UPLO='L':"
+				          "  | A Z - B Z D | / (|A| |Z| n ulp)     \n";
+				iounit << " 7 = DSYGV, with ITYPE=2 and UPLO='U':"
+				          "  | A B Z - Z D | / (|A| |Z| n ulp)     \n"
+				          " 8 = DSPGV, with ITYPE=2 and UPLO='U':"
+				          "  | A B Z - Z D | / (|A| |Z| n ulp)     \n"
+				          " 9 = DSPGV, with ITYPE=2 and UPLO='L':"
+				          "  | A B Z - Z D | / (|A| |Z| n ulp)     \n"
+				          "10 = DSPGV, with ITYPE=2 and UPLO='L':"
+				          "  | A B Z - Z D | / (|A| |Z| n ulp)     \n"
+				          "11 = DSYGV, with ITYPE=3 and UPLO='U':"
+				          "  | B A Z - Z D | / (|A| |Z| n ulp)     \n"
+				          "12 = DSPGV, with ITYPE=3 and UPLO='U':"
+				          "  | B A Z - Z D | / (|A| |Z| n ulp)     \n"
+				          "13 = DSYGV, with ITYPE=3 and UPLO='L':"
+				          "  | B A Z - Z D | / (|A| |Z| n ulp)     \n"
+				          "14 = DSPGV, with ITYPE=3 and UPLO='L':"
+				          "  | B A Z - Z D | / (|A| |Z| n ulp)     " << std::endl;
+			}
+			else
+			{
+				// Complex Hermitian Generalized Eigenvalue Problem:
+				iounit << "\n " << pathcopy
+				       << " -- Complex Hermitian Generalized eigenvalue problem\n";
+				// Matrix types
+				iounit << str9980 << '\n';
+				iounit << str9979 << '\n';
+				iounit << str9978a << "Hermitian" << str9978b << '\n';
+				// Tests performed
+				iounit << "\n Tests performed:   \n"
+				          "(For each pair (A,B), where A is of the given type \n"
+				          " and B is a random well-conditioned matrix. D is \n"
+				          " diagonal, and Z is unitary.)\n"
+				          " 1 = ZHEGV, with ITYPE=1 and UPLO='U':"
+				          "  | A Z - B Z D | / (|A| |Z| n ulp)     \n"
+				          " 2 = ZHPGV, with ITYPE=1 and UPLO='U':"
+				          "  | A Z - B Z D | / (|A| |Z| n ulp)     \n"
+				          " 3 = ZHBGV, with ITYPE=1 and UPLO='U':"
+				          "  | A Z - B Z D | / (|A| |Z| n ulp)     \n"
+				          " 4 = ZHEGV, with ITYPE=1 and UPLO='L':"
+				          "  | A Z - B Z D | / (|A| |Z| n ulp)     \n"
+				          " 5 = ZHPGV, with ITYPE=1 and UPLO='L':"
+				          "  | A Z - B Z D | / (|A| |Z| n ulp)     \n"
+				          " 6 = ZHBGV, with ITYPE=1 and UPLO='L':"
+				          "  | A Z - B Z D | / (|A| |Z| n ulp)     \n";
+				iounit << " 7 = ZHEGV, with ITYPE=2 and UPLO='U':"
+				          "  | A B Z - Z D | / (|A| |Z| n ulp)     \n"
+				          " 8 = ZHPGV, with ITYPE=2 and UPLO='U':"
+				          "  | A B Z - Z D | / (|A| |Z| n ulp)     \n"
+				          " 9 = ZHPGV, with ITYPE=2 and UPLO='L':"
+				          "  | A B Z - Z D | / (|A| |Z| n ulp)     \n"
+				          "10 = ZHPGV, with ITYPE=2 and UPLO='L':"
+				          "  | A B Z - Z D | / (|A| |Z| n ulp)     \n"
+				          "11 = ZHEGV, with ITYPE=3 and UPLO='U':"
+				          "  | B A Z - Z D | / (|A| |Z| n ulp)     \n"
+				          "12 = ZHPGV, with ITYPE=3 and UPLO='U':"
+				          "  | B A Z - Z D | / (|A| |Z| n ulp)     \n"
+				          "13 = ZHEGV, with ITYPE=3 and UPLO='L':"
+				          "  | B A Z - Z D | / (|A| |Z| n ulp)     \n"
+				          "14 = ZHPGV, with ITYPE=3 and UPLO='L':"
+				          "  | B A Z - Z D | / (|A| |Z| n ulp)     " << std::endl;
+			}
+		}
+		else if (std::strncmp(c2, "BD", 2)==0)
+		{
+			char const* str9973 = " Matrix types (see xCHKBD for details):\n Diagonal matrices:\n"
+			    "   1: Zero                             5: Clustered entries\n"
+			    "   2: Identity                         6: Large, evenly spaced entries\n"
+			    "   3: Evenly spaced entries            7: Small, evenly spaced entries\n"
+			    "   4: Geometrically spaced entries\n General matrices:\n"
+			    "   8: Evenly spaced sing. vals.       12: Small, evenly spaced sing vals\n"
+			    "   9: Geometrically spaced sing vals  13: Random, O(1) entries\n"
+			    "  10: Clustered sing. vals.           14: Random, scaled near overflow\n"
+			    "  11: Large, evenly spaced sing vals  15: Random, scaled near underflow";
+			char const* str9972a = "\n Test ratios:  "
+			    "(B: bidiagonal, S: diagonal, Q, P, U, and V: ";
+			char const* str9972b = "\n                X: m x nrhs, Y = Q' X, and Z = U' Y)";
+			char const* str9971 =
+			    "   1: norm(A - Q B P') / (norm(A) max(m,n) ulp)\n"
+			    "   2: norm(I - Q' Q)   / (m ulp)\n"
+			    "   3: norm(I - P' P)   / (n ulp)\n"
+			    "   4: norm(B - U S V') / (norm(B) min(m,n) ulp)\n"
+			    "   5: norm(Y - U Z)    / (norm(Z) max(min(m,n),k) ulp)\n"
+			    "   6: norm(I - U' U)   / (min(m,n) ulp)\n"
+			    "   7: norm(I - V' V)   / (min(m,n) ulp)\n"
+			    "   8: Test ordering of S  (0 if nondecreasing, 1/ulp  otherwise)\n"
+			    "   9: norm(S - S1)     / (norm(S) ulp), where S1 is computed\n"
+			    "                                            without computing U and V'\n"
+			    "  10: Sturm sequence test (0 if sing. vals of B within THRESH of S)\n"
+			    "  11: norm(A - (QU) S (V' P')) / (norm(A) max(m,n) ulp)\n"
+			    "  12: norm(X - (QU) Z)         / (|X| max(M,k) ulp)\n"
+			    "  13: norm(I - (QU)'(QU))      / (M ulp)\n"
+			    "  14: norm(I - (V' P') (P V))  / (N ulp)\n"
+			    "  15: norm(B - U S V') / (norm(B) min(m,n) ulp)\n"
+			    "  16: norm(I - U' U)   / (min(m,n) ulp)\n"
+			    "  17: norm(I - V' V)   / (min(m,n) ulp)\n"
+			    "  18: Test ordering of S  (0 if nondecreasing, 1/ulp  otherwise)\n"
+			    "  19: norm(S - S1)     / (norm(S) ulp), where S1 is computed\n"
+			    "                                            without computing U and V'\n"
+			    "  20: norm(B - U S V')  / (norm(B) min(m,n) ulp)  DBDSVX(V,A)\n"
+			    "  21: norm(I - U' U)    / (min(m,n) ulp)\n"
+			    "  22: norm(I - V' V)    / (min(m,n) ulp)\n"
+			    "  23: Test ordering of S  (0 if nondecreasing, 1/ulp  otherwise)\n"
+			    "  24: norm(S - S1)      / (norm(S) ulp), where S1 is computed\n"
+			    "                                             without computing U and V'\n"
+			    "  25: norm(S - U' B V) / (norm(B) n ulp)  DBDSVX(V,I)\n"
+			    "  26: norm(I - U' U)    / (min(m,n) ulp)\n"
+			    "  27: norm(I - V' V)    / (min(m,n) ulp)\n"
+			    "  28: Test ordering of S  (0 if nondecreasing, 1/ulp  otherwise)\n"
+			    "  29: norm(S - S1)      / (norm(S) ulp), where S1 is computed\n"
+			    "                                             without computing U and V'\n"
+			    "  30: norm(S - U' B V) / (norm(B) n ulp)  DBDSVX(V,V)\n"
+			    "  31: norm(I - U' U)    / (min(m,n) ulp)\n"
+			    "  32: norm(I - V' V)    / (min(m,n) ulp)\n"
+			    "  33: Test ordering of S  (0 if nondecreasing, 1/ulp  otherwise)\n"
+			    "  34: norm(S - S1)      / (norm(S) ulp), where S1 is computed\n"
+			    "                                             without computing U and V'";
+			if (sord)
+			{
+				// Real Singular Value Decomposition:
+				iounit << "\n " << pathcopy << " -- Real Singular Value Decomposition\n";
+				// Matrix types
+				iounit << str9973 << '\n';
+				// Tests performed
+				iounit << str9972a << "orthogonal" << str9972b << '\n';
+				iounit << str9971 << std::endl;
+			}
+			else
+			{
+				// Complex Singular Value Decomposition:
+				iounit << "\n " << pathcopy << " -- Complex Singular Value Decomposition\n";
+				// Matrix types
+				iounit << str9973 << '\n';
+				// Tests performed
+				iounit << str9972a << "unitary   " << str9972b << '\n';
+				iounit << str9971 << std::endl;
+			}
+		}
+		else if (std::strncmp(c2, "BB", 2)==0)
+		{
+			char const* str9970 = " Matrix types (see xCHKBB for details):\n Diagonal matrices:\n"
+			    "   1: Zero                             5: Clustered entries\n"
+			    "   2: Identity                         6: Large, evenly spaced entries\n"
+			    "   3: Evenly spaced entries            7: Small, evenly spaced entries\n"
+			    "   4: Geometrically spaced entries\n General matrices:\n"
+			    "   8: Evenly spaced sing. vals.       12: Small, evenly spaced sing vals\n"
+			    "   9: Geometrically spaced sing vals  13: Random, O(1) entries\n"
+			    "  10: Clustered sing. vals.           14: Random, scaled near overflow\n"
+			    "  11: Large, evenly spaced sing vals  15: Random, scaled near underflow";
+			char const* str9969a = "\n Test ratios:  (B: upper bidiagonal, Q and P: ";
+			char const* str9969b = "\n                C: m x nrhs, PT = P', Y = Q' C)\n"
+			    " 1: norm(A - Q B PT) / (norm(A) max(m,n) ulp)\n"
+			    " 2: norm(I - Q' Q)   / (m ulp)\n"
+			    " 3: norm(I - PT PT')   / (n ulp)\n"
+			    " 4: norm(Y - Q' C)   / (norm(Y) max(m,nrhs) ulp)";
+			if (sord)
+			{
+				// Real General Band reduction to bidiagonal form:
+				iounit << "\n " << pathcopy << " -- Real Band reduc. to bidiagonal form\n";
+				// Matrix types
+				iounit << str9970 << '\n';
+				// Tests performed
+				iounit << str9969a << "orthogonal" << str9969b << std::endl;
+			}
+			else
+			{
+				// Complex Band reduction to bidiagonal form:
+				iounit << "\n " << pathcopy << " -- Complex Band reduc. to bidiagonal form\n";
+				// Matrix types
+				iounit << str9970 << '\n';
+				// Tests performed
+				iounit << str9969a << "unitary   " << str9969b << std::endl;
+			}
+		}
+		else
+		{
+			iounit << " " << pathcopy << str9999 << std::endl;
+			return;
+		}
+		return;
+	}
+
 	/*! §dlasum
 	 *
 	 * §dlasum prints a summary of the results from one of the test routines.
@@ -1011,13 +1376,14 @@ public:
 		if (ie>0)
 		{
 			iounit << " " << typecopy << ": " << std::setw(4) << ie << " out of " << std::setw(5)
-			       << nrun << " tests failed to pass the threshold";
+			       << nrun << " tests failed to pass the threshold\n";
 		}
 		else
 		{
 			iounit << "\n " << "All tests for " << typecopy << " passed the threshold ("
-			       << std::setw(5) << nrun << " tests run)";
+			       << std::setw(5) << nrun << " tests run)\n";
 		}
+		iounit.flush();
 	}
 
 	/*! §dort01
