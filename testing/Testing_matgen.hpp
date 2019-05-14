@@ -540,31 +540,31 @@ public:
 			return;
 		}
 		// pre- and post-multiply A by random orthogonal matrix
-		real TAU, WA, WB, WN;
+		real tau, wa, wb, wn;
 		for (int i=n-1; i>=0; i--)
 		{
 			// generate random reflection
 			this->dlarnv(3, iseed, n-i, work);
-			WN = Blas<real>::dnrm2(n-i, work, 1);
-			WA = std::copysign(WN, work[0]);
-			if (WN==ZERO)
+			wn = Blas<real>::dnrm2(n-i, work, 1);
+			wa = std::copysign(wn, work[0]);
+			if (wn==ZERO)
 			{
-				TAU = ZERO;
+				tau = ZERO;
 			}
 			else
 			{
-				WB = work[0] + WA;
-				Blas<real>::dscal(n-i-1, ONE/WB, &work[1], 1);
+				wb = work[0] + wa;
+				Blas<real>::dscal(n-i-1, ONE/wb, &work[1], 1);
 				work[0] = ONE;
-				TAU = WB / WA;
+				tau = wb / wa;
 			}
 			// multiply A[i:n-1,0:n-1] by random reflection from the left
 			Blas<real>::dgemv("Transpose", n-i, n, ONE, &A[i], lda, work, 1, ZERO, &work[n], 1);
-			Blas<real>::dger(n-i, n, -TAU, work, 1, &work[n], 1, &A[i], lda);
+			Blas<real>::dger(n-i, n, -tau, work, 1, &work[n], 1, &A[i], lda);
 			// multiply A[0:n-1,i:n-1] by random reflection from the right
 			Blas<real>::dgemv("No transpose", n, n-i, ONE, &A[lda*i], lda, work, 1, ZERO, &work[n],
 			                  1);
-			Blas<real>::dger(n, n-i, -TAU, &work[n], 1, work, 1, &A[lda*i], lda);
+			Blas<real>::dger(n, n-i, -tau, &work[n], 1, work, 1, &A[lda*i], lda);
 		}
 	}
 
@@ -1307,6 +1307,556 @@ public:
 			temp *= dl[i] * dl[j];
 		}
 		return temp;
+	}
+
+	/*! §dlatme
+	 *
+	 * §dlatme generates random non-symmetric square matrices with specified eigenvalues for
+	 * testing §LAPACK programs.\n
+	 * §dlatme operates by applying the following sequence of operations:
+	 * \li 1. Set the diagonal to §d, where §d may be input or computed according to §mode, §cond,
+	 *        §dmax, and §rsign as described below.
+	 * \li 2. If complex conjugate pairs are desired ($\{mode}=0$ and $\{ei}[0]=$'R', or
+	 *        $\{mode}=5$), certain pairs of adjacent elements of §d are interpreted as the real
+	 *        and complex parts of a complex conjugate pair; §A thus becomes block diagonal, with
+	 *        1 by 1 and 2 by 2 blocks.
+	 * \li 3. If §upper ='T', the upper triangle of §A is set to random values out of distribution
+	 *        §dist.
+	 * \li 4. If §sim ='T', §A is multiplied on the left by a random matrix $X$, whose singular
+	 *        values are specified by §ds, §modes, and §conds, and on the right by $X$ inverse.
+	 * \li 5. If $\{kl}<\{n}-1$, the lower bandwidth is reduced to §kl using Householder
+	 *        transformations. If $\{ku}<\{n}-1$, the upper bandwidth is reduced to §ku.
+	 * \li 6. If §anorm is not negative, the matrix is scaled to have maximum-element-norm §anorm.
+	 *
+	 * (Note: since the matrix cannot be reduced beyond Hessenberg form, no packing options are
+	 *  available.)
+	 * \param[in] n    The number of columns (or rows) of §A.
+	 * \param[in] dist
+	 *     On entry, §dist specifies the type of distribution to be used to generate the random
+	 *     eigen-/singular values, and for the upper triangle (see §upper).\n
+	 *         'U': uniform(0, 1)  ('U' for uniform)\n
+	 *         'S': uniform(-1, 1) ('S' for symmetric)\n
+	 *         'N': normal(0, 1)   ('N' for normal)
+	 *
+	 * \param[in,out] iseed
+	 *     an integer array, dimension (4)\n
+	 *     On entry §iseed specifies the seed of the random number generator. They should lie
+	 *     between 0 and 4095 inclusive, and $\{iseed}[3]$ should be odd. The random number
+	 *     generator uses a linear congruential sequence limited to small integers, and so should
+	 *     produce machine independent random numbers. The values of §iseed are changed on exit,
+	 *     and can be used in the next call to §dlatme to continue the same random number sequence.
+	 *
+	 * \param[in,out] d
+	 *     an array, dimension (§n)\n
+	 *     This array is used to specify the eigenvalues of §A. If $\{mode}=0$, then §d is assumed
+	 *     to contain the eigenvalues (but see the description of §ei), otherwise they will be
+	 *     computed according to §mode, §cond, §dmax, and §rsign and placed in §d.\n
+	 *     Not modified if $\{mode}=0$.
+	 *
+	 * \param[in] mode
+	 *     On entry this describes how the eigenvalues are to be specified:
+	 *     \li $\{mode}=0$: means use §d (with §ei) as input
+	 *     \li $\{mode}=1$: sets $\{d}[0]=1$ and $\{d}[1:\{n}-1]=1/\{cond}$
+	 *     \li $\{mode}=2$: sets $\{d}[0:\{n}-2]=1$ and $\{d}[\{n}-1]=1/\{cond}$
+	 *     \li $\{mode}=3$: sets $\{d}[i]=\{cond}^{-i/(\{n}-1)}$
+	 *     \li $\{mode}=4$: sets $\{d}[i]=1-\frac{i}{\{n}-1}\left(1-\frac{1}{\{cond}}\right)$
+	 *     \li $\{mode}=5$: sets §d to random numbers in the range $[\frac{1}{\{cond}}, 1]$ such
+	 *                      that their logarithms are uniformly distributed. Each odd-even pair of
+	 *                      elements will be either used as two real eigenvalues or as the real and
+	 *                      imaginary part of a complex conjugate pair of eigenvalues; the choice
+	 *                      of which is done is random, with 50-50 probability, for each pair.
+	 *     \li $\{mode}=6$: set §d to random numbers from same distribution as the rest of the
+	 *                      matrix.
+	 *     \li $\{mode}<0$: has the same meaning as $|\{mode}|$, except that the order of the
+	 *                      elements of §d is reversed. Thus if §mode is between 1 and 4, §d has
+	 *                      entries ranging from 1 to $\frac{1}{\{cond}}$, if between -1 and -4, §d
+	 *                      has entries ranging from $\frac{1}{\{cond}}$ to 1.
+	 *
+	 * \param[in] cond
+	 *     On entry, this is used as described under §mode above. If used, it must be $\ge 1$.
+	 *
+	 * \param[in] dmax
+	 *     If §mode is neither -6, 0 nor 6, the contents of §d, as computed according to §mode and
+	 *     §cond, will be scaled by $\frac{\{dmax}}{\max(|\{d}[i]|)}$. Note that §dmax need not be
+	 *     positive: if §dmax is negative (or zero), §d will be scaled by a negative number
+	 *     (or zero).
+	 *
+	 * \param[in] ei
+	 *     a char array, dimension (§n)\n
+	 *     If §mode is 0, and $\{ei}[0]$ is not ' ' (space character), this array specifies which
+	 *     elements of §d (on input) are real eigenvalues and which are the real and imaginary
+	 *     parts of a complex conjugate pair of eigenvalues. The elements of §ei may then only have
+	 *     the values 'R' and 'I'. If $\{ei}[j]=$'R' and $\{ei}[j+1]=$'I', then the $j$-th
+	 *     eigenvalue is $\{d}[j]+i\{d}[j+1]$, and the $(j+1)$-th is the complex conjugate thereof.
+	 *     If $\{ei}[j]=\{ei}[j+1]=$'R', then the $j$-th eigenvalue is $\{d}[j]$ (i.e., real).
+	 *     $\{ei}[0]$ may not be 'I', nor may two adjacent elements of ei both have the value 'I'.
+	 *     If §mode is not 0, then §ei is ignored. If §mode is 0 and $\{ei}[0]=$' ', then the
+	 *     eigenvalues will all be real.
+	 *
+	 * \param[in] rsign
+	 *     If §mode is not 0, 6, or -6, and §rsign ='T', then the elements of §d, as computed
+	 *     according to §mode and §cond, will be multiplied by a random sign (+1 or -1). If
+	 *     §rsign ='F', they will not be. §rsign may only have the values 'T' or 'F'.
+	 *
+	 * \param[in] upper
+	 *     If §upper ='T', then the elements of §A above the diagonal (and above the 2 by 2
+	 *     diagonal blocks, if §A has complex eigenvalues) will be set to random numbers out of
+	 *     §dist.\n
+	 *     If §upper ='F', they will not.\n
+	 *     §upper may only have the values 'T' or 'F'.
+	 *
+	 * \param[in] sim
+	 *     If §sim ='T', then §A will be operated on by a "similarity transform", i.e., multiplied on
+	 *     the left by a matrix $X$ and on the right by $X$ inverse. $X = USV$, where $U$ and $V$
+	 *     are random unitary matrices and $S$ is a (diagonal) matrix of singular values specified
+	 *     by §ds, §modes, and §conds. If §sim ='F', then §A will not be transformed.
+	 *
+	 * \param[in,out] ds
+	 *     an array, dimension (§n)\n
+	 *     This array is used to specify the singular values of $X$, in the same way that §d
+	 *     specifies the eigenvalues of §A. If $\{mode}=0$, §ds contains the singular values, which
+	 *     may not be zero.\n Not modified if $\{mode}=0$.
+	 *
+	 * \param[in] modes, conds
+	 *     Same as §mode and §cond, but for specifying the diagonal of $S$. $\{modes}=-6$ and +6
+	 *     are not allowed (since they would result in randomly ill-conditioned eigenvalues.)
+	 *
+	 * \param[in] kl
+	 *     This specifies the lower bandwidth of the matrix. $\{kl}=1$ specifies upper Hessenberg
+	 *     form. If §kl is at least $\{n}-1$, then §A will have full lower bandwidth. §kl must be
+	 *     at least 1.
+	 *
+	 * \param[in] ku
+	 *     This specifies the upper bandwidth of the matrix. $\{ku}=1$ specifies lower Hessenberg
+	 *     form. If §ku is at least $\{n}-1$, then §A will have full upper bandwidth; if §ku and
+	 *     §kl are both at least $\{n}-1$, then §A will be dense. Only one of §ku and §kl may be
+	 *     less than $\{n}-1$. §ku must be at least 1.
+	 *
+	 * \param[in] anorm
+	 *     If §anorm is not negative, then §A will be scaled by a non-negative real number to make
+	 *     the maximum-element-norm of §A to be §anorm.
+	 *
+	 * \param[out] A   an array, dimension (§lda, §n)\n On exit §A is the desired test matrix.
+	 * \param[in]  lda
+	 *     §lda specifies the first dimension of §A as declared in the calling program.
+	 *     §lda must be at least §n.
+	 *
+	 * \param[out] work an array, dimension ($3\{n}$)\n Workspace.
+	 * \param[out] info
+	 *     Error code. On exit, §info will be set to one of the following values:\n &nbsp;&nbsp;
+	 *           0: normal return\n &nbsp;
+	 *          -1: §n negative\n &nbsp;
+	 *          -2: §dist illegal string\n &nbsp;
+	 *          -5: §mode not in range -6 to 6\n &nbsp;
+	 *          -6: §cond less than 1.0, and §mode neither -6, 0 nor 6\n &nbsp;
+	 *          -8: $\{ei}[0]$ is not ' ' or 'R', $\{ei}[j]$ is not 'R' or 'I', or two adjacent
+	 *              elements of §ei are 'I'.\n &nbsp;
+	 *          -9: §rsign is not 'T' or 'F'\n
+	 *         -10: §upper is not 'T' or 'F'\n
+	 *         -11: §sim   is not 'T' or 'F'\n
+	 *         -12: $\{modes}=0$ and §ds has a zero singular value.\n
+	 *         -13: §modes is not in the range -5 to 5.\n
+	 *         -14: §modes is nonzero and §conds is less than 1.\n
+	 *         -15: §kl is less than 1.\n
+	 *         -16: §ku is less than 1, or §kl and §ku are both less than $\{n}-1$.\n
+	 *         -19: §lda is less than §n. \n &nbsp;&nbsp;
+	 *           1: Error return from §dlatm1 (computing §d)\n &nbsp;&nbsp;
+	 *           2: Cannot scale to §dmax (max. eigenvalue is 0)\n &nbsp;&nbsp;
+	 *           3: Error return from §dlatm1 (computing §ds)\n &nbsp;&nbsp;
+	 *           4: Error return from §dlarge \n &nbsp;&nbsp;
+	 *           5: Zero singular value from §dlatm1.
+	 * \authors Univ. of Tennessee
+	 * \authors Univ. of California Berkeley
+	 * \authors Univ. of Colorado Denver
+	 * \authors NAG Ltd.
+	 * \date December 2016                                                                       */
+	void dlatme(int const n, char const* const dist, int* const iseed, real* const d,
+	            int const mode, real const cond, real const dmax, char const* const ei,
+	            char const* const rsign, char const* const upper, char const* const sim,
+	            real* const ds, int const modes, real const conds, int const kl, int const ku,
+	            real const* anorm, real* const A, int const lda, real* const work, int& info) const
+	{
+		// 1)      Decode and Test the input parameters.
+		// Initialize flags & seed.
+		info = 0;
+		// Quick return if possible
+		if (n==0)
+		{
+			return;
+		}
+		// Decode dist
+		int idist;
+		if (std::toupper(dist[0])=='U')
+		{
+			idist = 1;
+		}
+		else if (std::toupper(dist[0])=='S')
+		{
+			idist = 2;
+		}
+		else if (std::toupper(dist[0])=='N')
+		{
+			idist = 3;
+		}
+		else
+		{
+			idist = -1;
+		}
+		// Check ei
+		bool useei = true;
+		bool badei = false;
+		int j;
+		if (std::toupper(ei[0])==' ' || mode!=0)
+		{
+			useei = false;
+		}
+		else
+		{
+			if (std::toupper(ei[0])=='R')
+			{
+				for (j=1; j<n; j++)
+				{
+					if (std::toupper(ei[j])=='I')
+					{
+						if (std::toupper(ei[j-1])=='I')
+						{
+							badei = true;
+							break;
+						}
+					}
+					else
+					{
+						if (std::toupper(ei[j])!='R')
+						{
+							badei = true;
+							break;
+						}
+					}
+				}
+			}
+			else
+			{
+				badei = true;
+			}
+		}
+		// Decode rsign
+		int irsign;
+		if (std::toupper(rsign[0])=='T')
+		{
+			irsign = 1;
+		}
+		else if (std::toupper(rsign[0])=='F')
+		{
+			irsign = 0;
+		}
+		else
+		{
+			irsign = -1;
+		}
+		// Decode upper
+		int iupper;
+		if (std::toupper(upper[0])=='T')
+		{
+			iupper = 1;
+		}
+		else if (std::toupper(upper[0])=='F')
+		{
+			iupper = 0;
+		}
+		else
+		{
+			iupper = -1;
+		}
+		// Decode sim
+		int isim;
+		if (std::toupper(sim[0])=='T')
+		{
+			isim = 1;
+		}
+		else if (std::toupper(sim[0])=='F')
+		{
+			isim = 0;
+		}
+		else
+		{
+			isim = -1;
+		}
+		// Check ds, if modes=0 and isim=1
+		bool bads = false;
+		if (modes==0 && isim==1)
+		{
+			for (j=0; j<n; j++)
+			{
+				if (ds[j]==ZERO)
+				{
+					bads = true;
+					break;
+				}
+			}
+		}
+		// Set info if an error
+		if (n<0)
+		{
+			info = -1;
+		}
+		else if (idist==-1)
+		{
+			info = -2;
+		}
+		else if (std::abs(mode)>6)
+		{
+			info = -5;
+		}
+		else if ((mode!=0 && std::abs(mode)!=6) && cond<ONE)
+		{
+			info = -6;
+		}
+		else if (badei)
+		{
+			info = -8;
+		}
+		else if (irsign==-1)
+		{
+			info = -9;
+		}
+		else if (iupper==-1)
+		{
+			info = -10;
+		}
+		else if (isim==-1)
+		{
+			info = -11;
+		}
+		else if (bads)
+		{
+			info = -12;
+		}
+		else if (isim==1 && std::abs(modes)>5)
+		{
+			info = -13;
+		}
+		else if (isim==1 && modes!=0 && conds<ONE)
+		{
+			info = -14;
+		}
+		else if (kl<1)
+		{
+			info = -15;
+		}
+		else if (ku<1 || (ku<n-1 && kl<n-1))
+		{
+			info = -16;
+		}
+		else if (lda<std::max(1, n))
+		{
+			info = -19;
+		}
+		if (info!=0)
+		{
+			this->xerbla("DLATME", -info);
+			return;
+		}
+		// Initialize random number generator
+		int i;
+		for (i=0; i<4; i++)
+		{
+			iseed[i] = std::abs(iseed[i]) % 4096;
+		}
+		if ((iseed[3] % 2)!=1)
+		{
+			iseed[3]++;
+		}
+		// 2)      Set up diagonal of A
+		// Compute d according to cond and mode
+		int iinfo;
+		dlatm1(mode, cond, irsign, idist, iseed, d, n, iinfo);
+		if (iinfo!=0)
+		{
+			info = 1;
+			return;
+		}
+		real alpha, temp;
+		if (mode!=0 && std::abs(mode)!=6)
+		{
+			// Scale by dmax
+			temp = std::fabs(d[0]);
+			for (i=1; i<n; i++)
+			{
+				temp = std::max(temp, std::fabs(d[i]));
+			}
+			if (temp>ZERO)
+			{
+				alpha = dmax / temp;
+			}
+			else if (dmax!=ZERO)
+			{
+				info = 2;
+				return;
+			}
+			else
+			{
+				alpha = ZERO;
+			}
+			Blas<real>::dscal(n, alpha, d, 1);
+		}
+		this->dlaset("Full", n, n, ZERO, ZERO, A, lda);
+		Blas<real>::dcopy(n, d, 1, A, lda+1);
+		// Set up complex conjugate pairs
+		int aind;
+		if (mode==0)
+		{
+			if (useei)
+			{
+				for (j=1; j<n; j++)
+				{
+					if (std::toupper(ei[j])=='I')
+					{
+						aind = j + lda*j;
+						A[aind-1]   =  A[aind];
+						A[aind-lda] = -A[aind];
+						A[aind]     =  A[aind-1-lda];
+					}
+				}
+			}
+		}
+		else if (std::abs(mode)==5)
+		{
+			for (j=1; j<n; j+=2)
+			{
+				if (dlaran(iseed)>HALF)
+				{
+					aind = j + lda*j;
+					A[aind-1]   =  A[aind];
+					A[aind-lda] = -A[aind];
+					A[aind]     =  A[aind-1-lda];
+				}
+			}
+		}
+		// 3)      If upper='T', set upper triangle of A to random numbers.
+		// (but don't modify the corners of 2 by 2 blocks.)
+		if (iupper!=0)
+		{
+			int jc, jr;
+			for (jc=1; jc<n; jc++)
+			{
+				aind = lda * jc;
+				if (A[jc-1+aind]!=ZERO)
+				{
+					jr = jc - 1;
+				}
+				else
+				{
+					jr = jc;
+				}
+				this->dlarnv(idist, iseed, jr, &A[aind]);
+			}
+		}
+		// 4)      If sim='T', apply similarity transformation.
+		// Transform is  $XAX^{-1}$, where $X = USV$, thus it is $U S V A V^T (1/S) U^T$
+		if (isim!=0)
+		{
+			// Compute S (singular values of the eigenvector matrix) according to conds and modes
+			dlatm1(modes, conds, 0, 0, iseed, ds, n, iinfo);
+			if (iinfo!=0)
+			{
+				info = 3;
+				return;
+			}
+			// Multiply by V and V^T
+			dlarge(n, A, lda, iseed, work, iinfo);
+			if (iinfo!=0)
+			{
+				info = 4;
+				return;
+			}
+			// Multiply by S and (1/S)
+			for (j=0; j<n; j++)
+			{
+				Blas<real>::dscal(n, ds[j], &A[j], lda);
+				if (ds[j]!=ZERO)
+				{
+					Blas<real>::dscal(n, ONE/ds[j], &A[lda*j], 1);
+				}
+				else
+				{
+					info = 5;
+					return;
+				}
+			}
+			// Multiply by U and U^T
+			dlarge(n, A, lda, iseed, work, iinfo);
+			if (iinfo!=0)
+			{
+				info = 4;
+				return;
+			}
+		}
+		// 5)      Reduce the bandwidth.
+		int icols, irows, jcr;
+		real tau, xnorms;
+		if (kl<n-1)
+		{
+			// Reduce bandwidth -- kill column
+			int ic, aind2, aind3;
+			aind = lda * ic;
+			for (jcr=kl; jcr<n-1; jcr++)
+			{
+				aind2 = jcr + aind;
+				aind3 = lda * jcr;
+				ic    = jcr - kl;
+				irows = n - jcr;
+				icols = n - 1 + kl - jcr;
+				Blas<real>::dcopy(irows, &A[aind2], 1, work, 1);
+				xnorms = work[0];
+				this->dlarfg(irows, xnorms, &work[1], 1, tau);
+				work[0] = ONE;
+				Blas<real>::dgemv("T", irows, icols, ONE, &A[aind2+lda], lda, work, 1, ZERO,
+				                  &work[irows], 1);
+				Blas<real>::dger(irows, icols, -tau, work, 1, &work[irows], 1, &A[aind2+lda], lda);
+				Blas<real>::dgemv("N", n, irows, ONE, &A[aind3], lda, work, 1, ZERO, &work[irows],
+				                  1);
+				Blas<real>::dger(n, irows, -tau, &work[irows], 1, work, 1, &A[aind3], lda);
+				A[aind2] = xnorms;
+				this->dlaset("Full", irows-1, 1, ZERO, ZERO, &A[aind2+1], lda);
+			}
+		}
+		else if (ku<n-1)
+		{
+			// Reduce upper bandwidth -- kill a row at a time.
+			int ir;
+			for (jcr=ku; jcr<n-1; jcr++)
+			{
+				aind  = ir + lda*jcr;
+				ir    = jcr - ku;
+				irows = n - 1 + ku - jcr;
+				icols = n - jcr;
+				Blas<real>::dcopy(icols, &A[aind], lda, work, 1);
+				xnorms = work[0];
+				this->dlarfg(icols, xnorms, &work[1], 1, tau);
+				work[0] = ONE;
+				Blas<real>::dgemv("N", irows, icols, ONE, &A[aind+1], lda, work, 1, ZERO,
+				                  &work[icols], 1);
+				Blas<real>::dger(irows, icols, -tau, &work[icols], 1, work, 1, &A[aind+1], lda);
+				Blas<real>::dgemv("C", icols, n, ONE, &A[jcr], lda, work, 1, ZERO, &work[icols],
+				                  1);
+				Blas<real>::dger(icols, n, -tau, work, 1, &work[icols], 1, &A[jcr], lda);
+				A[aind] = xnorms;
+				this->dlaset("Full", 1, icols-1, ZERO, ZERO, &A[aind+lda], lda);
+			}
+		}
+		// Scale the matrix to have norm anorm
+		if (anorm>=ZERO)
+		{
+			temp = dlange("M", n, n, A, lda, nullptr);
+			if (temp>ZERO)
+			{
+				alpha = anorm / temp;
+				for (j=0; j<n; j++)
+				{
+					Blas<real>::dscal(n, alpha, &A[lda*j], 1);
+				}
+			}
+		}
 	}
 
 	/*! §dlatmr

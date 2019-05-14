@@ -1518,6 +1518,63 @@ public:
 		}
 	}
 
+	/*! §dsxt1
+	 *
+	 * §dsxt1 computes the difference between a set of eigenvalues.\n
+	 * §ijob =1: Computes $\max_i\left(\min_j\left|\{d1}[i]-\{d2}[j]\right|\right)$\n
+	 * §ijob =2: Computes $\max_i\left(\frac{\min_j\left|\{d1}[i]-\{d2}[j]\right|}
+	 *                                      {\{abstol}+|\{d1}[i]|\,\{ulp}}\right)$
+	 * \param[in] ijob Specifies the type of tests to be performed. (See above.)
+	 * \param[in] d1
+	 *     an array, dimension (§n1)\n
+	 *     The first array. §d1 should be in increasing order, i.e., $\{d1}[j]\le\{d1}[j+1]$.
+	 *
+	 * \param[in] n1 The length of §d1.
+	 * \param[in] d2
+	 *     an array, dimension (§n2)\n
+	 *     The second array. §d2 should be in increasing order, i.e., $\{d2}[j]\le\{d2}[j+1]$.
+	 *
+	 * \param[in] n2     The length of §d2.
+	 * \param[in] abstol The absolute tolerance, used as a measure of the error.
+	 * \param[in] ulp    Machine precision.
+	 * \param[in] unfl   The smallest positive number whose reciprocal does not overflow.
+	 * \authors Univ. of Tennessee
+	 * \authors Univ. of California Berkeley
+	 * \authors Univ. of Colorado Denver
+	 * \authors NAG Ltd.
+	 * \date December 2016                                                                       */
+	real dsxt1(int const ijob, real const* const d1, int const n1, real const* const d2,
+	           int const n2, real const abstol, real const ulp, real const unfl) const
+	{
+		real temp1=ZERO, temp2;
+		int j = 0;
+		for (int i=0; i<n1; i++)
+		{
+			while (d2[j]<d1[i] && j<n2-1)
+			{
+				j++;
+			}
+			if (j==0)
+			{
+				temp2 = std::fabs(d2[j]-d1[i]);
+				if (ijob==2)
+				{
+					temp2 /= std::max(unfl, abstol+ulp*std::fabs(d1[i]));
+				}
+			}
+			else
+			{
+				temp2 = std::min(std::fabs(d2[j]-d1[i]), std::fabs(d1[i]-d2[j-1]));
+				if (ijob==2)
+				{
+					temp2 /= std::max(unfl, abstol+ulp*std::fabs(d1[i]));
+				}
+			}
+			temp1 = std::max(temp1, temp2);
+		}
+		return temp1;
+	}
+
 	// TODO: xlaenv, ilaenv, xerbla
 };
 
