@@ -12,6 +12,7 @@
 
 #include "Blas.hpp"
 #include "Lapack_dyn.hpp"
+#include "Testing_matgen.hpp"
 
 /*!\class Testing_eig
  * \brief A template class containing LAPACK eigenvalue testing routines.
@@ -23,8 +24,33 @@ class Testing_eig : public Lapack_dyn<real>
 private:
 	// constants
 
-	const real ZERO = real(0.0); //!< A constant zero (0.0) value
-	const real ONE  = real(1.0); //!< A constant one  (1.0) value
+	real const ZERO = real(0.0); //!< A constant zero (0.0) value
+	real const ONE  = real(1.0); //!< A constant one  (1.0) value
+	real const TWO  = real(2.0); //!< A constant two  (2.0) value
+
+	// "Common" variables
+
+	/*! A struct containing I/O and error info */
+	struct infostruct
+	{
+		int info;                         //!< integer containing subroutine error info
+		std::ostream& nout;                //!< input stream
+		bool ok;                           //!< flag to state all is ok
+		bool lerr;                         //!< flag to indicate an error has occured
+	} infoc = {0, std::cout, true, false}; //!< A classwide infostruct instance
+
+	/*! A struct containing routine names */
+	struct srnamstruct
+	{
+		char srnam[32]; //!< routine name variable
+	} srnamc = {'\0'};  //!< A classwide srnamstruct instance
+
+	/*! A struct containing parameters to emulate different environments */
+	struct laenvstruct
+	{
+		int iparms[100]; //!< struct containing parameters. used in §ilaenv, §iparmq
+	} claenv;            //!< A classwide leanvstruct instance
+	Testing_matgen<real> const MatGen; //!< matgen instance
 
 public:
 	virtual ~Testing_eig(){}
@@ -98,7 +124,8 @@ public:
 	 * \param[in] e
 	 *     an array, dimension ($\min(\{m},\{n})-1$)\n
 	 *     The superdiagonal elements of the bidiagonal matrix $B$ if $\{m}\ge\{n}$, or the
-	 *     subdiagonal elements of $B$ if $\{m}<\{n}$.
+	 *     subdiagonal elements of $B$ if $\{m}<\{n}$.\n
+	 *     not referenced if $\{kd}=0$.
 	 *
 	 * \param[in] Pt
 	 *     an array, dimension (§ldpt,§n)\n
@@ -607,6 +634,1321 @@ public:
 		}
 	}
 
+	/*! §dchkbd
+	 *
+	 * §dchkbd checks the singular value decomposition (SVD) routines.\n
+	 * §dgebrd reduces a real general $m$ by $n$ matrix $A$ to upper or lower bidiagonal form $B$
+	 * by an orthogonal transformation: $Q^T A P = B$ (or $A = Q B P^T$). The matrix $B$ is upper
+	 * bidiagonal if $m\ge n$ and lower bidiagonal if $m<n$.\n
+	 * §dorgbr generates the orthogonal matrices $Q$ and $P^T$ from §dgebrd. Note that $Q$ and $P$
+	 * are not necessarily square.\n
+	 * §dbdsqr computes the singular value decomposition of the bidiagonal matrix $B$ as $B=USV^T$.
+	 * It is called three times to compute
+	 *  1. $B=US_1V^T$, where $S_1$ is the diagonal matrix of singular values and the columns of
+	 *     the matrices $U$ and $V$ are the left and right singular vectors, respectively, of $B$.
+	 *  2. Same as 1., but the singular values are stored in $S_2$ and the singular vectors are not
+	 *     computed.
+	 *  3. $A = (UQ)S(P^TV^T)$, the SVD of the original matrix $A$.
+	 *  .
+	 * In addition, §DBDSQR has an option to apply the left orthogonal matrix $U$ to a matrix $X$,
+	 * useful in least squares applications.\n
+	 * §dbdsdc computes the singular value decomposition of the bidiagonal matrix $B$ as $B=USV^T$
+	 * using divide-and-conquer. It is called twice to compute
+	 *  1. $B=US_1V^T$, where $S_1$ is the diagonal matrix of singular values and the columns of
+	 *     the matrices $U$ and $V$ are the left and right singular vectors, respectively, of $B$.
+	 *  2. Same as 1., but the singular values are stored in $S_2$ and the singular vectors are not
+	 *     computed.
+	 *  .\n
+	 * §dbdsvdx computes the singular value decomposition of the bidiagonal matrix $B$ as $B=USV^T$
+	 * using bisection and inverse iteration. It is called six times to compute
+	 *  1. $B=US_1V^T$, §RANGE ='A', where $S_1$ is the diagonal matrix of singular values and the
+	 *     columns of the matrices $U$ and $V$ are the left and right singular vectors,
+	 *     respectively, of $B$.
+	 *  2. Same as 1., but the singular values are stored in $S_2$ and the singular vectors are not
+	 *     computed.
+	 *  3. $B=US_1V^T$, §RANGE ='I', where $S_1$ is the diagonal matrix of singular values and the
+	 *     columns of the matrices $U$ and $V$ are the left and right singular vectors,
+	 *     respectively, of $B$.
+	 *  4. Same as 3., but the singular values are stored in $S_2$ and the singular vectors are not
+	 *     computed.
+	 *  5. $B=US_1V^T$, §RANGE ='V', where $S_1$ is the diagonal matrix of singular values and the
+	 *     columns of the matrices $U$ and $V$ are the left and right singular vectors,
+	 *     respectively, of $B$.
+	 *  6. Same as 5., but the singular values are stored in $S_2$ and the singular vectors are not
+	 *     computed.
+	 *  .
+	 * For each pair of matrix dimensions ($m$,$n$) and each selected matrix type, an $m$ by $n$
+	 * matrix $A$ and an $m$ by §nrhs matrix $X$ are generated.
+	 * The problem dimensions are as follows\n
+	 * $\begin{tabular}{ll}
+	 *     \(A\):           & \(m\times n\)                                             \\
+	 *     \(Q\):           & \(m\times\min(m,n)\) (but \(m\times m\) if \(\{nrhs}>0\)) \\
+	 *     \(P\):           & \(\min(m,n)\times n\)                                     \\
+	 *     \(B\):           & \(\min(m,n)\times\min(m,n)\)                              \\
+	 *     \(U\),\(V\):     & \(\min(m,n)\times\min(m,n)\)                              \\
+	 *     \(S_1\),\(S_2\): & diagonal, order \(\min(m,n)\)                             \\
+	 *     \(X\):           & \(m\times\{nrhs}\)    \end{tabular}$\n
+	 * For each generated matrix, 14 tests are performed:
+	 * - Test §dgebrd and §dorgbr \n
+	 *     1)  $\frac{|A - Q B \{Pt}   |}{|A|\max(m,n)\{ulp}}$, $\{Pt}=P^T$\n
+	 *     2)  $\frac{|I - Q^T Q       |}{m\,\{ulp}}$\n
+	 *     3)  $\frac{|I - \{Pt}\{Pt}^T|}{n\,\{ulp}}$
+	 * - Test §dbdsqr on bidiagonal matrix $B$\n
+	 *     4)  $\frac{|B - U S_1 \{Vt} |}{|B|\min(m,n)\{ulp}}$, $\{Vt}=V^T$\n
+	 *     5)  $\frac{|Y - U Z         |}{|Y|\max(\min(m,n),k)\{ulp}}$,
+	 *         where $Y=Q^TX$ and $Z=U^TY$.\n
+	 *     6)  $\frac{|I - U^T U       |}{\min(m,n)\{ulp}}$\n
+	 *     7)  $\frac{|I - \{Vt}\{Vt}^T|}{\min(m,n)\{ulp}}$\n
+	 *     8)  §s1 contains $\min(m,n)$ nonnegative values in decreasing order.
+	 *         (Return 0 if §true, $1/\{ulp}$ if §false.)\n
+	 *     9)  $\frac{|S_1-S_2|}{|S_1|\{ulp}}$, where $S_2$ is computed without computing $U$ and
+	 *         $V$.\n
+	 *     10) 0 if the true singular values of $B$ are within §thresh of those in §s1.
+	 *         $2\{thresh}$ if they are not. (Tested using §dsvdch)
+	 * - Test §dbdsqr on matrix $A$\n
+	 *     11) $\frac{|A - (QU) S (\{Vt}\{Pt}) |}{|A|\max(m,n)\{ulp}}$\n
+	 *     12) $\frac{|X - (QU) Z              |}{|X|\max(m,k)\{ulp}}$\n
+	 *     13) $\frac{|I - (QU)^T (QU)         |}{m\,\{ulp}}$\n
+	 *     14) $\frac{|I - (\{Vt}\{Pt})(\{Pt}^T\{Vt}^T)|}{n\,\{ulp}}$
+	 * - Test §dbdsdc on bidiagonal matrix $B$\n
+	 *     15) $\frac{|B - U S_1 \{Vt} |}{|B|\min(m,n)\{ulp}}$, $\{Vt}=V^T$\n
+	 *     16) $\frac{|I - U^T U       |}{\min(m,n)\{ulp}}$\n
+	 *     17) $\frac{|I - \{Vt}\{Vt}^T|}{\min(m,n)\{ulp}}$\n
+	 *     18) §s1 contains $\min(m,n)$ nonnegative values in decreasing order.
+	 *         (Return 0 if §true, $1/\{ulp}$ if §false.)\n
+	 *     19) $\frac{|S_1-S_2|}{|S_1|\{ulp}}$, where $S_2$ is computed without computing $U$ and
+	 *         $V$.
+	 * - Test §dbdsvdx on bidiagonal matrix $B$\n
+	 *     20) $\frac{|B - U S_1 \{Vt}   |}{|B|\min(m,n)\{ulp}}$, $\{Vt}=V^T$\n
+	 *     21) $\frac{|I - U^T U         |}{   \min(m,n)\{ulp}}$\n
+	 *     22) $\frac{|I - \{Vt} \{Vt}^T |}{   \min(m,n)\{ulp}}$\n
+	 *     23) §s1 contains $\min(m,n)$ nonnegative values in decreasing order.
+	 *         (Return 0 if §true, $1/\{ulp}$ if §false.)\n
+	 *     24) $\frac{|S_1 - s2 |}{|S_1|\{ulp}}$, where $S_2$ is computed without computing $U$ and
+	 *         $V$.\n
+	 *     25) $\frac{|S_1 - U^T B \{Vt}^T |}{|S|\, n\,\{ulp}}$ &emsp; §dbdsvdx('V', 'I')\n
+	 *     26) $\frac{|I   - U^T U         |}{\min(m,n)\{ulp}}$\n
+	 *     27) $\frac{|I   - \{Vt} \{Vt}^T |}{\min(m,n)\{ulp}}$\n
+	 *     28) §s1 contains $\min(m,n)$ nonnegative values in decreasing order.
+	 *         (Return 0 if §true, $1/\{ulp}$ if §false.)\n
+	 *     29) $\frac{|S_1 - s2 |}{|S_1|\{ulp}}$, where $S_2$ is computed without computing $U$ and
+	 *         $V$.\n
+	 *     30) $\frac{|S_1 - U^T B \{Vt}^T |}{|S_1|\,n\,\{ulp}}$ &emsp; §dbdsvdx('V', 'V')\n
+	 *     31) $\frac{|I   - U^T U         |}{\min(m,n) \{ulp}}$\n
+	 *     32) $\frac{|I   - \{Vt} \{Vt}^T |}{\min(m,n) \{ulp}}$\n
+	 *     33) §s1 contains $\min(m,n)$ nonnegative values in decreasing order.
+	 *         (Return 0 if §true, $1/\{ulp}$ if §false.)\n
+	 *     34) $\frac{|S_1 - s2 |}{|S_1|\{ulp}}$, where $S_2$ is computed without computing $U$ and
+	 *         $V$.
+	 * .
+	 * The possible matrix types are
+	 * 1. The zero matrix.
+	 * 2. The identity matrix.
+	 * 3. A diagonal matrix with evenly spaced entries $1, \ldots, \{ulp}$ and random signs.
+	 *    ($\{ulp}=(\text{first number larger than }1) - 1$)
+	 * 4. A diagonal matrix with geometrically spaced entries $1, \ldots, \{ulp}$ and random signs.
+	 * 5. A diagonal matrix with "clustered" entries $1, \{ulp}, \ldots, \{ulp}$ and random signs.
+	 * 6. Same as 3., but multiplied by $\sqrt{\text{overflow threshold}}$
+	 * 7. Same as 3., but multiplied by $\sqrt{\text{underflow threshold}}$
+	 * 8. A matrix of the form $UDV$, where $U$ and $V$ are orthogonal and $D$ has evenly spaced
+	 *    entries $1, \ldots, \{ulp}$ with random signs on the diagonal.
+	 * 9. A matrix of the form $UDV$, where $U$ and $V$ are orthogonal and $D$ has geometrically
+	 *    spaced entries $1, \ldots, \{ulp}$ with random signs on the diagonal.
+	 * 10. A matrix of the form $UDV$, where $U$ and $V$ are orthogonal and $D$ has "clustered"
+	 *     entries $1, \{ulp}, \ldots, \{ulp}$ with random signs on the diagonal.
+	 * 11. Same as 8., but multiplied by $\sqrt{\text{overflow threshold}}$
+	 * 12. Same as 8., but multiplied by $\sqrt{\text{underflow threshold}}$
+	 * 13. Rectangular matrix with random entries chosen from (-1,1).
+	 * 14. Same as 13., but multiplied by $\sqrt{\text{overflow threshold}}$
+	 * 15. Same as 13., but multiplied by $\sqrt{\text{underflow threshold}}$
+	 * .\n
+	 * Special case:
+	 * 16. A bidiagonal matrix with random entries chosen from a logarithmic distribution on
+	 *     $[\{ulp}^2,\{ulp}^{-2}]$ (i.e., each entry is $e^x$, where $x$ is chosen uniformly on
+	 *     $[2\log(\{ulp}), -2\log(\{ulp})]$.)\n For *this* type:
+	 *     - §dgebrd is not called to reduce it to bidiagonal form.
+	 *     - the bidiagonal is $\min(m,n)\times\min(m,n)$; if $m<n$, the matrix will be lower
+	 *       bidiagonal, otherwise upper.
+	 *     - only tests 5-8 and 14 are performed.
+	 *     .
+	 * .
+	 * A subset of the full set of matrix types may be selected through the logical array §dotype.
+	 * \param[in] nsizes
+	 *     The number of values of $m$ and $n$ contained in the vectors §mval and §nval.
+	 *     The matrix sizes are used in pairs $(m,n)$.
+	 *
+	 * \param[in] mval
+	 *     an integer array, dimension (§nsizes)\n The values of the matrix row dimension $m$.
+	 *
+	 * \param[in] nval
+	 *     an integer array, dimension (§nsizes)\n The values of the matrix column dimension $n$.
+	 *
+	 * \param[in] ntypes
+	 *     The number of elements in §dotype. If it is zero, §dchkbd does nothing. It must be at
+	 *     least zero.\n If it is $\{MAXTYP}+1$ and §nsizes is 1, then an additional type,
+	 *     $\{MAXTYP}+1$ is defined, which is to use whatever matrices are in $A$ and $B$.
+	 *     This is only useful if $\{dotype}[0:\{MAXTYP}-1]$ is §false and $\{dotype}[\{MAXTYP}]$
+	 *     is §true.
+	 *
+	 * \param[in] dotype
+	 *     a boolean array, dimension (§ntypes)\n
+	 *     If $\{dotype}[j]$ is §true, then for each size $(m,n)$, a matrix of type $j+1$ will be
+	 *     generated. If §ntypes is smaller than the maximum number of types defined
+	 *     (constant §MAXTYP), then types $\{ntypes}+1$ through §MAXTYP will not be generated. If
+	 *     §ntypes is larger than §MAXTYP, $\{dotype}[\{MAXTYP}]$ through $\{dotype}[\{ntypes}-1]$
+	 *     will be ignored.
+	 *
+	 * \param[in] nrhs
+	 *     The number of columns in the "right-hand side" matrices $X$, $Y$, and $Z$, used in
+	 *     testing §dbdsqr. If $\{nrhs}=0$, then the operations on the right-hand side will not be
+	 *     tested. §nrhs must be at least 0.
+	 *
+	 * \param[in,out] iseed
+	 *     an integer array, dimension (4)\n
+	 *     On entry §iseed specifies the seed of the random number generator. The array elements
+	 *     should be between 0 and 4095; if not they will be reduced modulo 4096. Also,
+	 *     $\{iseed}[3]$ must be odd. The values of §iseed are changed on exit, and can be used in
+	 *     the next call to §dchkbd to continue the same random number sequence.
+	 *
+	 * \param[in] thresh
+	 *     The threshold value for the test ratios. A result is included in the output file if
+	 *     $\{result}\ge\{thresh}$. To have every test ratio printed, use $\{thresh}=0$. Note that
+	 *     the expected value of the test ratios is O(1), so §thresh should be a reasonably small
+	 *     multiple of 1, e.g., 10 or 100.
+	 *
+	 * \param[out] A
+	 *     an array, dimension (§lda,§nmax)\n where §nmax is the maximum value of $n$ in §nval.
+	 *
+	 * \param[in] lda
+	 *     The leading dimension of the array §A.
+	 *     $\{lda}\ge\max(1,\{mmax})$, where §mmax is the maximum value of $m$ in §mval.
+	 *
+	 * \param[out] bd, be, s1, s2 arrays,   dimension ($\max(\min(\{mval}[j],\{nval}[j]))$)
+	 * \param[out] X              an array, dimension (§ldx,§nrhs)
+	 * \param[in]  ldx
+	 *     The leading dimension of the arrays §X, §Y, and §Z.  $\{ldx}\ge\max(1,\{mmax})$
+	 *
+	 * \param[out] Y, Z arrays,   dimension (§ldx,§nrhs)
+	 * \param[out] Q    an array, dimension (§ldq,§mmax)
+	 * \param[in]  ldq  The leading dimension of the array $Q$. $\{ldq}\ge\max(1,\{mmax})$.
+	 * \param[out] Pt   an array, dimension (§ldpt,§nmax)
+	 * \param[in]  ldpt
+	 *     The leading dimension of the arrays §Pt, §U, and §Vt.
+	 *     $\{ldpt}\ge\max(1,\max(\min(\{mval}[j],\{nval}[j])))$.
+	 *
+	 * \param[out] U, Vt arrays, dimension (§ldpt,$\max(\min(\{mval}[j],\{nval}[j]))$)
+	 * \param[out] work  an array, dimension (§lwork)
+	 * \param[in]  lwork
+	 *     The number of entries in §work. This must be at least $3(m+n)$ and
+	 *     $m(m+\max(m,n,k)+1) + n\,\min(m,n)$ for all pairs $(m,n)=(\{mval}[j],\{nval}[j])$
+	 *
+	 * \param[out] iwork an integer array, dimension at least $8\min(m,n)$
+	 * \param[in]  nout
+	 *     the output stream for printing out error messages
+	 *     (e.g., if a routine returns §iinfo not equal to 0.)
+	 *
+	 * \param[out] info
+	 *     If 0, then everything ran OK.\n
+	 *     $\begin{tabular}{rl}
+	 *          -1: & \(\{nsizes}<0\)                          \\
+	 *          -2: & Some \(\{mval}[j]<0\)                    \\
+	 *          -3: & Some \(\{nval}[j]<0\)                    \\
+	 *          -4: & \(\{ntypes}<0\)                          \\
+	 *          -6: & \(\{nrhs}  <0\)                          \\
+	 *          -8: & \(\{thresh}<0\)                          \\
+	 *         -11: & \(\{lda}<1\) or \(\{lda} < \{mmax}\), where §mmax is \(\max(\{mval}[j])\). \\
+	 *         -17: & \(\{ldb}<1\) or \(\{ldb} < \{mmax}\).   \\
+	 *         -21: & \(\{ldq}<1\) or \(\{ldq} < \{mmax}\).   \\
+	 *         -23: & \(\{ldpt}<1\) or \(\{ldpt}< \{mnmax}\)   \\
+	 *         -27: & \{lwork} too small.                      \end{tabular}$\n
+	 *     If §dlatmr, §dlatms, §dgebrd, §dorgbr, or §dbdsqr returns an error code,
+	 *     the absolute value of it is returned.
+	 * \authors Univ. of Tennessee
+	 * \authors Univ. of California Berkeley
+	 * \authors Univ. of Colorado Denver
+	 * \authors NAG Ltd.
+	 * \date June 2016
+	 * \remark
+	 *     Some Local Variables and Parameters:\n
+	 *         $\begin{tabular}{ll}
+	 *             \{MAXTYP}        &  The number of types defined.                             \\
+	 *             \{ntest}         & The number of tests performed, or which can be performed so
+	 *                                far, for the current matrix.                              \\
+	 *             \{mmax}          & Largest value in \{mval}.                                 \\
+	 *             \{nmax}          & Largest value in \{nval}.                                 \\
+	 *             \{mnmin}         & \(\min(\{mval}[j], \{nval}[j])\)
+	 *                                (the dimension of the bidiagonal matrix.)                 \\
+	 *             \{mnmax}         & The maximum value of \{mnmin} for \(j=1,\ldots,\{nsizes}\)\\
+	 *             \{nfail}         & The number of tests which have exceeded \{thresh}         \\
+	 *             \{cond}, \{imode}& Values to be passed to the matrix generators.             \\
+	 *             \{anorm}         & Norm of \{A}; passed to matrix generators.                \\
+	 *             \{ovfl}, \{unfl} & Overflow and underflow thresholds.                        \\
+	 *             \{rtovfl},\{rtunfl} & Square roots of the previous 2 values.                 \\
+	 *             \{ulp}, ulpinv   & Finest relative precision and its inverse. \end{tabular}$\n
+	 *     The following four arrays decode §jtype: \n
+	 *         $\begin{tabular}{ll}
+	 *             \(\{KTYPE}[j]\) & The general type (1-10).                                \\
+	 *             \(\{KMODE}[j]\) & The \{mode} value to be passed to the matrix generator. \\
+	 *             \(\{KMAGN}[j]\) & The order of magnitude (O(1), O(\(\sqrt{\{overflow}}\)),
+	 *                               O(\(\sqrt{\{underflow}}\))) \end{tabular}$                  */
+	void dchkbd(int const nsizes, int const* const mval, int const* const nval, int const ntypes,
+	            bool const* const dotype, int const nrhs, int* const iseed, real const thresh,
+	            real* const A, int const lda, real* const bd, real* const be, real* const s1,
+	            real* const s2, real* const X, int const ldx, real* const Y, real* const Z,
+	            real* const Q, int const ldq, real* const Pt, int const ldpt, real* const U,
+	            real* const Vt, real* const work, int const lwork, int* const iwork,
+	            std::ostream& nout, int& info) const
+	{
+		real const HALF = real(0.5);
+		int const MAXTYP = 16;
+		int const KTYPE[MAXTYP] = {1, 2, 4, 4, 4, 4, 4, 6, 6, 6, 6, 6, 9, 9, 9, 10};
+		int const KMAGN[MAXTYP] = {1, 1, 1, 1, 1, 2, 3, 1, 1, 1, 2, 3, 1, 2, 3,  0};
+		int const KMODE[MAXTYP] = {0, 0, 4, 3, 1, 4, 4, 4, 3, 1, 4, 4, 0, 0, 0,  0};
+		// Check for errors
+		info = 0;
+		bool badmm = false;
+		bool badnn = false;
+		int mmax   = 1;
+		int nmax   = 1;
+		int mnmax  = 1;
+		int minwrk = 1;
+		int j;
+		for (j=0; j<nsizes; j++)
+		{
+			mmax = std::max(mmax, mval[j]);
+			if (mval[j]<0)
+			{
+				badmm = true;
+			}
+			nmax = std::max(nmax, nval[j]);
+			if (nval[j]<0)
+			{
+				badnn = true;
+			}
+			mnmax = std::max(mnmax, std::min(mval[j], nval[j]));
+			minwrk = std::max(std::max(minwrk, 3*(mval[j]+nval[j])),
+			                  mval[j]*(mval[j]+std::max(std::max(mval[j], nval[j]), nrhs)+1)
+			                  +nval[j]*std::min(nval[j], mval[j]));
+		}
+		// Check for errors
+		if (nsizes<0)
+		{
+			info = -1;
+		}
+		else if (badmm)
+		{
+			info = -2;
+		}
+		else if (badnn)
+		{
+			info = -3;
+		}
+		else if (ntypes<0)
+		{
+			info = -4;
+		}
+		else if (nrhs<0)
+		{
+			info = -6;
+		}
+		else if (lda<mmax)
+		{
+			info = -11;
+		}
+		else if (ldx<mmax)
+		{
+			info = -17;
+		}
+		else if (ldq<mmax)
+		{
+			info = -21;
+		}
+		else if (ldpt<mnmax)
+		{
+			info = -23;
+		}
+		else if (minwrk>lwork)
+		{
+			info = -27;
+		}
+		if (info!=0)
+		{
+			this->xerbla("DCHKBD", -info);
+			return;
+		}
+		// Initialize constants
+		char path[4];
+		path[0] = 'D'; //Double precision
+		std::strncpy(&path[1], "BD", 3);
+		int nfail   = 0;
+		int ntest   = 0;
+		real unfl   = this->dlamch("Safe minimum");
+		real ovfl   = this->dlamch("Overflow");
+		this->dlabad(unfl, ovfl);
+		real ulp    = this->dlamch("Precision");
+		real ulpinv = ONE / ulp;
+		int log2ui  = int(std::log(ulpinv)/std::log(TWO));
+		real rtunfl = std::sqrt(unfl);
+		real rtovfl = std::sqrt(ovfl);
+		infoc.info  = 0;
+		//real abstol = 2 * unfl;
+		char const* str9998a = " DCHKBD: ";
+		char const* str9998b = " returned INFO=";
+		char const* str9998c = ".\n         M=";
+		// Loop over sizes, types
+		bool bidiag;
+		char uplo[2];
+		uplo[1] = '\0';
+		int i, iinfo, il, imode, itemp, itype, iu, iwbd, iwbe, iwbs, iwbz, iwwork, jsize, jtype, m,
+		    mnmin, mnminm, mnmin2, mq, mtypes, n, ns1, ns2;
+		real amninv, anorm, cond, temp1, temp2, vl, vu;
+		int ioldsd[4], iseed2[4];
+		real result[40];
+		bool skiptoend = false;
+		for (jsize=0; jsize<nsizes; jsize++)
+		{
+			m = mval[jsize];
+			n = nval[jsize];
+			mnmin = std::min(m, n);
+			mnminm = mnmin + 1;
+			amninv = ONE / std::max(std::max(m, n), 1);
+			if (nsizes!=1)
+			{
+				mtypes = std::min(MAXTYP, ntypes);
+			}
+			else
+			{
+				mtypes = std::min(MAXTYP+1, ntypes);
+			}
+			for (jtype=0; jtype<mtypes; jtype++)
+			{
+				if (!dotype[jtype])
+				{
+					continue;
+				}
+				for (j=0; j<4; j++)
+				{
+					ioldsd[j] = iseed[j];
+				}
+				for (j=0; j<34; j++)
+				{
+					result[j] = -ONE;
+				}
+				uplo[0] = ' ';
+				// Compute "A"
+				// Control parameters:
+				//     KMAGN  KMODE        KTYPE
+				// =1  O(1)   clustered 1  zero
+				// =2  large  clustered 2  identity
+				// =3  small  exponential  (none)
+				// =4         arithmetic   diagonal, (w/ eigenvalues)
+				// =5         random       symmetric, w/ eigenvalues
+				// =6                      nonsymmetric, w/ singular values
+				// =7                      random diagonal
+				// =8                      random symmetric
+				// =9                      random nonsymmetric
+				// =10                     random bidiagonal (log. distrib.)
+				if (mtypes<=MAXTYP)
+				{
+					itype = KTYPE[jtype];
+					imode = KMODE[jtype];
+					// Compute norm
+					switch(KMAGN[jtype])
+					{
+						default:
+						case 1:
+							anorm = ONE;
+							break;
+						case 2:
+							anorm = (rtovfl*ulp) * amninv;
+							break;
+						case 3:
+							anorm = rtunfl * std::max(m, n) * ulpinv;
+							break;
+					}
+					this->dlaset("Full", lda, n, ZERO, ZERO, A, lda);
+					iinfo = 0;
+					cond = ulpinv;
+					bidiag = false;
+					if (itype==1)
+					{
+						// Zero matrix
+						iinfo = 0;
+					}
+					else if (itype==2)
+					{
+						// Identity
+						for (j=0; j<mnmin; j++)
+						{
+							A[j+lda*j] = anorm;
+						}
+					}
+					else if (itype==4)
+					{
+						// Diagonal Matrix, [Eigen]values Specified
+						MatGen.dlatms(mnmin, mnmin, "S", iseed, "N", work, imode, cond, anorm, 0,
+						              0, "N", A, lda, &work[mnmin], iinfo);
+					}
+					else if (itype==5)
+					{
+						// Symmetric, eigenvalues specified
+						MatGen.dlatms(mnmin, mnmin, "S", iseed, "S", work, imode, cond, anorm, m,
+						              n, "N", A, lda, &work[mnmin], iinfo);
+					}
+					else if (itype==6)
+					{
+						// Nonsymmetric, singular values specified
+						MatGen.dlatms(m, n, "S", iseed, "N", work, imode, cond, anorm, m, n, "N",
+						              A, lda, &work[mnmin], iinfo);
+					}
+					else if (itype==7)
+					{
+						// Diagonal, random entries
+						MatGen.dlatmr(mnmin, mnmin, "S", iseed, "N", work, 6, ONE, ONE, "T", "N",
+						              nullptr, 1, ONE, nullptr, 1, ONE, "N", nullptr, 0, 0, ZERO,
+						              anorm, "NO", A, lda, nullptr, iinfo);
+					}
+					else if (itype==8)
+					{
+						// Symmetric, random entries
+						MatGen.dlatmr(mnmin, mnmin, "S", iseed, "S", work, 6, ONE, ONE, "T", "N",
+						              nullptr, 1, ONE, nullptr, 1, ONE, "N", nullptr, m, n, ZERO,
+						              anorm, "NO", A, lda, nullptr, iinfo);
+					}
+					else if (itype==9)
+					{
+						// Nonsymmetric, random entries
+						MatGen.dlatmr(m, n, "S", iseed, "N", work, 6, ONE, ONE, "T", "N", nullptr,
+						              1, ONE, nullptr, 1, ONE, "N", nullptr, m, n, ZERO, anorm,
+						              "NO", A, lda, nullptr, iinfo);
+					}
+					else if (itype==10)
+					{
+						// Bidiagonal, random entries
+						temp1 = -TWO * std::log(ulp);
+						for (j=0; j<mnmin; j++)
+						{
+							bd[j] = std::exp(temp1*MatGen.dlarnd(2, iseed));
+							if (j<mnminm)
+							{
+								be[j] = std::exp(temp1*MatGen.dlarnd(2, iseed));
+							}
+						}
+						iinfo = 0;
+						bidiag = true;
+						if (m>=n)
+						{
+							uplo[0] = 'U';
+						}
+						else
+						{
+							uplo[0] = 'L';
+						}
+					}
+					else
+					{
+						iinfo = 1;
+					}
+					if (iinfo==0)
+					{
+						// Generate Right-Hand Side
+						if (bidiag)
+						{
+							MatGen.dlatmr(mnmin, nrhs, "S", iseed, "N", work, 6, ONE, ONE, "T",
+							              "N", nullptr, 1, ONE, nullptr, 1, ONE, "N", nullptr,
+							              mnmin, nrhs, ZERO, ONE, "NO", Y, ldx, nullptr, iinfo);
+						}
+						else
+						{
+							MatGen.dlatmr(m, nrhs, "S", iseed, "N", work, 6, ONE, ONE, "T", "N",
+							              nullptr, 1, ONE, nullptr, 1, ONE, "N", nullptr, m, nrhs,
+							              ZERO, ONE, "NO", X, ldx, nullptr, iinfo);
+						}
+					}
+					// Error Exit
+					if (iinfo!=0)
+					{
+						nout << str9998a << "Generator" << str9998b << std::setw(6) << iinfo
+						     << str9998c << std::setw(6) << m << ", N=" << std::setw(6) << n
+						     << ", JTYPE=" << std::setw(6) << jtype+1 << ", ISEED=("
+						     << std::setw(5) << ioldsd[0] << ',' << std::setw(5) << ioldsd[1]
+						     << ',' << std::setw(5) << ioldsd[2] << ',' << std::setw(5)
+						     << ioldsd[3] << ')' << std::endl;
+						info = std::abs(iinfo);
+						return;
+					}
+				}
+				// Call dgebrd and dorgbr to compute B, Q, and P, do tests.
+				if (!bidiag)
+				{
+					// Compute transformations to reduce A to bidiagonal form: B = Q^T * A * P.
+					this->dlacpy(" ", m, n, A, lda, Q, ldq);
+					this->dgebrd(m, n, Q, ldq, bd, be, work, &work[mnmin], &work[2*mnmin],
+					             lwork-2*mnmin, iinfo);
+					// Check error code from dgebrd.
+					if (iinfo!=0)
+					{
+						nout << str9998a << "DGEBRD" << str9998b << std::setw(6) << iinfo
+						     << str9998c << std::setw(6) << m << ", N=" << std::setw(6) << n
+						     << ", JTYPE=" << std::setw(6) << jtype+1 << ", ISEED=("
+						     << std::setw(5) << ioldsd[0] << ',' << std::setw(5) << ioldsd[1]
+						     << ',' << std::setw(5) << ioldsd[2] << ',' << std::setw(5)
+						     << ioldsd[3] << ')' << std::endl;
+						info = std::abs(iinfo);
+						return;
+					}
+					this->dlacpy(" ", m, n, Q, ldq, Pt, ldpt);
+					if (m>=n)
+					{
+						uplo[0] = 'U';
+					}
+					else
+					{
+						uplo[0] = 'L';
+					}
+					// Generate Q
+					mq = m;
+					if (nrhs<=0)
+					{
+						mq = mnmin;
+					}
+					this->dorgbr("Q", m, mq, n, Q, ldq, work, &work[2*mnmin], lwork-2*mnmin,
+					             iinfo);
+					// Check error code from DORGBR.
+					if (iinfo!=0)
+					{
+						nout << str9998a << "DORGBR(Q)" << str9998b << std::setw(6) << iinfo
+						     << str9998c << std::setw(6) << m << ", N=" << std::setw(6) << n
+						     << ", JTYPE=" << std::setw(6) << jtype+1 << ", ISEED=("
+						     << std::setw(5) << ioldsd[0] << ',' << std::setw(5) << ioldsd[1]
+						     << ',' << std::setw(5) << ioldsd[2] << ',' << std::setw(5)
+						     << ioldsd[3] << ')' << std::endl;
+						info = std::abs(iinfo);
+						return;
+					}
+					// Generate P'
+					this->dorgbr("P", mnmin, n, m, Pt, ldpt, &work[mnmin], &work[2*mnmin],
+					             lwork-2*mnmin, iinfo);
+					// Check error code from dorgbr.
+					if (iinfo!=0)
+					{
+						nout << str9998a << "DORGBR(P)" << str9998b << std::setw(6) << iinfo
+						     << str9998c << std::setw(6) << m << ", N=" << std::setw(6) << n
+						     << ", JTYPE=" << std::setw(6) << jtype+1 << ", ISEED=("
+						     << std::setw(5) << ioldsd[0] << ',' << std::setw(5) << ioldsd[1]
+						     << ',' << std::setw(5) << ioldsd[2] << ',' << std::setw(5)
+						     << ioldsd[3] << ')' << std::endl;
+						info = std::abs(iinfo);
+						return;
+					}
+					// Apply Q^T to an m by nrhs matrix X:  Y = Q^T X.
+					Blas<real>::dgemm("Transpose", "No transpose", m, nrhs, m, ONE, Q, ldq, X, ldx,
+					                  ZERO, Y, ldx);
+					// Test 1:  Check the decomposition A := Q * B * Pt
+					//      2:  Check the orthogonality of Q
+					//      3:  Check the orthogonality of Pt
+					dbdt01(m, n, 1, A, lda,  Q,  ldq, bd, be, Pt, ldpt, work, result[0]);
+					dort01("Columns", m, mq, Q,  ldq,  work, lwork,           result[1]);
+					dort01("Rows", mnmin, n, Pt, ldpt, work, lwork,           result[2]);
+				}
+				// Use dbdsqr to form the SVD of the bidiagonal matrix B: B = U * s1 * Vt,
+				// and compute Z = U' * Y.
+				Blas<real>::dcopy(mnmin, bd, 1, s1, 1);
+				if (mnmin>0)
+				{
+					Blas<real>::dcopy(mnminm, be, 1, work, 1);
+				}
+				this->dlacpy(" ", m, nrhs, Y, ldx, Z, ldx);
+				this->dlaset("Full", mnmin, mnmin, ZERO, ONE, U,  ldpt);
+				this->dlaset("Full", mnmin, mnmin, ZERO, ONE, Vt, ldpt);
+				this->dbdsqr(uplo, mnmin, mnmin, mnmin, nrhs, s1, work, Vt, ldpt, U, ldpt, Z, ldx,
+				             &work[mnmin], iinfo);
+				// Check error code from dbdsqr.
+				skiptoend = false;
+				if (iinfo!=0)
+				{
+					nout << str9998a << "DBDSQR(vects)" << str9998b << std::setw(6) << iinfo
+					     << str9998c << std::setw(6) << m << ", N=" << std::setw(6) << n
+					     << ", JTYPE=" << std::setw(6) << jtype+1 << ", ISEED=(" << std::setw(5)
+					     << ioldsd[0] << ',' << std::setw(5) << ioldsd[1] << ','
+					     << std::setw(5) << ioldsd[2] << ',' << std::setw(5) << ioldsd[3]
+					     << ')' << std::endl;
+					info = std::abs(iinfo);
+					if (iinfo<0)
+					{
+						return;
+					}
+					else
+					{
+						result[3] = ulpinv;
+						skiptoend = true;
+					}
+				}
+				if (!skiptoend)
+				{
+					// Use dbdsqr to compute only the singular values of the bidiagonal matrix B;
+					// U, Vt, and Z should not be modified.
+					Blas<real>::dcopy(mnmin, bd, 1, s2, 1);
+					if (mnmin>0)
+					{
+						Blas<real>::dcopy(mnminm, be, 1, work, 1);
+					}
+					this->dbdsqr(uplo, mnmin, 0, 0, 0, s2, work, nullptr, ldpt, nullptr, ldpt,
+					             nullptr, ldx, &work[mnmin], iinfo);
+					// Check error code from dbdsqr.
+					if (iinfo!=0)
+					{
+						nout << str9998a << "DBDSQR(values)" << str9998b << std::setw(6) << iinfo
+						     << str9998c << std::setw(6) << m << ", N=" << std::setw(6) << n
+						     << ", JTYPE=" << std::setw(6) << jtype+1 << ", ISEED=("
+						     << std::setw(5) << ioldsd[0] << ',' << std::setw(5) << ioldsd[1]
+						     << ',' << std::setw(5) << ioldsd[2] << ',' << std::setw(5)
+						     << ioldsd[3] << ')' << std::endl;
+						info = std::abs(iinfo);
+						if (iinfo<0)
+						{
+							return;
+						}
+						else
+						{
+							result[8] = ulpinv;
+							skiptoend = true;
+						}
+					}
+				}
+				if (!skiptoend)
+				{
+					// Test 4:  Check the decomposition B := U * s1 * Vt
+					//      5:  Check the computation Z := U' * Y
+					//      6:  Check the orthogonality of U
+					//      7:  Check the orthogonality of Vt
+					dbdt03(uplo, mnmin, 1, bd, be, U, ldpt, s1, Vt, ldpt, work,        result[3]);
+					dbdt02(mnmin, nrhs, Y, ldx, Z, ldx,         U,  ldpt, work,        result[4]);
+					dort01("Columns", mnmin, mnmin,             U,  ldpt, work, lwork, result[5]);
+					dort01("Rows",    mnmin, mnmin,             Vt, ldpt, work, lwork, result[6]);
+					// Test 8:  Check that the singular values are sorted in non-increasing order
+					//          and are non-negative
+					result[7] = ZERO;
+					for (i=0; i<mnminm; i++)
+					{
+						if (s1[i]<s1[i+1])
+						{
+							result[7] = ulpinv;
+						}
+						if (s1[i]<ZERO)
+						{
+							result[7] = ulpinv;
+						}
+					}
+					if (mnmin>=1)
+					{
+						if (s1[mnminm]<ZERO)
+						{
+							result[7] = ulpinv;
+						}
+					}
+					// Test 9:  Compare DBDSQR with and without singular vectors
+					temp2 = ZERO;
+					for (j=0; j<mnmin; j++)
+					{
+						temp1 = std::fabs(s1[j]-s2[j])
+						        / std::max(std::sqrt(unfl)*std::max(s1[0], ONE),
+						                   ulp*std::max(std::fabs(s1[j]), std::fabs(s2[j])));
+						temp2 = std::max(temp1, temp2);
+					}
+					result[8] = temp2;
+					// Test 10:  Sturm sequence test of singular values
+					//           Go up by factors of two until it succeeds
+					temp1 = thresh * (HALF-ulp);
+					for (j=0; j<=log2ui; j++)
+					{
+						// dsvdch(mnmin, bd, be, s1, temp1, iinfo);
+						if (iinfo==0)
+						{
+							break;
+						}
+						temp1 *= TWO;
+					}
+					result[9] = temp1;
+					// Use dbdsqr to form the decomposition A = (QU) S (Vt Pt)
+					// from the bidiagonal form A = Q B Pt.
+					if (!bidiag)
+					{
+						Blas<real>::dcopy(mnmin, bd, 1, s2, 1);
+						if (mnmin>0)
+						{
+							Blas<real>::dcopy(mnminm, be, 1, work, 1);
+						}
+						this->dbdsqr(uplo, mnmin, n, m, nrhs, s2, work, Pt, ldpt, Q, ldq, Y, ldx,
+						             &work[mnmin], iinfo);
+						// Test 11:  Check the decomposition A := Q*U * s2 * Vt*Pt
+						//      12:  Check the computation Z := U^T * Q^T * X
+						//      13:  Check the orthogonality of Q*U
+						//      14:  Check the orthogonality of Vt*Pt
+						dbdt01(m, n, 0, A, lda, Q, ldq, s2, nullptr, Pt, ldpt, work, result[10]);
+						dbdt02(m, nrhs, X, ldx, Y, ldx,              Q,  ldq,  work, result[11]);
+						dort01("Columns", m, mq, Q,  ldq,  work, lwork,              result[12]);
+						dort01("Rows", mnmin, n, Pt, ldpt, work, lwork,              result[13]);
+					}
+					// Use dbdsdc to form the SVD of the bidiagonal matrix B: B = U * s1 * Vt
+					Blas<real>::dcopy(mnmin, bd, 1, s1, 1);
+					if (mnmin>0)
+					{
+						Blas<real>::dcopy(mnminm, be, 1, work, 1);
+					}
+					this->dlaset("Full", mnmin, mnmin, ZERO, ONE, U,  ldpt);
+					this->dlaset("Full", mnmin, mnmin, ZERO, ONE, Vt, ldpt);
+					this->dbdsdc(uplo, "I", mnmin, s1, work, U, ldpt, Vt, ldpt, nullptr, nullptr,
+					             &work[mnmin], iwork, iinfo);
+					// Check error code from dbdsdc.
+					if (iinfo!=0)
+					{
+						nout << str9998a << "DBDSDC(vects)" << str9998b << std::setw(6) << iinfo
+						     << str9998c << std::setw(6) << m << ", N=" << std::setw(6) << n
+						     << ", JTYPE=" << std::setw(6) << jtype+1 << ", ISEED=("
+						     << std::setw(5) << ioldsd[0] << ',' << std::setw(5) << ioldsd[1]
+						     << ',' << std::setw(5) << ioldsd[2] << ',' << std::setw(5)
+						     << ioldsd[3] << ')' << std::endl;
+						info = std::abs(iinfo);
+						if (iinfo<0)
+						{
+							return;
+						}
+						else
+						{
+							result[14] = ulpinv;
+							skiptoend = true;
+						}
+					}
+				}
+				if (!skiptoend)
+				{
+					// Use dbdsdc to compute only the singular values of the bidiagonal matrix B;
+					// U and Vt should not be modified.
+					Blas<real>::dcopy(mnmin, bd, 1, s2, 1);
+					if (mnmin>0)
+					{
+						Blas<real>::dcopy(mnminm, be, 1, work, 1);
+					}
+					this->dbdsdc(uplo, "N", mnmin, s2, work, nullptr, 1, nullptr, 1, nullptr,
+					             nullptr, &work[mnmin], iwork, iinfo);
+					// Check error code from dbdsdc.
+					if (iinfo!=0)
+					{
+						nout << str9998a << "DBDSDC(values)" << str9998b << std::setw(6) << iinfo
+						     << str9998c << std::setw(6) << m << ", N=" << std::setw(6) << n
+						     << ", JTYPE=" << std::setw(6) << jtype+1 << ", ISEED=("
+						     << std::setw(5) << ioldsd[0] << ',' << std::setw(5) << ioldsd[1]
+						     << ',' << std::setw(5) << ioldsd[2] << ',' << std::setw(5)
+						     << ioldsd[3] << ')' << std::endl;
+						info = std::abs(iinfo);
+						if (iinfo<0)
+						{
+							return;
+						}
+						else
+						{
+							result[17] = ulpinv;
+							skiptoend = true;
+						}
+					}
+				}
+				if (!skiptoend)
+				{
+					// Test 15: Check the decomposition B = U * s1 * Vt
+					//      16: Check the orthogonality of U
+					//      17: Check the orthogonality of Vt
+					dbdt03(uplo, mnmin, 1, bd, be,  U,  ldpt, s1, Vt, ldpt, work, result[14]);
+					dort01("Columns", mnmin, mnmin, U,  ldpt, work, lwork,        result[15]);
+					dort01("Rows",    mnmin, mnmin, Vt, ldpt, work, lwork,        result[16]);
+					// Test 18: Check that the singular values are sorted incnon-increasing order
+					//          and are non-negative
+					result[17] = ZERO;
+					for (i=0; i<mnminm; i++)
+					{
+						if (s1[i]<s1[i+1])
+						{
+							result[17] = ulpinv;
+						}
+						if (s1[i]<ZERO)
+						{
+							result[17] = ulpinv;
+						}
+					}
+					if (mnmin>=1)
+					{
+						if (s1[mnminm]<ZERO)
+						{
+							result[17] = ulpinv;
+						}
+					}
+					// Test 19: Compare dbdsqr with and without singular vectors
+					temp2 = ZERO;
+					for (j=0; j<mnmin; j++)
+					{
+						temp1 = std::fabs(s1[j]-s2[j])
+						        / std::max(std::sqrt(unfl)*std::max(s1[0], ONE),
+						                   ulp*std::max(std::fabs(s1[0]), std::fabs(s2[0])));
+						temp2 = std::max(temp1, temp2);
+					}
+					result[18] = temp2;
+					// Use dbdsvdx to compute the SVD of the bidiagonal matrix B: B = U * s1 * Vt
+					if (jtype==9 || jtype==15)
+					{
+						// =================================
+						// Matrix types temporarily disabled
+						// =================================
+						for (j=19; j<34; j++)
+						{
+							result[j] = ZERO;
+						}
+						skiptoend = true;
+					}
+				}
+				if (!skiptoend)
+				{
+					iwbs   = 0;
+					iwbd   = iwbs + mnmin;
+					iwbe   = iwbd + mnmin;
+					iwbz   = iwbe + mnmin;
+					iwwork = iwbz + 2*mnmin*(mnmin+1);
+					mnmin2 = std::max(1, mnmin*2);
+					Blas<real>::dcopy(mnmin, bd, 1, &work[iwbd], 1);
+					if (mnmin>0)
+					{
+						Blas<real>::dcopy(mnminm, be, 1, &work[iwbe], 1);
+					}
+					this->dbdsvdx(uplo, "V", "A", mnmin, &work[iwbd], &work[iwbe], ZERO, ZERO, 0,
+					              0, ns1, s1, &work[iwbz], mnmin2, &work[iwwork], iwork, iinfo);
+					// Check error code from dbdsvdx.
+					if (iinfo!=0)
+					{
+						nout << str9998a << "DBDSVDX(vects,A)" << str9998b << std::setw(6) << iinfo
+						     << str9998c << std::setw(6) << m << ", N=" << std::setw(6) << n
+						     << ", JTYPE=" << std::setw(6) << jtype+1 << ", ISEED=("
+						     << std::setw(5) << ioldsd[0] << ',' << std::setw(5) << ioldsd[1]
+						     << ',' << std::setw(5) << ioldsd[2] << ',' << std::setw(5)
+						     << ioldsd[3] << ')' << std::endl;
+						info = std::abs(iinfo);
+						if (iinfo<0)
+						{
+							return;
+						}
+						else
+						{
+							result[19] = ulpinv;
+							skiptoend = true;
+						}
+					}
+				}
+				if (!skiptoend)
+				{
+					j = iwbz;
+					for (i=0; i<ns1; i++)
+					{
+						Blas<real>::dcopy(mnmin, &work[j], 1, &U[ldpt*i], 1);
+						j += mnmin;
+						Blas<real>::dcopy(mnmin, &work[j], 1, &Vt[i],  ldpt);
+						j += mnmin;
+					}
+					// Use dbdsvdx to compute only the singular values of the bidiagonal matrix B;
+					// U and Vt should not be modified.
+					if (jtype==8)
+					{
+						// =================================
+						// Matrix types temporarily disabled
+						// =================================
+						result[23] = ZERO;
+						skiptoend = true;
+					}
+				}
+				if (!skiptoend)
+				{
+					Blas<real>::dcopy(mnmin, bd, 1, &work[iwbd], 1);
+					if (mnmin>0)
+					{
+						Blas<real>::dcopy(mnminm, be, 1, &work[iwbe], 1);
+					}
+					this->dbdsvdx(uplo, "N", "A", mnmin, &work[iwbd], &work[iwbe], ZERO, ZERO, 0,
+					              0, ns2, s2, nullptr, mnmin2, &work[iwwork], iwork, iinfo);
+					// Check error code from dbdsvdx.
+					if (iinfo!=0)
+					{
+						nout << str9998a << "DBDSVDX(values,A)" << str9998b << std::setw(6)
+						     << iinfo << str9998c << std::setw(6) << m << ", N=" << std::setw(6)
+						     << n << ", JTYPE=" << std::setw(6) << jtype+1 << ", ISEED=("
+						     << std::setw(5) << ioldsd[0] << ',' << std::setw(5) << ioldsd[1]
+						     << ',' << std::setw(5) << ioldsd[2] << ',' << std::setw(5)
+						     << ioldsd[3] << ')' << std::endl;
+						info = std::abs(iinfo);
+						if (iinfo<0)
+						{
+							return;
+						}
+						else
+						{
+							result[23] = ulpinv;
+							skiptoend = true;
+						}
+					}
+				}
+				if (!skiptoend)
+				{
+					// Save s1 for tests 30-34.
+					Blas<real>::dcopy(mnmin, s1, 1, &work[iwbs], 1);
+					// Test 20: Check the decomposition B = U * s1 * Vt
+					//      21: Check the orthogonality of U
+					//      22: Check the orthogonality of Vt
+					//      23: Check that the singular values are sorted in non-increasing order
+					//          and are non-negative
+					//      24: Compare dbdsvdx with and without singular vectors
+					dbdt03(uplo, mnmin, 1, bd, be,  U,  ldpt, s1, Vt, ldpt, &work[iwbs+mnmin],
+					       result[19]);
+					dort01("Columns", mnmin, mnmin, U,  ldpt, &work[iwbs+mnmin], lwork-mnmin,
+					       result[20]);
+					dort01("Rows",    mnmin, mnmin, Vt, ldpt, &work[iwbs+mnmin], lwork-mnmin,
+					       result[21]);
+					result[22] = ZERO;
+					for (i=0; i<mnminm; i++)
+					{
+						if (s1[i]<s1[i+1])
+						{
+							result[22] = ulpinv;
+						}
+						if (s1[i]<ZERO)
+						{
+							result[22] = ulpinv;
+						}
+					}
+					if (mnmin>=1)
+					{
+						if (s1[mnminm]<ZERO)
+						{
+							result[22] = ulpinv;
+						}
+					}
+					temp2 = ZERO;
+					for (j=0; j<mnmin; j++)
+					{
+						temp1 = std::fabs(s1[j]-s2[j])
+						        / std::max(std::sqrt(unfl)*std::max(s1[0], ONE),
+						                   ulp*std::max(std::fabs(s1[0]), std::fabs(s2[0])));
+						temp2 = std::max(temp1, temp2);
+					}
+					result[23] = temp2;
+					anorm = s1[0];
+					// Use dbdsvdx with RANGE='I': choose random values for il and iu, and ask for
+					// the il-th through iu-th singular values and corresponding vectors.
+					for (i=0; i<4; i++)
+					{
+						iseed2[i] = iseed[i];
+					}
+					if (mnmin<=1)
+					{
+						il = 0;
+						iu = mnminm;
+					}
+					else
+					{
+						il = int(mnminm*MatGen.dlarnd(1, iseed2));
+						iu = int(mnminm*MatGen.dlarnd(1, iseed2));
+						if (iu<il)
+						{
+							itemp = iu;
+							iu    = il;
+							il    = itemp;
+						}
+					}
+					Blas<real>::dcopy(mnmin, bd, 1, &work[iwbd], 1);
+					if (mnmin>0)
+					{
+						Blas<real>::dcopy(mnminm, be, 1, &work[iwbe], 1);
+					}
+					this->dbdsvdx(uplo, "V", "I", mnmin, &work[iwbd], &work[iwbe], ZERO, ZERO, il,
+					              iu, ns1, s1, &work[iwbz], mnmin2, &work[iwwork], iwork, iinfo);
+					// Check error code from dbdsvdx.
+					if (iinfo!=0)
+					{
+						nout << str9998a << "DBDSVDX(vects,I)" << str9998b << std::setw(6) << iinfo
+						     << str9998c << std::setw(6) << m << ", N=" << std::setw(6) << n
+						     << ", JTYPE=" << std::setw(6) << jtype+1 << ", ISEED=("
+						     << std::setw(5) << ioldsd[0] << ',' << std::setw(5) << ioldsd[1]
+						     << ',' << std::setw(5) << ioldsd[2] << ',' << std::setw(5)
+						     << ioldsd[3] << ')' << std::endl;
+						info = std::abs(iinfo);
+						if (iinfo<0)
+						{
+							return;
+						}
+						else
+						{
+							result[24] = ulpinv;
+							skiptoend = true;
+						}
+					}
+				}
+				if (!skiptoend)
+				{
+					j = iwbz;
+					for (i=0; i<ns1; i++)
+					{
+						Blas<real>::dcopy(mnmin, &work[j], 1, &U[ldpt*i], 1);
+						j += mnmin;
+						Blas<real>::dcopy(mnmin, &work[j], 1, &Vt[i],  ldpt);
+						j += mnmin;
+					}
+					// Use dbdsvdx to compute only the singular values of the
+					// bidiagonal matrix B;  U and Vt should not be modified.
+					Blas<real>::dcopy(mnmin, bd, 1, &work[iwbd], 1);
+					if (mnmin>0)
+					{
+						Blas<real>::dcopy(mnminm, be, 1, &work[iwbe], 1);
+					}
+					this->dbdsvdx(uplo, "N", "I", mnmin, &work[iwbd], &work[iwbe], ZERO, ZERO, il,
+					              iu, ns2, s2, nullptr, mnmin2, &work[iwwork], iwork, iinfo);
+					// Check error code from DBDSVDX.
+					if (iinfo!=0)
+					{
+						nout << str9998a << "DBDSVDX(values,I)" << str9998b << std::setw(6)
+						     << iinfo << str9998c << std::setw(6) << m << ", N=" << std::setw(6)
+						     << n << ", JTYPE=" << std::setw(6) << jtype+1 << ", ISEED=("
+						     << std::setw(5) << ioldsd[0] << ',' << std::setw(5) << ioldsd[1]
+						     << ',' << std::setw(5) << ioldsd[2] << ',' << std::setw(5)
+						     << ioldsd[3] << ')' << std::endl;
+						info = std::abs(iinfo);
+						if (iinfo<0)
+						{
+							return;
+						}
+						else
+						{
+							result[28] = ulpinv;
+							skiptoend = true;
+						}
+					}
+				}
+				if (!skiptoend)
+				{
+					// Test 25: Check s1 - U^T * B * Vt^T
+					//      26: Check the orthogonality of U
+					//      27: Check the orthogonality of Vt
+					//      28: Check that the singular values are sorted in non-increasing order
+					//          and are non-negative
+					//      29: Compare dbdsvdx with and without singular vectors
+					this->dbdt04(uplo, mnmin, bd, be, s1, ns1, U, ldpt, Vt, ldpt,
+					             &work[iwbs+mnmin], result[24]);
+					dort01("Columns", mnmin, ns1, U,  ldpt, &work[iwbs+mnmin], lwork-mnmin,
+					       result[25]);
+					dort01("Rows",    ns1, mnmin, Vt, ldpt, &work[iwbs+mnmin], lwork-mnmin,
+					       result[26]);
+					result[27] = ZERO;
+					for (i=0; i<ns1-1; i++)
+					{
+						if (s1[i]<s1[i+1])
+						{
+							result[27] = ulpinv;
+						}
+						if (s1[i]<ZERO)
+						{
+							result[27] = ulpinv;
+						}
+					}
+					if (ns1>=1)
+					{
+						if (s1[ns1-1]<ZERO)
+						{
+							result[27] = ulpinv;
+						}
+					}
+					temp2 = ZERO;
+					for (j=0; j<ns1; j++)
+					{
+						temp1 = std::fabs(s1[j]-s2[j])
+						        / std::max(std::sqrt(unfl)*std::max(s1[0], ONE),
+						                   ulp*std::max(std::fabs(s1[0]), std::fabs(s2[0])));
+						temp2 = std::max(temp1, temp2);
+					}
+					result[28] = temp2;
+					// Use dbdsvdx with RANGE='V': determine the values vl and vu of the il-th and
+					// iu-th singular values and ask for all singular values in this range.
+					Blas<real>::dcopy(mnmin, &work[iwbs], 1, s1, 1);
+					if (mnmin>0)
+					{
+						if (il!=0)
+						{
+							vu = s1[il] + std::max(HALF*std::fabs(s1[il]-s1[il-1]),
+							                       std::max(ulp*anorm, TWO*rtunfl));
+						}
+						else
+						{
+							vu = s1[0] + std::max(HALF*std::fabs(s1[mnminm]-s1[0]),
+							                      std::max(ulp*anorm, TWO*rtunfl));
+						}
+						if (iu!=ns1-1)
+						{
+							vl = s1[iu] - std::max(std::max(ulp*anorm, TWO*rtunfl),
+							                       HALF*std::fabs(s1[iu+1]-s1[iu]));
+						}
+						else
+						{
+							vl = s1[ns1-1] - std::max(std::max(ulp*anorm, TWO*rtunfl),
+							                          HALF*std::fabs(s1[mnminm]-s1[0]));
+						}
+						vl = std::max(vl, ZERO);
+						vu = std::max(vu, ZERO);
+						if (vl>=vu)
+						{
+							vu = std::max(vu*2, vu+vl+HALF);
+						}
+					}
+					else
+					{
+						vl = ZERO;
+						vu = ONE;
+					}
+					Blas<real>::dcopy(mnmin, bd, 1, &work[iwbd], 1);
+					if (mnmin>0)
+					{
+						Blas<real>::dcopy(mnminm, be, 1, &work[iwbe], 1);
+					}
+					this->dbdsvdx(uplo, "V", "V", mnmin, &work[iwbd], &work[iwbe], vl, vu, 0, 0,
+					              ns1, s1, &work[iwbz], mnmin2, &work[iwwork], iwork, iinfo);
+					// Check error code from dbdsvdx.
+					if (iinfo!=0)
+					{
+						nout << str9998a << "DBDSVDX(vects,V)" << str9998b << std::setw(6) << iinfo
+						     << str9998c << std::setw(6) << m << ", N=" << std::setw(6) << n
+						     << ", JTYPE=" << std::setw(6) << jtype+1 << ", ISEED=("
+						     << std::setw(5) << ioldsd[0] << ',' << std::setw(5) << ioldsd[1]
+						     << ',' << std::setw(5) << ioldsd[2] << ',' << std::setw(5)
+						     << ioldsd[3] << ')' << std::endl;
+						info = std::abs(iinfo);
+						if (iinfo<0)
+						{
+							return;
+						}
+						else
+						{
+							result[29] = ulpinv;
+							skiptoend = true;
+						}
+					}
+				}
+				if (!skiptoend)
+				{
+					j = iwbz;
+					for (i=0; i<ns1; i++)
+					{
+						Blas<real>::dcopy(mnmin, &work[j], 1, &U[ldpt*i], 1);
+						j += mnmin;
+						Blas<real>::dcopy(mnmin, &work[j], 1, &Vt[i],  ldpt);
+						j += mnmin;
+					}
+					// Use dbdsvdx to compute only the singular values of the bidiagonal matrix B;
+					// U and Vt should not be modified.
+					Blas<real>::dcopy(mnmin, bd, 1, &work[iwbd], 1);
+					if (mnmin>0)
+					{
+						Blas<real>::dcopy(mnminm, be, 1, &work[iwbe], 1);
+					}
+					this->dbdsvdx(uplo, "N", "V", mnmin, &work[iwbd], &work[iwbe], vl, vu, 0, 0,
+					              ns2, s2, nullptr, mnmin2, &work[iwwork], iwork, iinfo);
+					// Check error code from dbdsvdx.
+					if (iinfo!=0)
+					{
+						nout << str9998a << "DBDSVDX(values,V)" << str9998b << std::setw(6)
+						     << iinfo << str9998c << std::setw(6) << m << ", N=" << std::setw(6)
+						     << n << ", JTYPE=" << std::setw(6) << jtype+1 << ", ISEED=("
+						     << std::setw(5) << ioldsd[0] << ',' << std::setw(5) << ioldsd[1]
+						     << ',' << std::setw(5) << ioldsd[2] << ',' << std::setw(5)
+						     << ioldsd[3] << ')' << std::endl;
+						info = std::abs(iinfo);
+						if (iinfo<0)
+						{
+							return;
+						}
+						else
+						{
+							result[33] = ulpinv;
+							skiptoend = true;
+						}
+					}
+				}
+				if (!skiptoend)
+				{
+					// Test 30: Check s1 - U^T * B * Vt^T
+					//      31: Check the orthogonality of U
+					//      32: Check the orthogonality of Vt
+					//      33: Check that the singular values are sorted in non-increasing order
+					//          and are non-negative
+					//      34: Compare dbdsvdx with and without singular vectors
+					this->dbdt04(uplo, mnmin, bd, be, s1, ns1, U, ldpt, Vt, ldpt,
+					             &work[iwbs+mnmin], result[29]);
+					dort01("Columns", mnmin, ns1, U,  ldpt, &work[iwbs+mnmin], lwork-mnmin,
+					       result[30]);
+					dort01("Rows",    ns1, mnmin, Vt, ldpt, &work[iwbs+mnmin], lwork-mnmin,
+					       result[31]);
+					result[32] = ZERO;
+					for (i=0; i<ns1-1; i++)
+					{
+						if (s1[i]<s1[i+1])
+						{
+							result[27] = ulpinv;
+						}
+						if (s1[i]<ZERO)
+						{
+							result[27] = ulpinv;
+						}
+					}
+					if (ns1>=1)
+					{
+						if (s1[ns1-1]<ZERO)
+						{
+							result[27] = ulpinv;
+						}
+					}
+					temp2 = ZERO;
+					for (j=0; j<ns1; j++)
+					{
+						temp1 = std::fabs(s1[j]-s2[j])
+						        / std::max(std::sqrt(unfl)*std::max(s1[0], ONE),
+						                   ulp*std::max(std::fabs(s1[0]), std::fabs(s2[0])));
+						temp2 = std::max(temp1, temp2);
+					}
+					result[33] = temp2;
+				}
+				// End of Loop -- Check for result[j] > thresh
+				for (j=0; j<34; j++)
+				{
+					if (result[j]>=thresh)
+					{
+						if (nfail==0)
+						{
+							dlahd2(nout, path);
+						}
+						nout << " M=" << std::setw(5) << m << ", N=" << std::setw(5) << m
+						     << ", type " << std::setw(2) << jtype+1 << ", seed=" << std::setw(4)
+						     << ioldsd[0] << ',' << std::setw(4) << ioldsd[1] << ','
+						     << std::setw(4) << ioldsd[2] << ',' << std::setw(4) << ioldsd[3]
+						     << ", test(" << std::setw(2) << j+1 << ")=" << std::setw(11)
+						     << std::setprecision(4) << result[j] << std::endl;
+						nfail++;
+					}
+				}
+				if (!bidiag)
+				{
+					ntest += 34;
+				}
+				else
+				{
+					ntest += 30;
+				}
+			}
+		}
+		// Summary
+		alasum(path, nout, nfail, ntest, 0);
+	}
+
 	/*! §dchkbl
 	 *
 	 * §dchkbl tests §dgebal, a routine for balancing a general real matrix and isolating some of
@@ -740,6 +2082,774 @@ public:
 		delete[] dummy;
 		delete[] scale;
 		delete[] scalin;
+	}
+
+	/*! §ddrvev
+	 *
+	 * §ddrvev checks the nonsymmetric eigenvalue problem driver §dgeev.\n
+	 * When §ddrvev is called, a number of matrix "sizes" ("n"s) and a number of matrix "types"
+	 * are specified. For each size ("n") and each type of matrix, one matrix will be generated and
+	 * used to test the nonsymmetric eigenroutines. For each matrix, 7 tests will be performed:\n
+	 * 1. $\frac{|\{A}\{Vr}-\{Vr}\{W}|}{\{n}|\{A}|\{ulp}}$\n
+	 *    Here §Vr is the matrix of unit right eigenvectors. §W is a block diagonal matrix, with a
+	 *    1 by 1 block for each real eigenvalue and a 2 by 2 block for each complex conjugate pair.
+	 *    If eigenvalues $j$ and $j+1$ are a complex conjugate pair, so $\{wr}[j]=\{wr}[j+1]=w_r$
+	 *    and $\{wi}[j]=-\{wi}[j+1]=w_i$, then the 2 by 2 block corresponding to the pair will be:
+	 *    \n $\b{bm} w_r & w_i \\
+	 *              -w_i & w_r \e{bm}$\n
+	 *    Such a block multiplying an §n by 2 matrix $\b{bm}u_r & u_i\e{bm}$ on the right will be
+	 *    the same as multiplying $u_r+i\,u_i$ by $w_r+i\,w_i$.\n
+	 * 2. $\frac{|\{A}^H\{Vl}-\{Vl}\,\{W}^H|}{\{n}|\{A}|\,\{ulp}}$\n
+	 *    Here §Vl is the matrix of unit left eigenvectors, $\{A}^H$ is the conjugate transpose of
+	 *    §A, and §W is as above.\n
+	 * 3. $\frac{\left||\{Vr}[i]|-1\right|}{\{ulp}}$ and whether the largest component is real\n
+	 *    $\{Vr}[i]$ denotes the $i$-th column of §Vr. \n
+	 * 4. $\frac{\left||\{Vl}[i]|-1\right|}{\{ulp}}$ and whether the largest component is real\n
+	 *    $\{Vl}[i]$ denotes the $i$-th column of §Vl. \n
+	 * 5. $\{W}_\text{full} = \{W}_\text{partial}$\n
+	 *    $\{W}_\text{full}$ denotes the eigenvalues computed when both §Vr and §Vl are also
+	 *    computed, and $\{W}_\text{partial}$ denotes the eigenvalues computed when only §W, only
+	 *    §W and §Vr, or only §W and §Vl are computed.\n
+	 * 6. $\{Vr}_\text{full} = \{Vr}_\text{partial}$\n
+	 *    $\{Vr}_\text{full}$ denotes the right eigenvectors computed when both §Vr and §Vl are
+	 *    computed, and $\{Vr}_\text{partial}$ denotes the result when only §Vr is computed.\n
+	 * 7. $\{Vl}_\text{full} = \{Vl}_\text{partial}$\n
+	 *    $\{Vl}_\text{full}$ denotes the left eigenvectors computed when both §Vr and §Vl are also
+	 *    computed, and $\{Vl}_\text{partial}$ denotes the result when only §Vl is computed.\n\n
+	 * .
+	 * The "sizes" are specified by an array $\{nn}[0:\{nsizes}-1]$; the value of each element
+	 * $\{nn}[j]$ specifies one size.\n The "types" are specified by a logical array
+	 * $\{dotype}[0:\{ntypes}-1]$; if $\{dotype}[j]$ is true, then matrix type $"j"$ will be
+	 * generated.\n Currently, the list of possible types is:
+	 *     1.  The zero matrix.
+	 *     2.  The identity matrix.
+	 *     3.  A (transposed) Jordan block, with 1's on the diagonal.
+	 *     4.  A diagonal matrix with evenly spaced entries $1,\ldots,\{ulp}$ and random signs.
+	 *         ($\{ulp}=(\text{first number larger than }1)-1$)
+	 *     5.  A diagonal matrix with geometrically spaced entries $1,\ldots,\{ulp}$ and random
+	 *         signs.
+	 *     6.  A diagonal matrix with "clustered" entries $1,\{ulp},\ldots,\{ulp}$ and random
+	 *         signs.
+	 *     7.  Same as 4, but multiplied by a constant near the overflow threshold
+	 *     8.  Same as 4, but multiplied by a constant near the underflow threshold
+	 *     9.  A matrix of the form $U^TTU$, where $U$ is orthogonal and $T$ has evenly spaced
+	 *         entries $1,\ldots,\{ulp}$ with random signs on the diagonal and random O(1) entries
+	 *         in the upper triangle.
+	 *     10. A matrix of the form $U^TTU$, where $U$ is orthogonal and $T$ has geometrically
+	 *         spaced entries $1,\ldots,\{ulp}$ with random signs on the diagonal and random O(1)
+	 *         entries in the upper triangle.
+	 *     11. A matrix of the form $U^TTU$, where $U$ is orthogonal and $T$ has "clustered"
+	 *         entries $1,\{ulp},\ldots,\{ulp}$ with random signs on the diagonal and random O(1)
+	 *         entries in the upper triangle.
+	 *     12. A matrix of the form $U^TTU$, where $U$ is orthogonal and $T$ has real or complex
+	 *         conjugate paired eigenvalues randomly chosen from $[\{ulp},1]$ and random O(1)
+	 *         entries in the upper triangle.
+	 *     13. A matrix of the form $X^TTX$, where $X$ has condition $\sqrt{\{ulp}}$ and $T$ has
+	 *         evenly spaced entries $1,\ldots,\{ulp}$ with random signs on the diagonal and random
+	 *         O(1) entries in the upper triangle.
+	 *     14. A matrix of the form $X^TTX$, where $X$ has condition $\sqrt{\{ulp}}$ and $T$ has
+	 *         geometrically spaced entries $1,\ldots,\{ulp}$ with random signs on the diagonal and
+	 *         random O(1) entries in the upper triangle.
+	 *     15. A matrix of the form $X^TTX$, where $X$ has condition $\sqrt{\{ulp}}$ and $T$ has
+	 *         "clustered" entries $1,\{ulp},\ldots,\{ulp}$ with random signs on the diagonal and
+	 *         random O(1) entries in the upper triangle.
+	 *     16. A matrix of the form $X^TTX$, where $X$ has condition $\sqrt{\{ulp}}$ and $T$ has
+	 *         real or complex conjugate paired eigenvalues randomly chosen from $[\{ulp},1]$ and
+	 *         random O(1) entries in the upper triangle.
+	 *     17. Same as 16, but multiplied by a constant near the overflow threshold
+	 *     18. Same as 16, but multiplied by a constant near the underflow threshold
+	 *     19. Nonsymmetric matrix with random entries chosen from $[-1,1]$. If §n is at least 4,
+	 *         all entries in first two rows and last row, and first column and last two columns
+	 *         are zero.
+	 *     20. Same as 19, but multiplied by a constant near the overflow threshold
+	 *     21. Same as 19, but multiplied by a constant near the underflow threshold
+	 *
+	 * \param[in] nsizes
+	 *     The number of sizes of matrices to use. If it is zero, §ddrvev does nothing.
+	 *     It must be at least zero.
+	 *
+	 * \param[in] nn
+	 *     an integer array, dimension (§nsizes)\n
+	 *     An array containing the sizes to be used for the matrices. Zero values will be skipped.
+	 *     The values must be at least zero.
+	 *
+	 * \param[in] ntypes
+	 *     The number of elements in §dotype. If it is zero, §ddrvev does nothing. It must be at
+	 *     least zero. If it is $\{MAXTYP}+1$ and §nsizes is 1, then an additional type,
+	 *     $\{MAXTYP}+1$ is defined, which is to use whatever matrix is in §A. This is only useful
+	 *     if $\{dotype}[0:\{MAXTYP}-1]$ is §false and $\{dotype}[\{MAXTYP}]$ is §true.
+	 *
+	 * \param[in] dotype
+	 *     a boolean array, dimension (§ntypes)\n
+	 *     If $\{dotype}[j]$ is §true, then for each size in §nn a matrix of that size and of type
+	 *     $j$ will be generated. If §ntypes is smaller than the maximum number of types defined
+	 *     (parameter §MAXTYP), then types §ntypes through $\{MAXTYP}-1$ will not be generated. If
+	 *     §ntypes is larger than §MAXTYP, $\{dotype}[\{MAXTYP}]$ through $\{dotype}[\{ntypes}-1]$
+	 *     will be ignored.
+	 *
+	 * \param[in,out] iseed
+	 *     an integer array, dimension (4)\n
+	 *     On entry §iseed specifies the seed of the random number generator. The array elements
+	 *     should be between 0 and 4095; if not they will be reduced modulo 4096. Also,
+	 *     $\{iseed}[3]$ must be odd. The random number generator uses a linear congruential
+	 *     sequence limited to small integers, and so should produce machine independent random
+	 *     numbers. The values of §iseed are changed on exit, and can be used in the next call to
+	 *     §ddrvev to continue the same random number sequence.
+	 *
+	 * \param[in] thresh
+	 *     A test will count as "failed" if the "error", computed as described above, exceeds
+	 *     §thresh. Note that the error is scaled to be O(1), so §thresh should be a reasonably
+	 *     small multiple of 1, e.g., 10 or 100. In particular, it should not depend on the
+	 *     precision (single vs. double) or the size of the matrix. It must be at least zero.
+	 *
+	 * \param[in] nounit
+	 *     The output stream for printing out error messages
+	 *     (e.g., if a routine returns §info not equal to 0.)
+	 *
+	 * \param[out] A
+	 *     an array, dimension (§lda, $\max(\{nn})$)\n
+	 *     Used to hold the matrix whose eigenvalues are to be computed.
+	 *     On exit, §A contains the last matrix actually used.
+	 *
+	 * \param[in] lda
+	 *     The leading dimension of §A, and §H. §lda must be at least 1 and at least $\max(\{nn})$.
+	 *
+	 * \param[out] H
+	 *     an array, dimension (§lda, $\max(\{nn})$)\n
+	 *     Another copy of the test matrix §A, modified by §dgeev.
+	 *
+	 * \param[out] wr, wi
+	 *     arrays, dimension ($\max(\{nn})$)\n
+	 *     The real and imaginary parts of the eigenvalues of §A.
+	 *     On exit, $\{wr}+i\,\{wi}$ are the eigenvalues of the matrix in §A.
+	 *
+	 * \param[out] wr1, wi1
+	 *     arrays, dimension ($\max(\{nn})$)\n
+	 *     Like §wr, §wi, these arrays contain the eigenvalues of §A, but those computed when
+	 *     §dgeev only computes a partial eigendecomposition, i.e. not the eigenvalues and left and
+	 *     right eigenvectors.
+	 *
+	 * \param[out] Vl
+	 *     an array, dimension (§ldvl, $\max(\{nn})$)\n §Vl holds the computed left eigenvectors.
+	 *
+	 * \param[in]  ldvl Leading dimension of §Vl. Must be at least $\max(1,\max(\{nn}))$.
+	 * \param[out] Vr
+	 *     an array, dimension (§ldvr, $\max(\{nn})$)\n §Vr holds the computed right eigenvectors.
+	 *
+	 * \param[in]  ldvr Leading dimension of §Vr. Must be at least $\max(1,\max(\{nn}))$.
+	 * \param[out] Lre
+	 *     an array, dimension (§ldlre,$\max(\{nn})$)\n
+	 *     §Lre holds the computed right or left eigenvectors.
+	 *
+	 * \param[in]  ldlre  Leading dimension of §Lre. Must be at least $\max(1,\max(\{nn}))$.
+	 * \param[out] result
+	 *     an array, dimension (7)\n
+	 *     The values computed by the seven tests described above.\n
+	 *     The values are currently limited to $1/\{ulp}$, to avoid overflow.
+	 *
+	 * \param[out] work  an array, dimension (§nwork)
+	 * \param[in]  nwork
+	 *     The number of entries in §work.
+	 *     This must be at least $5\{nn}[j]+2\{nn}[j]^2$ for all $j$.
+	 *
+	 * \param[out] iwork an integer array, dimension ($\max(\{nn})$)
+	 * \param[out] info
+	 *     If 0, then everything ran OK.\n
+	 *      -1: $\{nsizes}<0$\n
+	 *      -2: Some $\{nn}[j]<0$\n
+	 *      -3: $\{ntypes}<0$\n
+	 *      -6: $\{thresh}<0$\n
+	 *      -9: $\{lda}  <1$ or $\{lda}  <\{nmax}$, where §nmax is $\max(\{nn}[j])$.\n
+	 *     -16: $\{ldvl} <1$ or $\{ldvl} <\{nmax}$, where §nmax is $\max(\{nn}[j])$.\n
+	 *     -18: $\{ldvr} <1$ or $\{ldvr} <\{nmax}$, where §nmax is $\max(\{nn}[j])$.\n
+	 *     -20: $\{ldlre}<1$ or $\{ldlre}<\{nmax}$, where §nmax is $\max(\{nn}[j])$.\n
+	 *     -23: §nwork too small.
+	 *     If §dlatmr, §dlatms, §dlatme or §dgeev returns an error code, the absolute value of it
+	 *     is returned.
+	 * \authors Univ. of Tennessee
+	 * \authors Univ. of California Berkeley
+	 * \authors Univ. of Colorado Denver
+	 * \authors NAG Ltd.
+	 * \date December 2016
+	 * \remark
+	 *     Some Local Variables and Parameters:\n
+	 *     $\begin{tabular}{ll}
+	 *         \{MAXTYP}                  & The number of types defined.                     \\
+	 *         \{nmax}                    & Largest value in \{nn}.                          \\
+	 *         \{nerrs}                   & The number of tests which have exceeded \{thresh}\\
+	 *         \{cond}, \{conds},\{imode} & Values to be passed to the matrix generators.    \\
+	 *         \{anorm}                   & Norm of \{A}; passed to matrix generators.       \\
+	 *         \{ovfl}, \{unfl}           & Overflow and underflow thresholds.               \\
+	 *         \{ulp}, \{ulpinv}          & Finest relative precision and its inverse.       \\
+	 *         \{rtulpi}                  & Square roots of the previous 4 values. \end{tabular}$\n
+	 *     The following four arrays decode §jtype: \n
+	 *     $\begin{tabular}{ll}
+	 *         \{KTYPE}[j]  & The general type (1-10) for type \(j+1\).                     \\
+	 *         \{KMODE}[j]  & The \{MODE} value to be passed to the matrix generator
+	 *                        for type \(j+1\).                                             \\
+	 *         \{KMAGN}[j]  & The order of magnitude
+	 *                        (O(1), O(\(\sqrt{\{overflow}}\)), O(\(\sqrt{\{underflow}}\))) \\
+	 *         \{KCONDS}[j] & Select whether \{conds} is to be 1 or \(1/\sqrt(\{ulp})\).
+	 *                        (0 means irrelevant.) \end{tabular}$                               */
+	void ddrvev(int const nsizes, int const* const nn, int const ntypes, bool const* const dotype,
+	            int* const iseed, real const thresh, std::ostream& nounit, real* const A,
+	            int const lda, real* const H, real* const wr, real* const wi, real* const wr1,
+	            real* const wi1, real* const Vl, int const ldvl, real* const Vr, int const ldvr,
+	            real* const Lre, int const ldlre, real* const result, real* const work,
+	            int const nwork, int* const iwork, int& info) const
+	{
+		int const MAXTYP = 21;
+		int const  KTYPE[MAXTYP] = {1, 2, 3, 4, 4, 4, 4, 4, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 9, 9, 9};
+		int const  KMAGN[MAXTYP] = {1, 1, 1, 1, 1, 1, 2, 3, 1, 1, 1, 1, 1, 1, 1, 1, 2, 3, 1, 2, 3};
+		int const  KMODE[MAXTYP] = {0, 0, 0, 4, 3, 1, 4, 4, 4, 3, 1, 5, 4, 3, 1, 5, 5, 5, 4, 3, 1};
+		int const KCONDS[MAXTYP] = {0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 0, 0, 0};
+		char path[4];
+		path[0] = 'D'; // Double precision'
+		std::strncpy(&path[1], "EV", 2);
+		path[3] = '\0';
+		// Check for errors
+		int ntestt = 0;
+		int ntestf = 0;
+		info = 0;
+		// Important constants
+		bool badnn = false;
+		int nmax = 0;
+		int j;
+		for (j=0; j<nsizes; j++)
+		{
+			nmax = std::max(nmax, nn[j]);
+			if (nn[j]<0)
+			{
+				badnn = true;
+			}
+		}
+		// Check for errors
+		if (nsizes<0)
+		{
+			info = -1;
+		}
+		else if (badnn)
+		{
+			info = -2;
+		}
+		else if (ntypes<0)
+		{
+			info = -3;
+		}
+		else if (thresh<ZERO)
+		{
+			info = -6;
+		}
+		else if (!nounit.good())
+		{
+			info = -7;
+		}
+		else if (lda<1 || lda<nmax)
+		{
+			info = -9;
+		}
+		else if (ldvl<1 || ldvl<nmax)
+		{
+			info = -16;
+		}
+		else if (ldvr<1 || ldvr<nmax)
+		{
+			info = -18;
+		}
+		else if (ldlre<1 || ldlre<nmax)
+		{
+			info = -20;
+		}
+		else if (5*nmax+2*std::pow(nmax, 2)>nwork)
+		{
+			info = -23;
+		}
+		if (info!=0)
+		{
+			this->xerbla("DDRVEV", -info);
+			return;
+		}
+		// Quick return if nothing to do
+		if (nsizes==0 || ntypes==0)
+		{
+			return;
+		}
+		// More Important constants
+		real unfl = this->dlamch("Safe minimum");
+		real ovfl = ONE / unfl;
+		this->dlabad(unfl, ovfl);
+		real ulp = this->dlamch("Precision");
+		real ulpinv = ONE / ulp;
+		real rtulpi = ONE / std::sqrt(ulp);
+		// Set output string constants
+		char const* str9993a = " DDRVEV: ";
+		char const* str9993b = " returned INFO=";
+		char const* str9993c = ".\n         N=";
+		char const* str9993d = ", JTYPE=";
+		char const* str9993e = ", ISEED=(";
+		// Loop over sizes, types
+		int nerrs = 0;
+		int iinfo, imode, itype, iwk, jcol, jj, jsize, jtype, mtypes, n, nfail, nnwork, ntest;
+		real anorm, cond, conds, tnrm, vmx, vrmx, vtst;
+		int ioldsd[4];
+		real res[2];
+		for (jsize=0; jsize<nsizes; jsize++)
+		{
+			n = nn[jsize];
+			if (nsizes!=1)
+			{
+				mtypes = std::min(MAXTYP, ntypes);
+			}
+			else
+			{
+				mtypes = std::min(MAXTYP+1, ntypes);
+			}
+			for (jtype=0; jtype<mtypes; jtype++)
+			{
+				if (!dotype[jtype])
+				{
+					continue;
+				}
+				// Save iseed in case of an error.
+				for (j=0; j<4; j++)
+				{
+					ioldsd[j] = iseed[j];
+				}
+				// Compute "A"
+				// Control parameters:
+				//     KMAGN  KCONDS  KMODE        KTYPE
+				// =1  O(1)   1       clustered 1  zero
+				// =2  large  large   clustered 2  identity
+				// =3  small          exponential  Jordan
+				// =4                 arithmetic   diagonal, (w/ eigenvalues)
+				// =5                 random log   symmetric, w/ eigenvalues
+				// =6                 random       general, w/ eigenvalues
+				// =7                              random diagonal
+				// =8                              random symmetric
+				// =9                              random general
+				// =10                             random triangular
+				if (mtypes<=MAXTYP)
+				{
+					itype = KTYPE[jtype];
+					imode = KMODE[jtype];
+					// Compute norm
+					switch(KMAGN[jtype])
+					{
+						default:
+						case 1:
+							anorm = ONE;
+							break;
+						case 2:
+							anorm = ovfl * ulp;
+							break;
+						case 3:
+							anorm = unfl * ulpinv;
+							break;
+					}
+					this->dlaset("Full", lda, n, ZERO, ZERO, A, lda);
+					iinfo = 0;
+					cond = ulpinv;
+					// Special Matrices -- Identity & Jordan block
+					if (itype==1)
+					{
+						// Zero
+						iinfo = 0;
+					}
+					else if (itype==2)
+					{
+						// Identity
+						for (jcol=0; jcol<n; jcol++)
+						{
+							A[jcol+lda*jcol] = anorm;
+						}
+					}
+					else if (itype==3)
+					{
+						// Jordan Block
+						for (jcol=0; jcol<n; jcol++)
+						{
+							A[jcol+lda*jcol] = anorm;
+							if (jcol>0)
+							{
+								A[jcol+lda*(jcol-1)] = ONE;
+							}
+						}
+					}
+					else if (itype==4)
+					{
+						// Diagonal Matrix, [Eigen]values Specified
+						MatGen.dlatms(n, n, "S", iseed, "S", work, imode, cond, anorm, 0, 0, "N",
+						              A, lda, &work[n], iinfo);
+					}
+					else if (itype==5)
+					{
+						// Symmetric, eigenvalues specified
+						MatGen.dlatms(n, n, "S", iseed, "S", work, imode, cond, anorm, n, n, "N",
+						              A, lda, &work[n], iinfo);
+					}
+					else if (itype==6)
+					{
+						// General, eigenvalues specified
+						if (KCONDS[jtype]==1)
+						{
+							conds = ONE;
+						}
+						else if (KCONDS[jtype]==2)
+						{
+							conds = rtulpi;
+						}
+						else
+						{
+							conds = ZERO;
+						}
+						MatGen.dlatme(n, "S", iseed, work, imode, cond, ONE, " ", "T", "T", "T",
+						              &work[n], 4, conds, n, n, anorm, A, lda, &work[2*n],
+						              iinfo);
+					}
+					else if (itype==7)
+					{
+						// Diagonal, random eigenvalues
+						MatGen.dlatmr(n, n, "S", iseed, "S", work, 6, ONE, ONE, "T", "N", nullptr,
+						              1, ONE, nullptr, 1, ONE, "N", nullptr, 0, 0, ZERO, anorm,
+						              "NO", A, lda, nullptr, iinfo);
+					}
+					else if (itype==8)
+					{
+						// Symmetric, random eigenvalues
+						MatGen.dlatmr(n, n, "S", iseed, "S", work, 6, ONE, ONE, "T", "N", nullptr,
+						              1, ONE, nullptr, 1, ONE, "N", nullptr, n, n, ZERO, anorm,
+						              "NO", A, lda, nullptr, iinfo);
+					}
+					else if (itype==9)
+					{
+						// General, random eigenvalues
+						MatGen.dlatmr(n, n, "S", iseed, "N", work, 6, ONE, ONE, "T", "N", nullptr,
+						              1, ONE, nullptr, 1, ONE, "N", nullptr, n, n, ZERO, anorm,
+						              "NO", A, lda, nullptr, iinfo);
+						if (n>=4)
+						{
+							this->dlaset("Full", 2,   n, ZERO, ZERO,  A,              lda);
+							this->dlaset("Full", n-3, 1, ZERO, ZERO, &A[2],           lda);
+							this->dlaset("Full", n-3, 2, ZERO, ZERO, &A[2+lda*(n-2)], lda);
+							this->dlaset("Full", 1,   n, ZERO, ZERO, &A[n-1],         lda);
+						}
+					}
+					else if (itype==10)
+					{
+						// Triangular, random eigenvalues
+						MatGen.dlatmr(n, n, "S", iseed, "N", work, 6, ONE, ONE, "T", "N", nullptr,
+						              1, ONE, nullptr, 1, ONE, "N", nullptr, n, 0, ZERO, anorm,
+						              "NO", A, lda, nullptr, iinfo);
+					}
+					else
+					{
+						iinfo = 1;
+					}
+					if (iinfo!=0)
+					{
+						nounit << str9993a << "Generator" << str9993b << std::setw(6) << iinfo
+						       << str9993c << std::setw(6) << n << str9993d << std::setw(6)
+						       << jtype+1 << str9993e << std::setw(5) << ioldsd[0] << ','
+						       << std::setw(5) << ioldsd[1] << ',' << std::setw(5) << ioldsd[2]
+						       << ',' << std::setw(5) << ioldsd[3] << ')' << std::endl;
+						info = std::abs(iinfo);
+						return;
+					}
+				}
+				// Test for minimal and generous workspace
+				for (iwk=1; iwk<=2; iwk++)
+				{
+					if (iwk==1)
+					{
+						nnwork = 4 * n;
+					}
+					else
+					{
+						nnwork = 5*n + 2*n*n;
+					}
+					nnwork = std::max(nnwork, 1);
+					// Initialize result
+					for (j=0; j<7; j++)
+					{
+						result[j] = -ONE;
+					}
+					// Compute eigenvalues and eigenvectors, and test them
+					this->dlacpy("F", n, n, A, lda, H, lda);
+					this->dgeev("V", "V", n, H, lda, wr, wi, Vl, ldvl, Vr, ldvr, work, nnwork,
+					            iinfo);
+					if (iinfo!=0)
+					{
+						result[0] = ulpinv;
+						nounit << str9993a << "DGEEV1" << str9993b << std::setw(6) << iinfo
+						       << str9993c << std::setw(6) << n << str9993d << std::setw(6)
+						       << jtype+1 << str9993e << std::setw(5) << ioldsd[0] << ','
+						       << std::setw(5) << ioldsd[1] << ',' << std::setw(5) << ioldsd[2]
+						       << ',' << std::setw(5) << ioldsd[3] << ')' << std::endl;
+						info = std::abs(iinfo);
+					}
+					else
+					{
+						// Do Test (1)
+						dget22("N", "N", "N", n, A, lda, Vr, ldvr, wr, wi, work, res);
+						result[0] = res[0];
+						// Do Test (2)
+						dget22("T", "N", "T", n, A, lda, Vl, ldvl, wr, wi, work, res);
+						result[1] = res[0];
+						// Do Test (3)
+						int vj;
+						for (j=0; j<n; j++)
+						{
+							vj = ldvr * j;
+							tnrm = ONE;
+							if (wi[j]==ZERO)
+							{
+								tnrm = Blas<real>::dnrm2(n, &Vr[vj], 1);
+							}
+							else if (wi[j]>ZERO)
+							{
+								tnrm = this->dlapy2(Blas<real>::dnrm2(n, &Vr[vj], 1),
+								                    Blas<real>::dnrm2(n, &Vr[vj+ldvr], 1));
+							}
+							result[2] = std::max(result[2],
+							                     std::min(ulpinv, std::fabs(tnrm-ONE)/ulp));
+							if (wi[j]>ZERO)
+							{
+								vmx = ZERO;
+								vrmx = ZERO;
+								for (jj=0; jj<n; jj++)
+								{
+									vtst = this->dlapy2(Vr[jj+vj], Vr[jj+vj+ldvr]);
+									if (vtst>vmx)
+									{
+										vmx = vtst;
+									}
+									if (Vr[jj+vj+ldvr]==ZERO && std::fabs(Vr[jj+vj])>vrmx)
+									{
+										vrmx = std::fabs(Vr[jj+vj]);
+									}
+								}
+								if (vrmx / vmx<ONE-TWO*ulp)
+								{
+									result[2] = ulpinv;
+								}
+							}
+						}
+						// Do Test (4)
+						for (j=0; j<n; j++)
+						{
+							vj = ldvl * j;
+							tnrm = ONE;
+							if (wi[j]==ZERO)
+							{
+								tnrm = Blas<real>::dnrm2(n, &Vl[vj], 1);
+							}
+							else if (wi[j]>ZERO)
+							{
+								tnrm = this->dlapy2(Blas<real>::dnrm2(n, &Vl[vj],      1),
+								                    Blas<real>::dnrm2(n, &Vl[vj+ldvl], 1));
+							}
+							result[3] = std::max(result[3],
+							                     std::min(ulpinv, std::fabs(tnrm-ONE)/ulp));
+							if (wi[j]>ZERO)
+							{
+								vmx = ZERO;
+								vrmx = ZERO;
+								for (jj=0; jj<n; jj++)
+								{
+									vtst = this->dlapy2(Vl[jj+vj], Vl[jj+vj+ldvl]);
+									if (vtst>vmx)
+									{
+										vmx = vtst;
+									}
+									if (Vl[jj+vj+ldvl]==ZERO && std::fabs(Vl[jj+vj])>vrmx)
+									{
+										vrmx = std::fabs(Vl[jj+vj]);
+									}
+								}
+								if (vrmx/vmx < ONE-TWO*ulp)
+								{
+									result[3] = ulpinv;
+								}
+							}
+						}
+						// Compute eigenvalues only, and test them
+						this->dlacpy("F", n, n, A, lda, H, lda);
+						this->dgeev("N", "N", n, H, lda, wr1, wi1, nullptr, 1, nullptr, 1, work,
+						            nnwork, iinfo);
+						if (iinfo!=0)
+						{
+							result[0] = ulpinv;
+							nounit << str9993a << "DGEEV2" << str9993b << std::setw(6) << iinfo
+							       << str9993c << std::setw(6) << n << str9993d << std::setw(6)
+							       << jtype+1 << str9993e << std::setw(5) << ioldsd[0] << ','
+							       << std::setw(5) << ioldsd[1] << ',' << std::setw(5) << ioldsd[2]
+							       << ',' << std::setw(5) << ioldsd[3] << ')' << std::endl;
+							info = std::abs(iinfo);
+						}
+						else
+						{
+							// Do Test (5)
+							for (j=0; j<n; j++)
+							{
+								if (wr[j]!=wr1[j] || wi[j]!=wi1[j])
+								{
+									result[4] = ulpinv;
+								}
+							}
+							// Compute eigenvalues and right eigenvectors, and test them
+							this->dlacpy("F", n, n, A, lda, H, lda);
+							this->dgeev("N", "V", n, H, lda, wr1, wi1, nullptr, 1, Lre, ldlre,
+							            work, nnwork, iinfo);
+							if (iinfo!=0)
+							{
+								result[0] = ulpinv;
+								nounit << str9993a << "DGEEV3" << str9993b << std::setw(6) << iinfo
+								       << str9993c << std::setw(6) << n << str9993d << std::setw(6)
+								       << jtype+1 << str9993e << std::setw(5) << ioldsd[0] << ','
+								       << std::setw(5) << ioldsd[1] << ',' << std::setw(5)
+								       << ioldsd[2] << ',' << std::setw(5) << ioldsd[3] << ')'
+								       << std::endl;
+								info = std::abs(iinfo);
+							}
+							else
+							{
+								// Do Test (5) again
+								for (j=0; j<n; j++)
+								{
+									if (wr[j]!=wr1[j] || wi[j]!=wi1[j])
+									{
+										result[4] = ulpinv;
+									}
+								}
+								// Do Test (6)
+								for (j=0; j<n; j++)
+								{
+									for (jj=0; jj<n; jj++)
+									{
+										if (Vr[j+ldvr*jj]!=Lre[j+ldlre*jj])
+										{
+											result[5] = ulpinv;
+										}
+									}
+								}
+								// Compute eigenvalues and left eigenvectors, and test them
+								this->dlacpy("F", n, n, A, lda, H, lda);
+								this->dgeev("V", "N", n, H, lda, wr1, wi1, Lre, ldlre, nullptr, 1,
+								            work, nnwork, iinfo);
+								if (iinfo!=0)
+								{
+									result[0] = ulpinv;
+									nounit << str9993a << "DGEEV4" << str9993b << std::setw(6)
+									       << iinfo << str9993c << std::setw(6) << n << str9993d
+									       << std::setw(6) << jtype+1 << str9993e << std::setw(5)
+									       << ioldsd[0] << ',' << std::setw(5) << ioldsd[1] << ','
+									       << std::setw(5) << ioldsd[2] << ',' << std::setw(5)
+									       << ioldsd[3] << ')' << std::endl;
+									info = std::abs(iinfo);
+								}
+								else
+								{
+									// Do Test (5) again
+									for (j=0; j<n; j++)
+									{
+										if (wr[j]!=wr1[j] || wi[j]!=wi1[j])
+										{
+											result[4] = ulpinv;
+										}
+									}
+									// Do Test (7)
+									for (j=0; j<n; j++)
+									{
+										for (jj=0; jj<n; jj++)
+										{
+											if (Vl[j+ldvl*jj]!=Lre[j+ldlre*jj])
+											{
+												result[6] = ulpinv;
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+					// End of Loop -- Check for result[j] > thresh
+					ntest = 0;
+					nfail = 0;
+					for (j=0; j<7; j++)
+					{
+						if (result[j]>=ZERO)
+						{
+							ntest++;
+						}
+						if (result[j]>=thresh)
+						{
+							nfail++;
+						}
+					}
+					if (nfail>0)
+					{
+						ntestf++;
+					}
+					if (ntestf==1)
+					{
+						nounit << "\n " << path << " -- Real Eigenvalue-Eigenvector Decomposition"
+						       << " Driver\n Matrix types (see DDRVEV for details): \n";
+						nounit << "\n Special Matrices:\n"
+						          "  1=Zero matrix.                        "
+						          "  5=Diagonal: geometr. spaced entries.\n"
+						          "  2=Identity matrix.                    "
+						          "  6=Diagonal: clustered entries.\n"
+						          "  3=Transposed Jordan block.            "
+						          "  7=Diagonal: large, evenly spaced.\n"
+						          "  4=Diagonal: evenly spaced entries.    "
+						          "  8=Diagonal: small, evenly spaced.\n";
+						nounit << " Dense, Non-Symmetric Matrices:\n"
+						          "  9=Well-cond., evenly spaced eigenvals."
+						          " 14=Ill-cond., geomet. spaced eigenals.\n"
+						          " 10=Well-cond., geom. spaced eigenvals. "
+						          " 15=Ill-conditioned, clustered e.vals.\n"
+						          " 11=Well-conditioned, clustered e.vals. "
+						          " 16=Ill-cond., random complex \n"
+						          " 12=Well-cond., random complex          "
+						          " 17=Ill-cond., large rand. complx \n"
+						          " 13=Ill-conditioned, evenly spaced.     "
+						          " 18=Ill-cond., small rand. complx \n";
+						nounit << " 19=Matrix with random O(1) entries.    "
+						          " 21=Matrix with small random entries.\n"
+						          " 20=Matrix with large random entries.   \n\n";
+						nounit << " Tests performed with test threshold =" << std::fixed
+						       << std::setw(8) << std::setprecision(2) << thresh << "\n\n"
+						       << " 1 = | A VR - VR W | / (n |A| ulp) \n"
+						          " 2 = | transpose(A) VL - VL W | / (n |A| ulp) \n"
+						          " 3 = | |VR[i]| - 1 | / ulp \n"
+						          " 4 = | |VL[i]| - 1 | / ulp \n"
+						          " 5 = 0 if W same no matter if VR or VL computed,"
+						                " 1/ulp otherwise\n"
+						          " 6 = 0 if VR same no matter if VL computed,  1/ulp otherwise\n"
+						          " 7 = 0 if VL same no matter if VR computed, "
+						                  " 1/ulp otherwise\n\n";
+						ntestf = 2;
+					}
+					for (j=0; j<7; j++)
+					{
+						if (result[j]>=thresh)
+						{
+							nounit << " N=" << std::setw(5) << n << ", IWK=" << std::setw(2) << iwk
+							       << ", seed=" << std::setw(2) <<  ioldsd[0] << ','
+							       << std::setw(2) <<  ioldsd[1] << ',' << std::setw(2)
+							       << ioldsd[2] << ',' << std::setw(2) <<  ioldsd[3] << ','
+							       << " type " << std::setw(2) << jtype+1 << ", test("
+							       << std::setw(2) << j+1 << ")=" << std::fixed << std::setw(10)
+							       << std::setprecision(3) << result[j] << std::endl;
+						}
+					}
+					nerrs += nfail;
+					ntestt += ntest;
+				}
+			}
+		}
+		// Summary
+		dlasum(path, nounit, nerrs, ntestt);
 	}
 
 	/*! §dget22
@@ -1575,7 +3685,179 @@ public:
 		return temp1;
 	}
 
-	// TODO: xlaenv, ilaenv, xerbla
+	/*! §ilaenv
+	 *
+	 * §ilaenv returns problem-dependent parameters for the local environment.
+	 * See §ispec for a description of the parameters.\n
+	 * In this version, the problem-dependent parameters are contained in the integer array §iparms
+	 * in the global struct §claenv and the value with index §ispec is copied to §ilaenv. This
+	 * version of §ilaenv is to be used in conjunction with §xlaenv in TESTING and TIMING.
+	 * \param[in] ispec
+	 *     Specifies the parameter to be returned as the value of §ilaenv.\n
+	 *     $\begin{tabular}{rl}
+	 *         = 1: & the optimal blocksize; if this value is 1, an unblocked algorithm will give
+	 *                the best performance.\\
+	 *         = 2: & the minimum block size for which the block routine should be used; if the
+	 *                usable block size is less than this value, an unblocked routine should be
+	 *                used.\\
+	 *         = 3: & the crossover point (in a block routine, for \{n} less than this value, an
+	 *                unblocked routine should be used)\\
+	 *         = 4: & the number of shifts, used in the nonsymmetric eigenvalue routines\\
+	 *         = 5: & the minimum column dimension for blocking to be used; rectangular blocks must
+	 *                have dimension at least \{k} by \{m}, where \{k} is given by \{ilaenv}(2,...)
+	 *                and \{m} by \{ilaenv}(5,...)\\
+	 *         = 6: & the crossover point for the SVD (when reducing an \{m} by \{n} matrix to
+	 *                bidiagonal form, if \(\max(m,n)/\min(m,n)\) exceeds this value, a QR
+	 *                factorization is used first to reduce the matrix to a triangular form.)\\
+	 *         = 7: & the number of processors\\
+	 *         = 8: & the crossover point for the multishift QR and QZ methods for nonsymmetric
+	 *                eigenvalue problems.\\
+	 *         = 9: & maximum size of the subproblems at the bottom of the computation tree in the
+	 *                divide-and-conquer algorithm\\
+	 *         =10: & IEEE NaN arithmetic can be trusted not to trap\\
+	 *         =11: & infinity arithmetic can be trusted not to trap\\
+	 *         12\(\le\)ispec\(\le\)16: & \{xhseqr} or one of its subroutines, see \{iparmq} for
+	 *                                    detailed explanation \end{tabular}$\n
+	 *     Other specifications (up to 100) can be added later.
+	 *
+	 * \param[in] name The name of the calling subroutine.
+	 * \param[in] opts
+	 *     The character options to the subroutine §name, concatenated into a single character
+	 *     string. For example, §uplo ="U", §trans= "T", and §diag ="N" for a triangular routine
+	 *     would be specified as §opts ="UTN".
+	 *
+	 * \param[in] n1, n2, n3, n4
+	 *     Problem dimensions for the subroutine §name; these may not all be required.
+	 *
+	 * \return
+	 *     $\ge 0$: the value of the parameter specified by §ispec \n
+	 *     $<   0$: if $-k$, the $k$-th argument had an illegal value.
+	 * \authors Univ. of Tennessee
+	 * \authors Univ. of California Berkeley
+	 * \authors Univ. of Colorado Denver
+	 * \authors NAG Ltd.
+	 * \date November 2017
+	 * \remark
+	 *     The following conventions have been used when calling §ilaenv from the LAPACK routines:
+	 *     1. §opts is a concatenation of all of the character options to subroutine §name, in the
+	 *        same order that they appear in the argument list for §name, even if they are not used
+	 *        in determining the value of the parameter specified by §ispec.
+	 *     2. The problem dimensions §n1, §n2, §n3, §n4 are specified in the order that they appear
+	 *        in the argument list for §name. §n1 is used first, §n2 second, and so on, and unused
+	 *        problem dimensions are passed a value of -1.
+	 *     3. The parameter value returned by §ilaenv is checked for validity in the calling
+	 *        subroutine. For example, §ilaenv is used to retrieve the optimal blocksize for
+	 *        §strtri as follows:\n
+	 *            $\{nb}=\{ilaenv}(1, ``\text{strtri}", \{uplo+diag}, \{N}, -1, -1, -1);$\n
+	 *            $\{if} (\{nb}\le 1) \{nb}=\max(1, \{N})$                                       */
+	virtual int ilaenv(int const ispec, char const* const name, char const* const opts,
+	                   int const n1, int const n2, int const n3, int const n4) const
+	{
+		if (ispec>=1 && ispec<=5)
+		{
+			// Return a value from the common block.
+			return claenv.iparms[ispec-1];
+		}
+		else if (ispec==6)
+		{
+			// Compute SVD crossover point.
+			return int(real(std::min(n1, n2))*real(1.6));
+		}
+		else if (ispec>=7 && ispec<=9)
+		{
+			// Return a value from the common block.
+			return claenv.iparms[ispec-1];
+		}
+		else if (ispec==10)
+		{
+			// IEEE NaN arithmetic can be trusted not to trap
+			return this->ieeeck(1, ZERO, ONE);
+		}
+		else if (ispec==11)
+		{
+			// Infinity arithmetic can be trusted not to trap
+			return this->ieeeck(1, ZERO, ONE);
+		}
+		else if (ispec>=12 && ispec<=16)
+		{
+			// 12 <= ispec <= 16: xHSEQR or one of its subroutines.
+			return claenv.iparms[ispec-1];
+			// stdout << "ispec = " << ISPE << " ILAENV =" << claenv.iparms[ispec-1] << std::endl;
+			// return iparmq(ispec, name, opts, n1, n2, n3, n4);
+		}
+		else if (ispec>=17 && ispec<=21)
+		{
+			// 17 <= ispec <= 21: 2stage eigenvalues SVD routines.
+			if (ispec==17)
+			{
+				return claenv.iparms[0];
+			}
+			else
+			{
+				return this->iparam2stage(ispec, name, opts, n1, n2, n3, n4);
+			}
+		}
+		else
+		{
+			// Invalid value for ispec
+			return -1;
+		}
+		return -1;
+	}
+
+	/*! §xerbla
+	 *
+	 * This is a special version of §xerbla to be used only as part of the test program for testing
+	 * error exits from the LAPACK routines. Error messages are printed if $\{info}\ne\{infot}$ or
+	 * if $\{srname}\ne\{srnamt}$, where §infot and §srnamt are global variables.
+	 * \param[in] srname
+	 *     The name of the subroutine calling §xerbla. This name should match the global variable
+	 *     §srnamt.
+	 *
+	 * \param[in] info
+	 *     The error return code from the calling subroutine. §info should equal the global
+	 *     variable §infot.
+	 * \authors Univ. of Tennessee
+	 * \authors Univ. of California Berkeley
+	 * \authors Univ. of Colorado Denver
+	 * \authors NAG Ltd.
+	 * \date December 2016
+	 * \remark
+	 *     The following variables are passed via the global variables §infoc and §srnamc: \n
+	 *     $\begin{tabular}{lll}
+	 *        \(\{info}\)   & integer      & Expected integer return code                     \\
+	 *        \(\{nout}\)   & std::ostream & Output stream for printing error messages        \\
+	 *        \(\{ok}\)     & boolean      & Set to true if \(\{info}=\{infot}\) and
+	 *                                      \(\{srname}=\{srnamt}\), otherwise set to false   \\
+	 *        \(\{lerr}\)   & boolean      & Set to true, indicating that xerbla was called   \\
+	 *        \(\{srnamt}\) & char*        & Expected name of calling subroutine \end{tabular}$  */
+	virtual void xerbla(char const* const srname, int const info)
+	{
+		infoc.lerr = true;
+		if (info!=infoc.info)
+		{
+			if (infoc.info!=0)
+			{
+				infoc.nout << " *** XERBLA was called from " << srnamc.srnam << " with INFO = "
+				           << std::setw(6) << info << " instead of " << std::setw(2) << infoc.info
+				           << " ***" << std::endl;
+			}
+			else
+			{
+				infoc.nout << " *** On entry to " << srnamc.srnam << " parameter number "
+				           << std::setw(6) << info << " had an illegal value ***" << std::endl;
+			}
+			infoc.ok = false;
+		}
+		if (srname!=srnamc.srnam)
+		{
+			infoc.nout << " *** XERBLA was called with SRNAME = " << srname << " instead of "
+			           << std::setw(6) << srnamc.srnam << " ***" << std::endl;
+			infoc.ok = false;
+		}
+	}
+
+	// TODO: xlaenv (set zero byte in srnam!)
 };
 
 #endif

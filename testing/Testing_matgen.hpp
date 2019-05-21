@@ -1406,10 +1406,10 @@ public:
 	 *     §upper may only have the values 'T' or 'F'.
 	 *
 	 * \param[in] sim
-	 *     If §sim ='T', then §A will be operated on by a "similarity transform", i.e., multiplied on
-	 *     the left by a matrix $X$ and on the right by $X$ inverse. $X = USV$, where $U$ and $V$
-	 *     are random unitary matrices and $S$ is a (diagonal) matrix of singular values specified
-	 *     by §ds, §modes, and §conds. If §sim ='F', then §A will not be transformed.
+	 *     If §sim ='T', then §A will be operated on by a "similarity transform", i.e., multiplied
+	 *     on the left by a matrix $X$ and on the right by $X$ inverse. $X = USV$, where $U$ and
+	 *     $V$ are random unitary matrices and $S$ is a (diagonal) matrix of singular values
+	 *     specified by §ds, §modes, and §conds. If §sim ='F', then §A will not be transformed.
 	 *
 	 * \param[in,out] ds
 	 *     an array, dimension (§n)\n
@@ -2063,7 +2063,7 @@ public:
 	 *          PB, SB or TB   & - use 'B' or 'Q' \\
 	 *          PP, SP or TP   & - use 'C' or 'R'
 	 *          \end{tabular}$\n
-	 *     If two calls to §DLATMR differ only in the §pack parameter, they will generate
+	 *     If two calls to §dlatmr differ only in the §pack parameter, they will generate
 	 *     mathematically equivalent matrices.
 	 *
 	 * \param[out] A

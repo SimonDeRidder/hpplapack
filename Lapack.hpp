@@ -26626,6 +26626,246 @@ public:
 		return -1;
 	}
 
+	/*! §iparam2stage
+	 *
+	 * This program sets problem and machine dependent parameters useful for §xhetrd_2stage,
+	 * §xhetrd_h@2hb, §xhetrd_hb2st, §xgebrd_2stage, §xgebrd_ge2gb, §xgebrd_gb2bd  and related
+	 * subroutines for eigenvalue problems.\n
+	 * It is called whenever §ilaenv is called with $17\le\{ispec}\le 21$.\n
+	 * It is called whenever §ilaenv2stage is called with $1\le\{ispec}\le 5$ with a direct
+	 * conversion $\{ispec}+16$.
+	 * \param[in] ispec
+	 *     ispec specifies which tunable parameter §iparam2stage should return.
+	 *     17. the optimal blocksize §nb for the reduction to band
+	 *     18. the optimal blocksize §ib for the eigenvectors singular vectors update routine
+	 *     19. The length of the array that store the Housholder  representation for the second
+	 *         stage Band to Tridiagonal or Bidiagonal
+	 *     20. The workspace needed for the routine in input.
+	 *     21. For future release.
+	 *
+	 * \param[in] name Name of the calling subroutine
+	 * \param[in] opts
+	 *     The character options to the subroutine §name, concatenated into a single character
+	 *     string. For example, §UPLO ="U", §TRANS ="T", and §DIAG ="N" for a triangular routine
+	 *     would be specified as §opts ="UTN".
+	 *
+	 * \param[in] ni  the size of the matrix
+	 * \param[in] nbi
+	 *     used in the reduciton, (e.g., the size of the band),
+	 *     needed to compute workspace and §lhous2.
+	 *
+	 * \param[in] ibi
+	 *     represents the §ib of the reduciton, needed to compute workspace and §lhous2.
+	 *
+	 * \param[in] nxi needed in the future release.
+	 * \authors Univ. of Tennessee
+	 * \authors Univ. of California Berkeley
+	 * \authors Univ. of Colorado Denver
+	 * \authors NAG Ltd.
+	 * \date June 2016
+	 * \remark
+	 *     Implemented by Azzam Haidar.\n\n
+	 *     All details are available in technical report, SC11, SC13 papers.\n\n
+	 *         Azzam Haidar, Hatem Ltaief, and Jack Dongarra.\n
+	 *         Parallel reduction to condensed forms for symmetric eigenvalue problems using
+	 *         aggregated fine-grained and memory-aware kernels. In Proceedings of 2011
+	 *         International Conference for High Performance Computing, Networking, Storage and
+	 *         Analysis (SC '11), New York, NY, USA, Article 8 , 11 pages.\n
+	 *         http://doi.acm.org/10.1145/2063384.2063394 \n\n
+	 *         A. Haidar, J. Kurzak, P. Luszczek, 2013.\n
+	 *         An improved parallel singular value algorithm and its implementation  for multicore
+	 *         hardware, In Proceedings of 2013 International Conference for High Performance
+	 *         Computing, Networking, Storage and Analysis (SC '13). Denver, Colorado, USA, 2013.
+	 *         Article 90, 12 pages.\n
+	 *         http://doi.acm.org/10.1145/2503210.2503292 \n\n
+	 *         A. Haidar, R. Solca, S. Tomov, T. Schulthess and J. Dongarra.\n
+	 *         A novel hybrid CPU-GPU generalized eigensolver for electronic structure calculations
+	 *         based on fine-grained memory aware tasks. International Journal of High Performance
+	 *         Computing Applications. Volume 28 Issue 2, Pages 196-209, May 2014.\n
+	 *         http://hpc.sagepub.com/content/28/2/196                                           */
+	static int iparam2stage(int const ispec, char const* const name, char const* const opts,
+	                        int const ni, int const nbi, int const ibi, int const nxi) /*const*/
+	{
+//#if defined(_OPENMP)
+//		use omp_lib
+//#endif
+		// Invalid value for ispec
+		if (ispec<17||ispec>21)
+		{
+			return -1;
+		}
+		// Get the number of threads
+		int nthreads = 1;
+//#if defined(_OPENMP)
+//		nthreads = OMP_GET_NUM_THREADS()
+//#endif
+		bool cprec = false;
+		char prec, algo[3], stag[5], subnam[13];
+		if (ispec != 19)
+		{
+			// Convert name to upper case
+			for (int i=0; i<12; i++)
+			{
+				subnam[i] = std::toupper(name[i]);
+			}
+			subnam[12] = '\0';
+			prec  = subnam[0];
+			std::strncpy(algo, &subnam[3], 3);
+			std::strncpy(stag, &subnam[7], 5);
+			cprec = (prec=='C' || prec=='Z');
+			// Invalid value for PRECISION
+			if (!(prec=='S' || prec=='D' || cprec))
+			{
+				return -1;
+			}
+		}
+		if (ispec == 17 || ispec == 18)
+		{
+			// ispec = 17, 18: block size kd, ib
+			// Could be also dependent from N but for now it depend only on sequential or parallel
+			int kd, ib;
+			if (nthreads>4)
+			{
+				if (cprec)
+				{
+					kd = 128;
+					ib = 32;
+				}
+				else
+				{
+					kd = 160;
+					ib = 40;
+				}
+			}
+			else if (nthreads>1)
+			{
+				if (cprec)
+				{
+					kd = 64;
+					ib = 32;
+				}
+				else
+				{
+					kd = 64;
+					ib = 32;
+				}
+			}
+			else
+			{
+				if (cprec)
+				{
+					kd = 16;
+					ib = 16;
+				}
+				else
+				{
+					kd = 32;
+					ib = 16;
+				}
+			}
+			if (ispec==17)
+			{
+				return kd;
+			}
+			if (ispec==18)
+			{
+				return ib;
+			}
+		}
+		else if (ispec == 19)
+		{
+			// ispec = 19:
+			// lhous length of the Houselholder representation matrix (V,T) of the second stage.
+			// should be >= 1. Will add the vect OPTION HERE next release
+			int lhous;
+			char vect  = opts[0];
+			if (vect=='N')
+			{
+				lhous = std::max(1, 4*ni);
+			}
+			else
+			{
+				// This is not correct, it need to call the algo and the stage2
+				lhous = std::max(1, 4*ni) + ibi;
+			}
+			if (lhous>=0)
+			{
+				return lhous;
+			}
+			else
+			{
+				return -1;
+			}
+		}
+		else if (ispec == 20)
+		{
+			// ispec = 20: (21 for future use)
+			// lwork length of the workspace for  either or both stages for TRD and BRD.
+			// should be >= 1.
+			// TRD:
+			// TRD_stage 1: = LT + LW + LS1 + LS2 = LDT*kd + N*kd + N*max(kd,factoptnb) + LDS2*kd
+			// where LDT=LDS2=kd = N*kd + N*max(kd,factoptnb) + 2*kd*kd
+			// TRD_stage 2: = (2NB+1)*N + kd*nthreads
+			// TRD_both   : = max(stage1,stage2) + AB (AB=(kd+1)*N)
+			//              = N*kd + N*max(kd+1,factoptnb) + max(2*kd*kd, kd*nthreads) + (kd+1)*N
+			int lwork = -1;
+			subnam[0] = prec;
+			std::strncpy(&subnam[1], "GEQRF", 6);
+			int qroptnb = ilaenv(1, subnam, " ", ni, nbi, -1, -1);
+			std::strncpy(&subnam[1], "GELQF", 6);
+			int lqoptnb = ilaenv(1, subnam, " ", nbi, ni, -1, -1);
+			// Could be QR or LQ for TRD and the max for BRD
+			int factoptnb = std::max(qroptnb, lqoptnb);
+			if (std::strncmp(algo, "TRD", 3)==0)
+			{
+				if (std::strncmp(stag, "2STAG", 5)==0)
+				{
+					lwork = ni*nbi + ni*std::max(nbi+1,factoptnb)
+					        + std::max(2*nbi*nbi, nbi*nthreads) + (nbi+1)*ni;
+				}
+				else if (std::strncmp(stag, "HE2HB", 5)==0 || std::strncmp(stag, "SY2SB", 5)==0)
+				{
+					lwork = ni*nbi + ni*std::max(nbi,factoptnb) + 2*nbi*nbi;
+				}
+				else if (std::strncmp(stag, "HB2ST", 5)==0 || std::strncmp(stag, "SB2ST", 5)==0)
+				{
+					lwork = (2*nbi+1)*ni + nbi*nthreads;
+				}
+			}
+			else if (std::strncmp(algo, "BRD", 3)==0)
+			{
+				if (std::strncmp(stag, "2STAG", 5)==0)
+				{
+					lwork = 2*ni*nbi + ni*std::max(nbi+1,factoptnb)
+					        + std::max(2*nbi*nbi, nbi*nthreads) + (nbi+1)*ni;
+				}
+				else if (std::strncmp(stag, "GE2GB", 5)==0)
+				{
+					lwork = ni*nbi + ni*std::max(nbi,factoptnb) + 2*nbi*nbi;
+				}
+				else if (std::strncmp(stag, "GB2BD", 5)==0)
+				{
+					lwork = (3*nbi+1)*ni + nbi*nthreads;
+				}
+			}
+			lwork = std::max(1, lwork);
+			if (lwork>0)
+			{
+				return lwork;
+			}
+			else
+			{
+				return -1;
+			}
+		}
+		else if (ispec == 21)
+		{
+			// ispec = 21 for future use
+			return nxi;
+		}
+		return -1;
+	}
+
 	/*! §iparmq
 	 *
 	 * This program sets problem and machine dependent parameters useful for §xhseqr and related
