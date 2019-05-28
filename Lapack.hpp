@@ -128,6 +128,8 @@ public:
 		}
 	}
 
+	/* §dsecnd replaced inline by std::time */
+
 	/*! §ilaver returns the LAPACK version.
 	 *
 	 * This subroutine returns the LAPACK version.

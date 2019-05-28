@@ -881,9 +881,7 @@ public:
 				{
 					int lenp = std::strlen(line);
 					i = -1;
-					char c1;
 					int i1, ic=0, j, k;
-					char const INTSTR[10] = {'0','1','2','3','4','5','6','7','8','9'};
 					char const* str9994 = " matrix types on this line or adjust NTYPES on previous"
 					                      " line";
 					for (j=0; j<nmats; j++)
@@ -911,17 +909,9 @@ public:
 							if (line[i]!=' ' && line[i]!=',')
 							{
 								i1 = i;
-								c1 = line[i1];
 								// Check that a valid integer was read
-								for (k=0; k<10; k++)
-								{
-									if (c1==INTSTR[k])
-									{
-										ic = k;
-										break;
-									}
-								}
-								if (c1!=INTSTR[k])
+								ic = line[i1] - '0';
+								if (ic<0 || ic>9)
 								{
 									nout << "\n\n *** Invalid integer value in column "
 									     << std::setw(2) << i+1 << " of input line:\n"
@@ -1098,7 +1088,6 @@ public:
 		std::ostream& nout = std::cout;
 		 */
 		const int KDMAX = NMAX+(NMAX+1) / 4;
-		const char INTSTR[10] = {'0','1','2','3','4','5','6','7','8','9'};
 		const real THREQ=real(2.0);
 		std::time_t s1, s2;
 		std::time(&s1);
@@ -1511,18 +1500,8 @@ public:
 				nmats = 0;
 				do
 				{
-					c1 = aline[i];
-					breakloop = false;
-					for (k=0; k<10; k++)
-					{
-						if (c1==INTSTR[k])
-						{
-							ic = k;
-							breakloop = true;
-							break;
-						}
-					}
-					if (!breakloop)
+					ic = aline[i] - '0';
+					if (ic<0 || ic>9)
 					{
 						break;
 					}

@@ -1,13 +1,15 @@
 #ifndef TESTING_EIG_HEADER
 #define TESTING_EIG_HEADER
 
+#include <cstring>
+#include <cmath>
+#include <ctime>
+
 #include <iostream>
 #include <iomanip>
 #include <fstream>
-#include <cstring>
 #include <string>
 #include <sstream>
-#include <cmath>
 #include <algorithm>
 
 #include "Blas.hpp"
@@ -48,14 +50,166 @@ private:
 	/*! A struct containing parameters to emulate different environments */
 	struct laenvstruct
 	{
-		int iparms[100]; //!< struct containing parameters. used in §ilaenv, §iparmq
+		int iparms[100]; //!< array containing parameters. used in §ilaenv, §iparmq
 	} claenv;            //!< A classwide leanvstruct instance
+
+	/*! A struct containing parameters to emulate different environments */
+	struct envirstruct
+	{
+		int nproc;
+		int nshift;
+		int maxb;
+	} cenvir;       //!< A classwide envirstruct instance
+
+	struct selstruct
+	{
+		int selopt;
+		int seldim;
+		bool selval[20];
+		real selwr[20];
+		real selwi[20];
+	} sslct;       //!< A classwide selstruct instance
+
 	Testing_matgen<real> const MatGen; //!< matgen instance
 
 public:
 	virtual ~Testing_eig(){}
 
 	// LAPACK TESTING EIG (alphabetically)
+
+	/*! §alareq
+	 *
+	 * §alareq handles input for the LAPACK test program. It is called to evaluate the input line
+	 * which requested §nmats matrix types for §path. The flow of control is as follows:\n
+	 * §If $\{nmats}=\{ntypes}$\n
+	 * &emsp;$\{dotype}[0:\{ntypes}-1]=\{true}$;\n
+	 * §else \n
+	 * {\n
+	 * &emsp;Read the next input line for §nmats matrix types
+	 * &emsp;Set $\{dotype}[I-1]=\{true}$ for each valid type $I$\n
+	 * }
+	 * \param[in]  path   A LAPACK path name for testing.
+	 * \param[in]  nmats  The number of matrix types to be used in testing this path.
+	 * \param[out] dotype
+	 *     a boolean array, dimension (§ntypes)\n
+	 *     The vector of flags indicating if each type will be tested.
+	 *
+	 * \param[in] ntypes The maximum number of matrix types for this path.
+	 * \param[in] nin    The input stream for input.
+	 * \param[in] nout   The output stream for output.
+	 * \authors Univ. of Tennessee
+	 * \authors Univ. of California Berkeley
+	 * \authors Univ. of Colorado Denver
+	 * \authors NAG Ltd.
+	 * \date December 2016                                                                       */
+	void alareq(char const* const path, int const nmats, bool* const dotype, int const ntypes,
+	            std::istream& nin, std::ostream& nout) const
+	{
+		int i;
+		if (nmats>=ntypes)
+		{
+			// Test everything if nmats >= ntypes.
+			for (i=0; i<ntypes; i++)
+			{
+				dotype[i] = true;
+			}
+		}
+		else
+		{
+			for (i=0; i<ntypes; i++)
+			{
+				dotype[i] = false;
+			}
+			// Read a line of matrix types if 0 < nmats < ntypes.
+			int nreq[100];
+			if (nmats>0)
+			{
+				char line[80];
+				nin.getline(line, 80);
+				if (!nin.good())
+				{
+					nout << "\n *** End of file reached when trying to read matrix types for "
+					     << path << "\n *** Check that you are requesting the right number of "
+					     << "types for each path\n";
+					nout << std::endl;
+					return;
+				}
+				int lenp = std::strlen(line);
+				char const* str9994a = " ==> Specify ";
+				char const* str9994b =
+				    " matrix types on this line or adjust NTYPES on previous line";
+				int i1, ic;
+				i = -1;
+				for (int j=0; j<nmats; j++)
+				{
+					nreq[j] = 0;
+					i1 = -1;
+					while (true)
+					{
+						i++;
+						if (i>=lenp)
+						{
+							if (j==nmats-1 && i1>=0)
+							{
+								break;
+							}
+							else
+							{
+								nout << "\n\n *** Not enough matrix types on input line\n" << line
+								     << '\n';
+								nout << str9994a << std::setw(4) << nmats << str9994b << std::endl;
+								return;
+							}
+						}
+						if (line[i]!=' ' && line[i]!=',')
+						{
+							i1 = i;
+							// Check that a valid integer was read
+							ic = line[i1] - '0';
+							if (ic<0 || ic>9)
+							{
+								nout << "\n\n *** Invalid integer value in column " << std::setw(2)
+								     << i+1 << " of input line:\n"  << line << '\n';
+								nout << str9994a << std::setw(4) << nmats << str9994b << std::endl;
+								return;
+							}
+							nreq[j] = 10*nreq[j] + ic;
+						}
+						else if (i1>=0)
+						{
+							break;
+						}
+					}
+				}
+			}
+			int nt;
+			bool firstt = true;
+			for (i=0; i<nmats; i++)
+			{
+				nt = nreq[i];
+				if (nt>0 && nt<=ntypes)
+				{
+					if (dotype[nt-1])
+					{
+						if (firstt)
+						{
+							nout << '\n';
+						}
+						firstt = false;
+						nout << " *** Warning:  duplicate request of matrix type " << std::setw(2)
+						     << nt << " for " << path << std::endl;
+					}
+					dotype[nt-1] = true;
+				}
+				else
+				{
+					nout << " *** Invalid type request for " << path << ", type  " << std::setw(4)
+					     << nt << ": must satisfy  1 <= type <= " << std::setw(2) << ntypes
+					     << std::endl;
+				}
+			}
+		}
+	}
 
 	/*! §alasum
 	 *
@@ -1966,11 +2120,10 @@ public:
 		int i, ihi=0, ihiin, ilo=0, iloin, info, j, knt, n, ninfo;
 		//real anorm, meps;
 		real rmax, sfmin, temp, vmax;
-		int* lmax = new int[3];
-		real* A = new real[lda*lda];
-		real* Ain = new real[lda*lda];
-		real* dummy = new real[1];
-		real* scale = new real[lda];
+		int lmax[3];
+		real* A      = new real[lda*lda];
+		real* Ain    = new real[lda*lda];
+		real* scale  = new real[lda];
 		real* scalin = new real[lda];
 		lmax[0] = 0;
 		lmax[1] = 0;
@@ -2076,12 +2229,2534 @@ public:
 		nout << " example number having largest error    = " << std::setw(4) << lmax[2] << '\n';
 		nout << " number of examples where info is not 0 = " << std::setw(4) << ninfo << '\n';
 		nout << " total number of examples tested        = " << std::setw(4) << knt << std::endl;
-		delete[] lmax;
 		delete[] A;
 		delete[] Ain;
-		delete[] dummy;
 		delete[] scale;
 		delete[] scalin;
+	}
+
+	/*! §dchkee
+	 *
+	 * §dchkee tests the double precision LAPACK subroutines for the matrix eigenvalue problem.
+	 * The test paths in this version are
+	 * - NEP (Nonsymmetric Eigenvalue Problem):
+	 *   Test §dgehrd, §dorghr, §dhseqr, §dtrevc, §dhsein, and §dormhr
+	 * - SEP (Symmetric Eigenvalue Problem):
+	 *   Test §dsytrd, §dorgtr, §dsteqr, §dsterf, §dstein, §dstedc, and drivers §dsyev(x),
+	 *        §dsbev(x), §dspev(x), §dstev(x), §dsyevd, §dsbevd, §dspevd, §dstevd
+	 * - SVD (Singular Value Decomposition):
+	 *   Test §dgebrd, §dorgbr, §dbdsqr, §dbdsdc and the drivers §dgesvd, §dgesdd
+	 * - DEV (Nonsymmetric Eigenvalue/eigenvector Driver):
+	 *   Test §dgeev
+	 * - DES (Nonsymmetric Schur form Driver):
+	 *   Test §dgees
+	 * - DVX (Nonsymmetric Eigenvalue/eigenvector Expert Driver):
+	 *   Test §dgeevx
+	 * - DSX (Nonsymmetric Schur form Expert Driver):
+	 *   Test §dgeesx
+	 * - DGG (Generalized Nonsymmetric Eigenvalue Problem):
+	 *   Test §dgghd3, §dggbal, §dggbak, §dhgeqz, and §dtgevc
+	 * - DGS (Generalized Nonsymmetric Schur form Driver):
+	 *   Test §dgges
+	 * - DGV (Generalized Nonsymmetric Eigenvalue/eigenvector Driver):
+	 *   Test §dggev
+	 * - DGX (Generalized Nonsymmetric Schur form Expert Driver):
+	 *   Test §dggesx
+	 * - DXV (Generalized Nonsymmetric Eigenvalue/eigenvector Expert Driver):
+	 *   Test §dggevx
+	 * - DSG (Symmetric Generalized Eigenvalue Problem):
+	 *   Test §dsygst, §dsygv, §dsygvd, §dsygvx, §dspgst, §dspgv, §dspgvd, §dspgvx, §dsbgst,
+	 *        §dsbgv, §dsbgvd, and §dsbgvx
+	 * - DSB (Symmetric Band Eigenvalue Problem):
+	 *   Test §dsbtrd
+	 * - DBB (Band Singular Value Decomposition):
+	 *   Test §dgbbrd
+	 * - DEC (Eigencondition estimation):
+	 *   Test §dlaln2, §dlasy2, §dlaequ, §dlaexc, §dtrsyl, §dtrexc, §dtrsna, §dtrsen, and §dlaqtr
+	 * - DBL (Balancing a general matrix)
+	 *   Test §dgebal
+	 * - DBK (Back transformation on a balanced matrix)
+	 *   Test §dgebak
+	 * - DGL (Balancing a matrix pair)
+	 *   Test §dggbal
+	 * - DGK (Back transformation on a matrix pair)
+	 *   Test §dggbak
+	 * - GLM (Generalized Linear Regression Model):
+	 *   Tests §dggglm
+	 * - GQR (Generalized QR and RQ factorizations):
+	 *   Tests §dggqrf and §dggrqf
+	 * - GSV (Generalized Singular Value Decomposition):
+	 *   Tests §dggsvd, §dggsvp, §dtgsja, §dlags2, §dlapll, and §dlapmt
+	 * - CSD (CS decomposition):
+	 *   Tests §dorcsd
+	 * - LSE (Constrained Linear Least Squares):
+	 *   Tests §dgglse
+	 *
+	 * Each test path has a different set of inputs, but the data sets for the driver routines
+	 * §xev, §xes, §xvx, and §xsx can be concatenated in a single input file. The first line of
+	 * input should contain one of the 3-character path names in columns 1-3. The number of
+	 * remaining lines depends on what is found on the first line.\n
+	 * The number of matrix types used in testing is often controllable from the input file. The
+	 * number of matrix types for each path, and the test routine that describes them, is as
+	 * follows:\n
+	 * $\begin{tabular}{lrl}
+	 *     Path name(s) & Types & Test routine         \\
+	 *     \hline
+	 *     DHS or NEP   & 21    & \{DCHKHS}            \\
+	 *     DST or SEP   & 21    & \{DCHKST} (routines) \\
+	 *                  & 18    & \{DDRVST} (drivers)  \\
+	 *     DBD or SVD   & 16    & \{DCHKBD} (routines) \\
+	 *                  &  5    & \{DDRVBD} (drivers)  \\
+	 *     DEV          & 21    & \{DDRVEV}            \\
+	 *     DES          & 21    & \{DDRVES}            \\
+	 *     DVX          & 21    & \{DDRVVX}            \\
+	 *     DSX          & 21    & \{DDRVSX}            \\
+	 *     DGG          & 26    & \{DCHKGG} (routines)\\
+	 *     DGS          & 26    & \{DDRGES}            \\
+	 *     DGX          &  5    & \{DDRGSX}            \\
+	 *     DGV          & 26    & \{DDRGEV}            \\
+	 *     DXV          &  2    & \{DDRGVX}            \\
+	 *     DSG          & 21    & \{DDRVSG}            \\
+	 *     DSB          & 15    & \{DCHKSB}            \\
+	 *     DBB          & 15    & \{DCHKBB}            \\
+	 *     DEC          &  -    & \{DCHKEC}            \\
+	 *     DBL          &  -    & \{DCHKBL}            \\
+	 *     DBK          &  -    & \{DCHKBK}            \\
+	 *     DGL          &  -    & \{DCHKGL}            \\
+	 *     DGK          &  -    & \{DCHKGK}            \\
+	 *     GLM          &  8    & \{DCKGLM}            \\
+	 *     GQR          &  8    & \{DCKGQR}            \\
+	 *     GSV          &  8    & \{DCKGSV}            \\
+	 *     CSD          &  3    & \{DCKCSD}            \\
+	 *     LSE          &  8    & \{DCKLSE}            \end{tabular}$
+	 *
+	 *---------------------------------------------------------------------------------------------
+	 * NEP input file:
+	 * - line 2:  §nn, integer\n
+	 *            Number of values of §N.
+	 * - line 3:  §nval, integer array, dimension (§nn)\n
+	 *            The values for the matrix dimension §N.
+	 * - line 4:  §nparms, integer\n
+	 *            Number of values of the parameters §NB, §nbmin, §NX, §NS, and §MAXB.
+	 * - line 5:  §nbval, integer array, dimension (§nparms)\n
+	 *            The values for the blocksize §NB.
+	 * - line 6:  §nbmin, integer array, dimension (§nparms)\n
+	 *            The values for the minimum blocksize §nbmin.
+	 * - line 7:  §nxval, integer array, dimension (§nparms)\n
+	 *            The values for the crossover point §NX.
+	 * - line 8:  §inmin, integer array, dimension (§nparms)\n
+	 *            §LAHQR vs §TTQRE crossover point, $\ge 11$
+	 * - line 9:  §inwin, integer array, dimension (§nparms)\n
+	 *            recommended deflation window size
+	 * - line 10: §inibl, integer array, dimension (§nparms)\n
+	 *            nibble crossover point
+	 * - line 11: §ishfts, integer array, dimension (§nparms)\n
+	 *            number of simultaneous shifts)
+	 * - line 12: §iacc22, integer array, dimension (§nparms)\n
+	 *            select structured matrix multiply: 0, 1 or 2.
+	 * - line 13: §thresh \n
+	 *            Threshold value for the test ratios. Information will be printed about each test
+	 *            for which the test ratio is greater than or equal to the threshold. To have all
+	 *            of the test ratios printed, use $\{thresh}=0.0$.
+	 * - line 14: §newsd, integer\n
+	 *            A code indicating how to set the random number seed.\n
+	 *            =0: Set the seed to a default value before each run\n
+	 *            =1: Initialize the seed to a default value only before the first run\n
+	 *            =2: Like 1, but use the seed values on the next line
+	 *
+	 * If line 14 was 2:
+	 * - line 15: §integer array, dimension (4 \n
+	 *            Four integer values for the random number seed.
+	 * - lines 15-EOF: The remaining lines occur in sets of 1 or 2 and allow the user to specify
+	 *                 the matrix types. Each line contains a 3-character path name in columns 1-3,
+	 *                 and the number of matrix types must be the first nonblank item in columns
+	 *                 4-80. If the number of matrix types is at least 1 but is less than the
+	 *                 maximum number of possible types, a second line will be read to get the
+	 *                 numbers of the matrix types to be used. For example,\n
+	 *                 NEP 21\n
+	 *                 requests all of the matrix types for the nonsymmetric eigenvalue problem,
+	 *                 while\n
+	 *                 NEP  4\n
+	 *                 9 10 11 12\n
+	 *                 requests only matrices of type 9, 10, 11, and 12.\n
+	 *                 The valid 3-character path names are "NEP" or "SHS" for the nonsymmetric
+	 *                 eigenvalue routines.
+	 * .
+	 *
+	 *---------------------------------------------------------------------------------------------
+	 * SEP or DSG input file:
+	 * - line 2:  §nn, integer\n
+	 *            Number of values of §N.
+	 * - line 3:  §nval, integer array, dimension (§nn)\n
+	 *            The values for the matrix dimension §N.
+	 * - line 4:  §nparms, integer\n
+	 *            Number of values of the parameters §NB, §nbmin, and §NX.
+	 * - line 5:  §nbval, integer array, dimension (§nparms)\n
+	 *            The values for the blocksize §NB.
+	 * - line 6:  §nbmin, integer array, dimension (§nparms)\n
+	 *            The values for the minimum blocksize §nbmin.
+	 * - line 7:  §nxval, integer array, dimension (§nparms)\n
+	 *            The values for the crossover point §NX.
+	 * - line 8:  §thresh \n
+	 *            Threshold value for the test ratios. Information will be printed about each test
+	 *            for which the test ratio is greater than or equal to the threshold.
+	 * - line 9:  §tstchk, logical\n
+	 *            Flag indicating whether or not to test the LAPACK routines.
+	 * - line 10: §tstdrv, logical\n
+	 *            Flag indicating whether or not to test the driver routines.
+	 * - line 11: §tsterr, logical\n
+	 *            Flag indicating whether or not to test the error exits for the LAPACK routines
+	 *            and driver routines.
+	 * - line 12: §newsd, integer\n
+	 *            A code indicating how to set the random number seed.\n
+	 *            =0: Set the seed to a default value before each run\n
+	 *            =1: Initialize the seed to a default value only before the first run\n
+	 *            =2: Like 1, but use the seed values on the next line
+	 *
+	 * If line 12 was 2:
+	 * - line 13: §integer array, dimension (4)\n
+	 *            Four integer values for the random number seed.
+	 * - lines 13-EOF:  Lines specifying matrix types, as for NEP.\n
+	 *                  The 3-character path names are "SEP" or "SST" for the symmetric eigenvalue
+	 *                  routines and driver routines, and "DSG" for the routines for the symmetric
+	 *                  generalized eigenvalue problem.
+	 * .
+	 *
+	 *---------------------------------------------------------------------------------------------
+	 * SVD input file:
+	 * - line 2:  §nn, integer\n
+	 *            Number of values of §M and §N.
+	 * - line 3:  §mval, integer array, dimension (§nn)\n
+	 *            The values for the matrix row dimension §M.
+	 * - line 4:  §nval, integer array, dimension (§nn)\n
+	 *            The values for the matrix column dimension §N.
+	 * - line 5:  §nparms, integer\n
+	 *            Number of values of the parameter §NB, §nbmin, §NX, and §nrhs.
+	 * - line 6:  §nbval, integer array, dimension (§nparms)\n
+	 *            The values for the blocksize §NB.
+	 * - line 7:  §nbmin, integer array, dimension (§nparms)\n
+	 *            The values for the minimum blocksize §nbmin.
+	 * - line 8:  §nxval, integer array, dimension (§nparms)\n
+	 *            The values for the crossover point §NX.
+	 * - line 9:  §nsval, integer array, dimension (§nparms)\n
+	 *            The values for the number of right hand sides §nrhs.
+	 * - line 10: §thresh \n
+	 *            Threshold value for the test ratios.  Information will be printed about each test
+	 *            for which the test ratio is greater than or equal to the threshold.
+	 * - line 11: §tstchk, logical\n
+	 *            Flag indicating whether or not to test the LAPACK routines.
+	 * - line 12: §tstdrv, logical\n
+	 *            Flag indicating whether or not to test the driver routines.
+	 * - line 13: §tsterr, logical\n
+	 *            Flag indicating whether or not to test the error exits for the LAPACK routines
+	 *            and driver routines.
+	 * - line 14: §newsd, integer\n
+	 *            A code indicating how to set the random number seed.\n
+	 *            =0: Set the seed to a default value before each run\n
+	 *            =1: Initialize the seed to a default value only before the first run\n
+	 *            =2: Like 1, but use the seed values on the next line
+	 *
+	 * If line 14 was 2:
+	 * - line 15: §integer array, dimension (4)\n
+	 *            Four integer values for the random number seed.
+	 * - lines 15-EOF: Lines specifying matrix types, as for NEP. The 3-character path names are
+	 *                 "SVD" or "SBD" for both the SVD routines and the SVD driver routines.
+	 * .
+	 *
+	 *---------------------------------------------------------------------------------------------
+	 * DEV and DES data files:
+	 * - line 1:  "DEV" or "DES" in columns 1 to 3.
+	 * - line 2:  §NSIZES, integer\n
+	 *            Number of sizes of matrices to use. Should be at least 0 and at most 20. If
+	 *            $\{NSIZES}=0$, no testing is done(although the remaining 3 lines are still read).
+	 * - line 3:  §nn, integer array, dimension(§NSIZES)\n
+	 *            Dimensions of matrices to be tested.
+	 * - line 4:  §NB, §nbmin, §NX, §NS, §nbcol, integers\n
+	 *            These integer parameters determine how blocking is done (see §ILAENV for details)
+	 *            \n $\begin{tabular}{ll}
+	 *                \{NB}     & block size                           \\
+	 *                \{nbmin}  & minimum block size                   \\
+	 *                \{NX}     & minimum dimension for blocking       \\
+	 *                \{NS}     & number of shifts in \{xhseqr}        \\
+	 *                \{nbcol}  & minimum column dimension for blocking\end{tabular}$
+	 * - line 5:  §thresh, real\n
+	 *            The test threshold against which computed residuals are compared. Should
+	 *            generally be in the range from 10. to 20. If it is 0., all test case data will be
+	 *            printed.
+	 * - line 6:  §tsterr, logical\n
+	 *            Flag indicating whether or not to test the error exits.
+	 * - line 7:  §newsd, integer\n
+	 *            A code indicating how to set the random number seed.\n
+	 *            =0: Set the seed to a default value before each run\n
+	 *            =1: Initialize the seed to a default value only before the first run\n
+	 *            =2: Like 1, but use the seed values on the next line
+	 *
+	 * If line 7 was 2:
+	 * - line 8:  §integer array, dimension (4)\n
+	 *            Four integer values for the random number seed.
+	 * - lines 9 and following: Lines specifying matrix types, as for NEP. The 3-character path
+	 *                          name is "DEV" to test §SGEEV, or "DES" to test §SGEES.
+	 * .
+	 *
+	 *---------------------------------------------------------------------------------------------
+	 * The DVX data has two parts. The first part is identical to DEV, and the second part consists
+	 * of test matrices with precomputed solutions.
+	 * - line 1:  "DVX" in columns 1-3.
+	 * - line 2:  §NSIZES, integer\n
+	 *            If §NSIZES = 0, no testing of randomly generated examples is done, but any
+	 *            precomputed examples are tested.
+	 * - line 3:  §nn, integer array, dimension(§NSIZES)\n
+	 * - line 4:  §NB, §nbmin, §NX, §NS, §nbcol, integers\n
+	 * - line 5:  §thresh, real\n
+	 * - line 6:  §tsterr, logical\n
+	 * - line 7:  §newsd, integer\n
+	 *
+	 * If line 7 was 2:
+	 * - line 8:  §integer array, dimension (4)\n
+	 * - lines 9 and following: The first line contains "DVX" in columns 1-3 followed by the number
+	 *                          of matrix types, possibly with a second line to specify certain
+	 *                          matrix types. If the number of matrix types = 0, no testing of
+	 *                          randomly generated examples is done, but any precomputed examples
+	 *                          are tested.
+	 * - remaining lines : Each matrix is stored on $1+2\{N}$ lines, where §N is its dimension. The
+	 *                     first line contains the dimension (a single integer). The next §N lines
+	 *                     contain the matrix, one row per line. The last §N lines correspond to
+	 *                     each eigenvalue. Each of these last §N lines contains 4 real values: the
+	 *                     real part of the eigenvalue, the imaginary part of the eigenvalue, the
+	 *                     reciprocal condition number of the eigenvalues, and the reciprocal
+	 *                     condition number of the eigenvector. The end of data is indicated by
+	 *                     dimension §N=0. Even if no data is to be tested, there must be at least
+	 *                     one line containing §N=0.
+	 * .
+	 *
+	 *---------------------------------------------------------------------------------------------
+	 * The DSX data is like DVX. The first part is identical to DEV, and the
+	 * second part consists of test matrices with precomputed solutions.
+	 * - line 1:  "DSX" in columns 1-3.
+	 * - line 2:  §NSIZES, integer\n
+	 *            If §NSIZES = 0, no testing of randomly generated examples is done, but any
+	 *            precomputed examples are tested.
+	 * - line 3:  §nn, integer array, dimension(§NSIZES)\n
+	 * - line 4:  §NB, §nbmin, §NX, §NS, §nbcol, integers\n
+	 * - line 5:  §thresh, real\n
+	 * - line 6:  §tsterr, logical\n
+	 * - line 7:  §newsd, integer\n
+	 *
+	 * If line 7 was 2:
+	 * - line 8:  §integer array, dimension (4)\n
+	 * - lines 9 and following: The first line contains "DSX" in columns 1-3 followed by the number
+	 *                          of matrix types, possibly with a second line to specify certain
+	 *                          matrix types. If the number of matrix types = 0, no testing of
+	 *                          randomly generated examples is done, but any precomputed examples
+	 *                          are tested.
+	 * - remaining lines : Each matrix is stored on $3+\{N}$ lines, where §N is its dimension. The
+	 *                     first line contains the dimension §N and the dimension §M of an
+	 *                     invariant subspace. The second line contains §M integers, identifying
+	 *                     the eigenvalues in the invariant subspace (by their position in a list
+	 *                     of eigenvalues ordered by increasing real part). The next §N lines
+	 *                     contain the matrix. The last line contains the reciprocal condition
+	 *                     number for the average of the selected eigenvalues, and the reciprocal
+	 *                     condition number for the corresponding right invariant subspace. The end
+	 *                     of data is indicated by a line containing §N=0 and §M=0. Even if no data
+	 *                     is to be tested, there must be at least one line containing $\{N}=0$ and
+	 *                     $\{M}=0$.
+	 * .
+	 *
+	 *---------------------------------------------------------------------------------------------
+	 * DGG input file:
+	 * - line 2:  §nn, integer\n
+	 *            Number of values of §N.
+	 * - line 3:  §nval, integer array, dimension (§nn)\n
+	 *            The values for the matrix dimension §N.
+	 * - line 4:  §nparms, integer\n
+	 *            Number of values of the parameters §NB, §nbmin, §NS, §MAXB, and §nbcol.
+	 * - line 5:  §nbval, integer array, dimension (§nparms)\n
+	 *            The values for the blocksize §NB.
+	 * - line 6:  §nbmin, integer array, dimension (§nparms)\n
+	 *            The values for §nbmin, the minimum row dimension for blocks.
+	 * - line 7:  §nsval, integer array, dimension (§nparms)\n
+	 *            The values for the number of shifts.
+	 * - line 8:  §mxbval, integer array, dimension (§nparms)\n
+	 *            The values for §MAXB, used in determining minimum blocksize.
+	 * - line 9:  §iacc22, integer array, dimension (§nparms)\n
+	 *            select structured matrix multiply: 1 or 2)
+	 * - line 10: §nbcol, integer array, dimension (§nparms)\n
+	 *            The values for §nbcol, the minimum column dimension for blocks.
+	 * - line 11: §thresh \n
+	 *            Threshold value for the test ratios. Information will be printed about each test
+	 *            for which the test ratio is greater than or equal to the threshold.
+	 * - line 12: §tstchk, logical\n
+	 *            Flag indicating whether or not to test the LAPACK routines.
+	 * - line 13: §tstdrv, logical\n
+	 *            Flag indicating whether or not to test the driver routines.
+	 * - line 14: §tsterr, logical\n
+	 *            Flag indicating whether or not to test the error exits for the LAPACK routines
+	 *            and driver routines.
+	 * - line 15: §newsd, integer\n
+	 *            A code indicating how to set the random number seed.\n
+	 *            =0: Set the seed to a default value before each run\n
+	 *            =1: Initialize the seed to a default value only before the first run\n
+	 *            =2: Like 1, but use the seed values on the next line
+	 *
+	 * If line 15 was 2:
+	 * - line 16: §integer array, dimension (4)\n
+	 *            Four integer values for the random number seed.
+	 * - lines 17-EOF: Lines specifying matrix types, as for NEP. The 3-character path name is
+	 *                 "DGG" for the generalized eigenvalue problem routines and driver routines.
+	 * .
+	 *
+	 *---------------------------------------------------------------------------------------------
+	 * DGS and DGV input files:
+	 * - line 1:  "DGS" or "DGV" in columns 1 to 3.
+	 * - line 2:  §nn, integer\n
+	 *            Number of values of §N.
+	 * - line 3:  §nval, integer array, dimension(§nn)\n
+	 *            Dimensions of matrices to be tested.
+	 * - line 4:  §NB, §nbmin, §NX, §NS, §nbcol, integers\n
+	 *            These integer parameters determine how blocking is done (see §ILAENV for details)
+	 *            \n $\begin{tabular}{ll}
+	 *                \{NB}     & block size                            \\
+	 *                \{nbmin}  & minimum block size                    \\
+	 *                \{NX}     & minimum dimension for blocking        \\
+	 *                \{NS}     & number of shifts in \{xhgeqr}         \\
+	 *                \{nbcol}  & minimum column dimension for blocking \end{tabular}$
+	 * - line 5:  §thresh, real\n
+	 *            The test threshold against which computed residuals are compared. Should
+	 *            generally be in the range from 10. to 20. If it is 0., all test case data will be
+	 *            printed.
+	 * - line 6:  §tsterr, logical\n
+	 *            Flag indicating whether or not to test the error exits.
+	 * - line 7:  §newsd, integer\n
+	 *            A code indicating how to set the random number seed.\n
+	 *            =0: Set the seed to a default value before each run\n
+	 *            =1: Initialize the seed to a default value only before the first run\n
+	 *            =2: Like 1, but use the seed values on the next line
+	 *
+	 * If line 17 was 2:
+	 * - line 7: §integer array, dimension (4)\n
+	 *           Four integer values for the random number seed.
+	 * - lines 7-EOF: Lines specifying matrix types, as for NEP. The 3-character path name is "DGS"
+	 *                for the generalized eigenvalue problem routines and driver routines.
+	 * .
+	 *
+	 *---------------------------------------------------------------------------------------------
+	 * DXV input files:
+	 * - line 1:  "DXV" in columns 1 to 3.
+	 * - line 2:  §N, integer\n
+	 *            Value of §N.
+	 * - line 3:  §NB, §nbmin, §NX, §NS, §nbcol, integers\n
+	 *            These integer parameters determine how blocking is done (see §ILAENV for details)
+	 *            \n $\begin{tabular}{ll}
+	 *                \{NB}     & block size                            \\
+	 *                \{nbmin}  & minimum block size                    \\
+	 *                \{NX}     & minimum dimension for blocking        \\
+	 *                \{NS}     & number of shifts in \{xhgeqr}         \\
+	 *                \{nbcol}  & minimum column dimension for blocking \end{tabular}$
+	 * - line 4:  §thresh, real\n
+	 *            The test threshold against which computed residuals are compared. Should
+	 *            generally be in the range from 10. to 20. Information will be printed about each
+	 *            test for which the test ratio is greater than or equal to the threshold.
+	 * - line 5:  §tsterr, logical\n
+	 *            Flag indicating whether or not to test the error exits for the LAPACK routines
+	 *            and driver routines.
+	 * - line 6:  §newsd, integer\n
+	 *            A code indicating how to set the random number seed.\n
+	 *            =0: Set the seed to a default value before each run\n
+	 *            =1: Initialize the seed to a default value only before the first run\n
+	 *            =2: Like 1, but use the seed values on the next line
+	 *
+	 * If line 6 was 2:
+	 * - line 7: §integer array, dimension (4)\n
+	 *           Four integer values for the random number seed.
+	 *
+	 * If line 2 was 0:
+	 * - line 7-EOF: Precomputed examples are tested.
+	 * - remaining lines : Each example is stored on $3+2\{N}$ lines, where §N is its dimension.
+	 *                     The first line contains the dimension (a single integer). The next §N
+	 *                     lines contain the matrix §A, one row per line. The next §N lines contain
+	 *                     the matrix §B. The next line contains the reciprocals of the eigenvalue
+	 *                     condition numbers. The last line contains the reciprocals of the
+	 *                     eigenvector condition numbers. The end of data is indicated by dimension
+	 *                     $\{N}=0$. Even if no data is to be tested, there must be at least one
+	 *                     line containing $\{N}=0$.
+	 * .
+	 *
+	 *---------------------------------------------------------------------------------------------
+	 * DGX input files:
+	 * - line 1:  "DGX" in columns 1 to 3.
+	 * - line 2:  §N, integer\n
+	 *            Value of §N.
+	 * - line 3:  §NB, §nbmin, §NX, §NS, §nbcol, integers\n
+	 *            These integer parameters determine how blocking is done (see §ILAENV for details)
+	 *            \n $\begin{tabular}{ll}
+	 *                \{NB}     & block size                            \\
+	 *                \{nbmin}  & minimum block size                    \\
+	 *                \{NX}     & minimum dimension for blocking        \\
+	 *                \{NS}     & number of shifts in \{xhgeqr}         \\
+	 *                \{nbcol}  & minimum column dimension for blocking \end{tabular}$
+	 * - line 4:  §thresh, real\n
+	 *            The test threshold against which computed residuals are compared. Should
+	 *            generally be in the range from 10. to 20. Information will be printed about each
+	 *            test for which the test ratio is greater than or equal to the threshold.
+	 * - line 5:  §tsterr, logical\n
+	 *            Flag indicating whether or not to test the error exits for the LAPACK routines
+	 *            and driver routines.
+	 * - line 6:  §newsd, integer\n
+	 *            A code indicating how to set the random number seed.\n
+	 *            =0: Set the seed to a default value before each run\n
+	 *            =1: Initialize the seed to a default value only before the first run\n
+	 *            =2: Like 1, but use the seed values on the next line
+	 *
+	 * If line 6 was 2:
+	 * - line 7: §integer array, dimension (4)\n
+	 *           Four integer values for the random number seed.
+	 *
+	 * If line 2 was 0:
+	 *
+	 * - line 7-EOF: Precomputed examples are tested.
+	 * - remaining lines: Each example is stored on $3+2\{N}$ lines, where §N is its dimension. The
+	 *                    first line contains the dimension (a single integer).  The next line
+	 *                    contains an integer §k such that only the last k eigenvalues will be
+	 *                    selected and appear in the leading diagonal blocks of $A$ and $B$. The
+	 *                    next §N lines contain the matrix $A$, one row per line. The next §N lines
+	 *                    contain the matrix $B$. The last line contains the reciprocal of the
+	 *                    eigenvalue cluster condition number and the reciprocal of the deflating
+	 *                    subspace (associated with the selected eigencluster) condition number.
+	 *                    The end of data is indicated by dimension $\{N}=0$. Even if no data is to
+	 *                    be tested, there must be at least one line containing $\{N}=0$.
+	 * .
+	 *
+	 *---------------------------------------------------------------------------------------------
+	 * DSB input file:
+	 * - line 2:  §nn, integer\n
+	 *            Number of values of §N.
+	 * - line 3:  §nval, integer array, dimension (§nn)\n
+	 *            The values for the matrix dimension §N.
+	 * - line 4:  §nk, integer\n
+	 *            Number of values of §K.
+	 * - line 5:  §kval, integer array, dimension (§nk)\n
+	 *            The values for the matrix dimension §K.
+	 * - line 6:  §thresh \n
+	 *            Threshold value for the test ratios. Information will be printed about each test
+	 *            for which the test ratio is greater than or equal to the threshold.
+	 * - line 7:  §newsd, integer\n
+	 *            A code indicating how to set the random number seed.\n
+	 *            =0: Set the seed to a default value before each run\n
+	 *            =1: Initialize the seed to a default value only before the first run\n
+	 *            =2: Like 1, but use the seed values on the next line
+	 *
+	 * If line 7 was 2:
+	 * - line 8:  §integer array, dimension (4)\n
+	 *            Four integer values for the random number seed.
+	 * - lines 8-EOF: Lines specifying matrix types, as for NEP.
+	 *                The 3-character path name is "DSB".
+	 * .
+	 *
+	 *---------------------------------------------------------------------------------------------
+	 * DBB input file:
+	 * - line 2:  §nn, integer\n
+	 *            Number of values of §M and §N.
+	 * - line 3:  §mval, integer array, dimension (§nn)\n
+	 *            The values for the matrix row dimension §M.
+	 * - line 4:  §nval, integer array, dimension (§nn)\n
+	 *            The values for the matrix column dimension §N.
+	 * - line 4:  §nk, integer\n
+	 *            Number of values of §K.
+	 * - line 5:  §kval, integer array, dimension (§nk)\n
+	 *            The values for the matrix bandwidth §K.
+	 * - line 6:  §nparms, integer\n
+	 *            Number of values of the parameter §nrhs
+	 * - line 7:  §nsval, integer array, dimension (§nparms)\n
+	 *            The values for the number of right hand sides §nrhs.
+	 * - line 8:  §thresh \n
+	 *            Threshold value for the test ratios. Information will be printed about each test
+	 *            for which the test ratio is greater than or equal to the threshold.
+	 * - line 9:  §newsd, integer\n
+	 *            A code indicating how to set the random number seed.\n
+	 *            =0: Set the seed to a default value before each run\n
+	 *            =1: Initialize the seed to a default value only before the first run\n
+	 *            =2: Like 1, but use the seed values on the next line
+	 *
+	 * If line 9 was 2:
+	 * - line 10: §integer array, dimension (4)\n
+	 *            Four integer values for the random number seed.
+	 * - lines 10-EOF: Lines specifying matrix types, as for SVD.
+	 *                 The 3-character path name is "DBB".
+	 * .
+	 *
+	 *---------------------------------------------------------------------------------------------
+	 * DEC input file:
+	 * - line 2:  §thresh, real
+	 *            Threshold value for the test ratios. Information will be printed about each test
+	 *            for which the test ratio is greater than or equal to the threshold.
+	 * - lines 3-EOF: Input for testing the eigencondition routines consists of a set of specially
+	 *                constructed test cases and their solutions. The data format is not intended
+	 *                to be modified by the user.
+	 * .
+	 *
+	 *---------------------------------------------------------------------------------------------
+	 * DBL and DBK input files:
+	 * - line 1:  "DBL" in columns 1-3 to test §dgebal, or "DBK" in columns 1-3 to test §dgebak.
+	 * .
+	 * The remaining lines consist of specially constructed test cases.
+	 *
+	 *---------------------------------------------------------------------------------------------
+	 * DGL and DGK input files:
+	 * - line 1:  "DGL" in columns 1-3 to test §dggbal, or "DGK" in columns 1-3 to test §dggbak.
+	 *
+	 * The remaining lines consist of specially constructed test cases.
+	 *
+	 *---------------------------------------------------------------------------------------------
+	 * GLM data file:
+	 * - line 1:  "GLM" in columns 1 to 3.
+	 * - line 2:  §nn, integer\n
+	 *            Number of values of §M, §P, and §N.
+	 * - line 3:  §mval, integer array, dimension(§nn)\n
+	 *            Values of §M (row dimension).
+	 * - line 4:  §pval, integer array, dimension(§nn)\n
+	 *            Values of §P (row dimension).
+	 * - line 5:  §nval, integer array, dimension(§nn)\n
+	 *            Values of §N (column dimension), note $\{M}\le\{N}\le\{M}+\{P}$.
+	 * - line 6:  §thresh, real\n
+	 *            Threshold value for the test ratios. Information will be printed about each test
+	 *            for which the test ratio is greater than or equal to the threshold.
+	 * - line 7:  §tsterr, logical\n
+	 *            Flag indicating whether or not to test the error exits for the LAPACK routines
+	 *            and driver routines.
+	 * - line 8:  §newsd, integer\n
+	 *            A code indicating how to set the random number seed.\n
+	 *            =0: Set the seed to a default value before each run\n
+	 *            =1: Initialize the seed to a default value only before the first run\n
+	 *            =2: Like 1, but use the seed values on the next line
+	 *
+	 * If line 8 was 2:
+	 * - line 9:  §integer array, dimension (4)\n
+	 *            Four integer values for the random number seed.
+	 * - lines 9-EOF: Lines specifying matrix types, as for NEP. The 3-character path name is "GLM"
+	 *                for the generalized linear regression model routines.
+	 * .
+	 *
+	 *---------------------------------------------------------------------------------------------
+	 * GQR data file:
+	 * - line 1:  "GQR" in columns 1 to 3.
+	 * - line 2:  §nn, integer\n
+	 *            Number of values of §M, §P, and §N.
+	 * - line 3:  §mval, integer array, dimension(§nn)\n
+	 *            Values of §M.
+	 * - line 4:  §pval, integer array, dimension(§nn)\n
+	 *            Values of §P.
+	 * - line 5:  §nval, integer array, dimension(§nn)\n
+	 *            Values of §N.
+	 * - line 6:  §thresh, real\n
+	 *            Threshold value for the test ratios. Information will be printed about each test
+	 *            for which the test ratio is greater than or equal to the threshold.
+	 * - line 7:  §tsterr, logical\n
+	 *            Flag indicating whether or not to test the error exits for the LAPACK routines
+	 *            and driver routines.
+	 * - line 8:  §newsd, integer\n
+	 *            A code indicating how to set the random number seed.\n
+	 *            =0: Set the seed to a default value before each run\n
+	 *            =1: Initialize the seed to a default value only before the first run\n
+	 *            =2: Like 1, but use the seed values on the next line
+	 *
+	 * If line 8 was 2:
+	 * - line 9:  §integer array, dimension (4)\n
+	 *            Four integer values for the random number seed.
+	 * - lines 9-EOF: Lines specifying matrix types, as for NEP. The 3-character path name is "GQR"
+	 *                for the generalized QR and RQ routines.
+	 * .
+	 *
+	 *---------------------------------------------------------------------------------------------
+	 * GSV data file:
+	 * - line 1:  "GSV" in columns 1 to 3.
+	 * - line 2:  §nn, integer\n
+	 *            Number of values of §M, §P, and §N.
+	 * - line 3:  §mval, integer array, dimension(§nn)\n
+	 *            Values of §M (row dimension).
+	 * - line 4:  §pval, integer array, dimension(§nn)\n
+	 *            Values of §P (row dimension).
+	 * - line 5:  §nval, integer array, dimension(§nn)\n
+	 *            Values of §N (column dimension).
+	 * - line 6:  §thresh, real\n
+	 *            Threshold value for the test ratios. Information will be printed about each test
+	 *            for which the test ratio is greater than or equal to the threshold.
+	 * - line 7:  §tsterr, logical\n
+	 *            Flag indicating whether or not to test the error exits for the LAPACK routines
+	 *            and driver routines.
+	 * - line 8:  §newsd, integer\n
+	 *            A code indicating how to set the random number seed.\n
+	 *            =0: Set the seed to a default value before each run\n
+	 *            =1: Initialize the seed to a default value only before the first run\n
+	 *            =2: Like 1, but use the seed values on the next line
+	 *
+	 * If line 8 was 2:
+	 * - line 9:  §integer array, dimension (4)\n
+	 *            Four integer values for the random number seed.
+	 * - lines 9-EOF: Lines specifying matrix types, as for NEP. The 3-character path name is "GSV"
+	 *                for the generalized SVD routines.
+	 * .
+	 *
+	 *---------------------------------------------------------------------------------------------
+	 * CSD data file:
+	 * - line 1:  "CSD" in columns 1 to 3.
+	 * - line 2:  §NM, integer\n
+	 *            Number of values of §M, §P, and §N.
+	 * - line 3:  §mval, integer array, dimension(§NM)\n
+	 *            Values of §M (row and column dimension of orthogonal matrix).
+	 * - line 4:  §pval, integer array, dimension(§NM)\n
+	 *            Values of §P (row dimension of top-left block).
+	 * - line 5:  §nval, integer array, dimension(§NM)\n
+	 *            Values of §N (column dimension of top-left block).
+	 * - line 6:  §thresh, real\n
+	 *            Threshold value for the test ratios. Information will be printed about each test
+	 *            for which the test ratio is greater than or equal to the threshold.
+	 * - line 7:  §tsterr, logical\n
+	 *            Flag indicating whether or not to test the error exits for the LAPACK routines
+	 *            and driver routines.
+	 * - line 8:  §newsd, integer\n
+	 *            A code indicating how to set the random number seed.\n
+	 *            =0: Set the seed to a default value before each run\n
+	 *            =1: Initialize the seed to a default value only before the first run\n
+	 *            =2: Like 1, but use the seed values on the next line
+	 *
+	 * If line 8 was 2:
+	 * - line 9:  §integer array, dimension (4)\n
+	 *            Four integer values for the random number seed.
+	 * - lines 9-EOF: Lines specifying matrix types, as for NEP. The 3-character path name is "CSD"
+	 *                for the CSD routine.
+	 * .
+	 *
+	 *---------------------------------------------------------------------------------------------
+	 * LSE data file:
+	 * - line 1:  "LSE" in columns 1 to 3.
+	 * - line 2:  §nn, integer\n
+	 *            Number of values of §M, §P, and §N.
+	 * - line 3:  §mval, integer array, dimension(§nn)\n
+	 *            Values of §M.
+	 * - line 4:  §pval, integer array, dimension(§nn)\n
+	 *            Values of §P.
+	 * - line 5:  §nval, integer array, dimension(§nn)\n
+	 *            Values of §N, note P <= N <= P+M.
+	 * - line 6:  §thresh, real\n
+	 *            Threshold value for the test ratios. Information will be printed about each test
+	 *            for which the test ratio is greater than or equal to the threshold.
+	 * - line 7:  §tsterr, logical\n
+	 *            Flag indicating whether or not to test the error exits for the LAPACK routines
+	 *            and driver routines.
+	 * - line 8:  §newsd, integer\n
+	 *            A code indicating how to set the random number seed.\n
+	 *            =0: Set the seed to a default value before each run\n
+	 *            =1: Initialize the seed to a default value only before the first run\n
+	 *            =2: Like 1, but use the seed values on the next line
+	 *
+	 * If line 8 was 2:
+	 * - line 9:  §integer array, dimension (4)\n
+	 *            Four integer values for the random number seed.
+	 * - lines 9-EOF: Lines specifying matrix types, as for NEP. The 3-character path name is "GSV"
+	 *                for the generalized SVD routines.
+	 * .
+	 *
+	 *---------------------------------------------------------------------------------------------
+	 * For SVD, we assume §nrhs may be as big as §N.
+	 * \param[in] nmax
+	 *     Maximum size of test matrices. (default: 132)
+	 *     Must be at least 12 for some of the precomputed examples.
+	 *
+	 * \param[in] ncmax  maximum size of the C matrices for §ddrgsx. (default: 20)
+	 * \param[in] need   Number of matrices to be allowed for. (default: 14 (for DGG))
+	 * \param[in] lwork  Length of the §work array. (default: $\{nmax}(5\,\{nmax}+5)+1$)
+	 * \param[in] liwork Length of the §iwork array. (default: $\{nmax}(5\,\{nmax}+20)$)
+	 * \param[in] maxin  The maximum number of different parameter sets (default: 20)
+	 * \param[in] maxt   The maximum number of types to be tested (default: 30)
+	 * \param[in] nin    The input stream from which the test examples are read.
+	 * \param[in] nout   The output stream for test result messages
+	 * \authors Univ. of Tennessee
+	 * \authors Univ. of California Berkeley
+	 * \authors Univ. of Colorado Denver
+	 * \authors NAG Ltd.
+	 * \date June 2016                                                                           */
+	void dchkee(int const nmax, int const ncmax, int const need, int const lwork, int const liwork,
+	            int const maxin, int const maxt, std::istream& nin, std::ostream& nout)
+	{
+		/*
+		int const nmax = 132;
+		int const ncmax = 20;
+		int const need = 14;
+		int const lwork = nmax*(5*nmax+5)+1;
+		int const liwork = nmax*(5*nmax+20);
+		int const maxin = 20;
+		int const maxt = 30;
+		std::istream& nin  = std::cin;
+		std::ostream& nout = std::cout;
+		*/
+		// allocate variables
+		int ioldsd[4]  = {0, 0, 0, 1};
+		bool csd, dbb, dgg, dsb, glm, gqr, gsv, lse, nep, dbk, dbl, sep, des, dev, dgk, dgl, dgs,
+		     dgv, dgx, dsx, svd, dvx, dxv, tstchk, tstdif, tstdrv, tsterr;
+		char c3[4], path[4], vname[32], line[80];
+		int i, i1, ic, info, itmp, k, lenp, maxtyp, newsd, nk, nn, nparms, nrhs, ntypes,
+		    vers_major, vers_minor, vers_patch;
+		real eps, thresh, thrshn;
+		std::time_t s1, s2;
+		bool dotype[maxt], logwrk[nmax];
+		int iseed[4],    iwork[liwork],  kval[maxin],   mval[maxin], mxbval[maxin], nbcol[maxin],
+		    nbmin[maxin], nbval[maxin], nsval[maxin],   nval[maxin],  nxval[maxin],  pval[maxin],
+		    inmin[maxin], inwin[maxin], inibl[maxin], ishfts[maxin], iacc22[maxin];
+		int nmax2 = nmax * nmax;
+		real A[nmax2 * need]=ZERO, B[nmax2 * 5]=ZERO, C[ncmax*ncmax * ncmax*ncmax]=ZERO,
+		     D[nmax * 12]=ZERO, result[500], taua[nmax], taub[nmax], work[lwork], x[5*nmax];
+		// initialise
+		std::time(&s1);
+		bool fatal = false;
+		infoc.nout = nout;
+		char const* str9989a = " Invalid input value: ";
+		char const* str9989b = "; must be >=";
+		char const* str9988a = str9989a;
+		char const* str9988b = "; must be <=";
+		char const* str9990 = " routines were not tested";
+		char const* str9980 = " *** Error code from ";
+		char const* str9973 =
+		    "\n -----------------------------------------------------------------------";
+		bool errcont, endbreak;
+		// Return to here to read multiple sets of data
+		while (!nin.eof())
+		{
+			// Read the first line and set the 3-character test path
+			nin.getline(line, 80);
+			if (!nin.good())
+			{
+				break;
+			}
+			std::strncpy(path, line, 3);
+			path[3] = '\0';
+			nep = (std::strncmp(path, "NEP", 3)==0 || std::strncmp(path, "DHS", 3)==0);
+			sep = (std::strncmp(path, "SEP", 3)==0 || std::strncmp(path, "DST", 3)==0
+			    || std::strncmp(path, "DSG", 3)==0 || std::strncmp(path, "SE2", 3)==0);
+			svd = (std::strncmp(path, "SVD", 3)==0 || std::strncmp(path, "DBD", 3)==0);
+			dev = (std::strncmp(path, "DEV", 3)==0);
+			des = (std::strncmp(path, "DES", 3)==0);
+			dvx = (std::strncmp(path, "DVX", 3)==0);
+			dsx = (std::strncmp(path, "DSX", 3)==0);
+			dgg = (std::strncmp(path, "DGG", 3)==0);
+			dgs = (std::strncmp(path, "DGS", 3)==0);
+			dgx = (std::strncmp(path, "DGX", 3)==0);
+			dgv = (std::strncmp(path, "DGV", 3)==0);
+			dxv = (std::strncmp(path, "DXV", 3)==0);
+			dsb = (std::strncmp(path, "DSB", 3)==0);
+			dbb = (std::strncmp(path, "DBB", 3)==0);
+			glm = (std::strncmp(path, "GLM", 3)==0);
+			gqr = (std::strncmp(path, "GQR", 3)==0 || std::strncmp(path, "GRQ", 3)==0);
+			gsv = (std::strncmp(path, "GSV", 3)==0);
+			csd = (std::strncmp(path, "CSD", 3)==0);
+			lse = (std::strncmp(path, "LSE", 3)==0);
+			dbl = (std::strncmp(path, "DBL", 3)==0);
+			dbk = (std::strncmp(path, "DBK", 3)==0);
+			dgl = (std::strncmp(path, "DGL", 3)==0);
+			dgk = (std::strncmp(path, "DGK", 3)==0);
+			// Report values of parameters.
+			if (std::strncmp(path, "   ", 3)==0)
+			{
+				continue;
+			}
+			else if (nep)
+			{
+				nout << " Tests of the Nonsymmetric Eigenvalue Problem routines\n";
+			}
+			else if (sep)
+			{
+				nout << " Tests of the Symmetric Eigenvalue Problem routines\n";
+			}
+			else if (svd)
+			{
+				nout << " Tests of the Singular Value Decomposition routines\n";
+			}
+			else if (dev)
+			{
+				nout << "\n Tests of the Nonsymmetric Eigenvalue Problem Driver\n"
+				        "    DGEEV (eigenvalues and eigevectors)\n";
+			}
+			else if (des)
+			{
+				nout << "\n Tests of the Nonsymmetric Eigenvalue Problem Driver\n"
+				        "    DGEES (Schur form)\n";
+			}
+			else if (dvx)
+			{
+				nout << "\n Tests of the Nonsymmetric Eigenvalue Problem Expert Driver\n"
+				        "    DGEEVX (eigenvalues, eigenvectors and condition numbers)\n";
+			}
+			else if (dsx)
+			{
+				nout << "\n Tests of the Nonsymmetric Eigenvalue Problem Expert Driver\n"
+				        "    DGEESX (Schur form and condition numbers)\n";
+			}
+			else if (dgg)
+			{
+				nout << "\n Tests of the Generalized Nonsymmetric Eigenvalue Problem routines\n";
+			}
+			else if (dgs)
+			{
+				nout << "\n Tests of the Generalized Nonsymmetric Eigenvalue Problem Driver "
+				        "DGGES\n";
+			}
+			else if (dgx)
+			{
+				nout << "\n Tests of the Generalized Nonsymmetric Eigenvalue Problem Expert Driver"
+				        " DGGESX\n";
+			}
+			else if (dgv)
+			{
+				nout << "\n Tests of the Generalized Nonsymmetric Eigenvalue Problem Driver "
+				        "DGGEV\n";
+			}
+			else if (dxv)
+			{
+				nout << "\n Tests of the Generalized Nonsymmetric Eigenvalue Problem Expert Driver"
+				        " DGGEVX\n";
+			}
+			else if (dsb)
+			{
+				nout << " Tests of DSBTRD\n"
+				        " (reduction of a symmetric band matrix to tridiagonal form\n";
+			}
+			else if (dbb)
+			{
+				nout << " Tests of DGBBRD\n"
+				        " (reduction of a general band matrix to real bidiagonal form)\n";
+			}
+			else if (glm)
+			{
+				nout << "\n Tests of the Generalized Linear Regression Model routines\n";
+			}
+			else if (gqr)
+			{
+				nout << "\n Tests of the Generalized QR and RQ routines\n";
+			}
+			else if (gsv)
+			{
+				nout << "\n Tests of the Generalized Singular Value Decomposition routines\n";
+			}
+			else if (csd)
+			{
+				nout << "\n Tests of the CS Decomposition routines\n";
+			}
+			else if (lse)
+			{
+				nout << "\n Tests of the Linear Least Squares routines\n";
+			}
+			else if (dbl)
+			{
+				// DGEBAL: Balancing
+				dchkbl(nin, nout);
+				continue;
+			}
+			else if (dbk)
+			{
+				// DGEBAK:  Back transformation
+				//CALL DCHKBK(nin, nout)
+				std::cerr << "DCHKBK not yet implemented" << std::endl;
+				continue;
+			}
+			else if (dgl)
+			{
+				// DGGBAL:  Balancing
+				//CALL DCHKGL(nin, nout)
+				std::cerr << "DCHKGL not yet implemented" << std::endl;
+				continue;
+			}
+			else if (dgk)
+			{
+				// DGGBAK:  Back transformation
+				//CALL DCHKGK(nin, nout)
+				std::cerr << "DCHKGK not yet implemented" << std::endl;
+				continue;
+			}
+			else if ((std::strncmp(path, "DEC", 3)==0))
+			{
+				// DEC:  Eigencondition estimation
+				nin >> thresh;
+				xlaenv(1, 1);
+				xlaenv(12, 11);
+				xlaenv(13, 2);
+				xlaenv(14, 0);
+				xlaenv(15, 2);
+				xlaenv(16, 2);
+				tsterr = true;
+				//CALL DCHKEC(thresh, tsterr, nin, nout)
+				std::cerr << "DCHKEC not yet implemented" << std::endl;
+				continue;
+			}
+			else
+			{
+				nout << ' ' << path << ":  Unrecognized path name" << std::endl;
+				continue;
+			}
+			this->ilaver(vers_major, vers_minor, vers_patch);
+			nout << "\n LAPACK VERSION " << std::setw(1) << vers_major << '.' << std::setw(1)
+			     << vers_minor << '.' << std::setw(1) << vers_patch << '\n';
+			nout << "\n The following parameter values will be used:" << std::endl;
+			// Read the number of values of M, P, and N.
+			nin >> nn;
+			if (nn<0)
+			{
+				nout << str9989a << "   NN =" << std::setw(6) << nn << str9989b << std::setw(6)
+				     << 1 << std::endl;
+				nn = 0;
+				fatal = true;
+			}
+			else if (nn>maxin)
+			{
+				nout << str9988a << "   NN =" << std::setw(6) << nn << str9988b << std::setw(6)
+				     << maxin << std::endl;
+				nn = 0;
+				fatal = true;
+			}
+			// Read the values of M
+			if (!(dgx || dxv))
+			{
+				for (i=0; i<nn; i++)
+				{
+					nin >> mval[i];
+				}
+				if (svd)
+				{
+					std::strcpy(vname, "    M ");
+				}
+				else
+				{
+					std::strcpy(vname, "    N ");
+				}
+				for (i=0; i<nn; i++)
+				{
+					if (mval[i]<0)
+					{
+						nout << str9989a << vname << '=' << std::setw(6) << mval[i] << str9989b
+						     << std::setw(6) << 0 << std::endl;
+						fatal = true;
+					}
+					else if (mval[i]>nmax)
+					{
+						nout << str9988a << vname << '='  << std::setw(6) << mval[i] << str9988b
+						     << std::setw(6) << nmax << std::endl;
+						fatal = true;
+					}
+				}
+				nout << "    M:    ";
+				for (i=0; i<std::min(10, nn); i++)
+				{
+					nout << std::setw(6) << mval[i];
+				}
+				if (nn>10)
+				{
+					nout << "\n          ";
+					for (i=10; i<std::min(20, nn); i++)
+					{
+						nout << std::setw(6) << mval[i];
+					}
+				}
+				nout << std::endl;
+			}
+			// Read the values of P
+			if (glm || gqr || gsv || csd || lse)
+			{
+				for (i=0; i<nn; i++)
+				{
+					nin >> pval[i];
+					if (pval[i]<0)
+					{
+						nout << str9989a << " P  =" << std::setw(6) << pval[i] << str9989b
+						     << std::setw(6) << 0 << std::endl;
+						fatal = true;
+					}
+					else if (pval[i]>nmax)
+					{
+						nout << str9988a << " P  =" << std::setw(6) << pval[i] << str9988b
+						     << std::setw(6) << nmax << std::endl;
+						fatal = true;
+					}
+				}
+				nout << "    P:    ";
+				for (i=0; i<std::min(10, nn); i++)
+				{
+					nout << std::setw(6) << pval[i];
+				}
+				if (nn>10)
+				{
+					nout << "\n          ";
+					for (i=10; i<std::min(20, nn); i++)
+					{
+						nout << std::setw(6) << pval[i];
+					}
+				}
+				nout << std::endl;
+			}
+			// Read the values of N
+			if (svd || dbb || glm || gqr || gsv || csd || lse)
+			{
+				for (i=0; i<nn; i++)
+				{
+					nin >> nval[i];
+					if (nval[i]<0)
+					{
+						nout << str9989a << "    N =" << std::setw(6) << nval[i] << str9989b
+						     << std::setw(6) << 0 << std::endl;
+						fatal = true;
+					}
+					else if (nval[i]>nmax)
+					{
+						nout << str9988a << "    N =" << std::setw(6) << nval[i] << str9988b
+						     << std::setw(6) << nmax << std::endl;
+						fatal = true;
+					}
+				}
+			}
+			else
+			{
+				for (i=0; i<nn; i++)
+				{
+					nval[i] = mval[i];
+				}
+			}
+			if (!(dgx || dxv))
+			{
+				nout << "    N:    ";
+				for (i=0; i<std::min(10, nn); i++)
+				{
+					nout << std::setw(6) << nval[i];
+				}
+				if (nn>10)
+				{
+					nout << "\n          ";
+					for (i=10; i<std::min(20, nn); i++)
+					{
+						nout << std::setw(6) << nval[i];
+					}
+				}
+				nout << std::endl;
+			}
+			else
+			{
+				nout << "    N:    " << std::setw(6) << nn << std::endl;
+			}
+			// Read the number of values of K, followed by the values of K
+			if (dsb || dbb)
+			{
+				nin >> nk;
+				for (i=0; i<nk; i++)
+				{
+					nin >> kval[i];
+					if (kval[i]<0)
+					{
+						nout << str9989a << "    K =" << std::setw(6) << kval[i] << str9989b
+						     << std::setw(6) << 0 << std::endl;
+						fatal = true;
+					}
+					else if (kval[i]>nmax)
+					{
+						nout << str9988a << "    K =" << std::setw(6) << kval[i] << str9988b
+						     << std::setw(6) << nmax << std::endl;
+						fatal = true;
+					}
+				}
+				nout << "    K:    ";
+				for (i=0; i<std::min(10, nk); i++)
+				{
+					nout << std::setw(6) << kval[i];
+				}
+				if (nk>10)
+				{
+					nout << "\n          ";
+					for (i=10; i<std::min(20, nk); i++)
+					{
+						nout << std::setw(6) << kval[i];
+					}
+				}
+				nout << std::endl;
+			}
+			if (dev || des || dvx || dsx)
+			{
+				// For the nonsymmetric QR driver routines, only one set of parameters is allowed.
+				nin >> nbval[0] >> nbmin[1] >> nxval[0] >> inmin[0] >> inwin[0] >> inibl[0]
+				    >> ishfts[0] >> iacc22[0];
+				if (nbval[0]<1)
+				{
+					nout << str9989a << "   NB =" << std::setw(6) << nbval[0] << str9989b
+					     << std::setw(6) << 1 << std::endl;
+					fatal = true;
+				}
+				else if (nbmin[1]<1)
+				{
+					nout << str9989a << "NBMIN =" << std::setw(6) << nbmin[1] << str9989b
+					     << std::setw(6) << 1 << std::endl;
+					fatal = true;
+				}
+				else if (nxval[0]<1)
+				{
+					nout << str9989a << "   NX =" << std::setw(6) << nxval[0] << str9989b
+					     << std::setw(6) << 1 << std::endl;
+					fatal = true;
+				}
+				else if (inmin[0]<1)
+				{
+					nout << str9989a << "   INMIN =" << std::setw(6) << inmin[0] << str9989b
+					     << std::setw(6) << 1 << std::endl;
+					fatal = true;
+				}
+				else if (inwin[0]<1)
+				{
+					nout << str9989a << "   INWIN =" << std::setw(6) << inwin[0] << str9989b
+					     << std::setw(6) << 1 << std::endl;
+					fatal = true;
+				}
+				else if (inibl[0]<1)
+				{
+					nout << str9989a << "   INIBL =" << std::setw(6) << inibl[0] << str9989b
+					     << std::setw(6) << 1 << std::endl;
+					fatal = true;
+				}
+				else if (ishfts[0]<1)
+				{
+					nout << str9989a << "   ISHFTS =" << std::setw(6) << ishfts[0] << str9989b
+					     << std::setw(6) << 1 << std::endl;
+					fatal = true;
+				}
+				else if (iacc22[0]<0)
+				{
+					nout << str9989a << "   IACC22 =" << std::setw(6) << iacc22[0] << str9989b
+					     << std::setw(6) << 0 << std::endl;
+					fatal = true;
+				}
+				xlaenv(1,  nbval[0]);
+				xlaenv(2,  nbmin[1]);
+				xlaenv(3,  nxval[0]);
+				xlaenv(12, std::max(11, inmin[0]));
+				xlaenv(13, inwin[0]);
+				xlaenv(14, inibl[0]);
+				xlaenv(15, ishfts[0]);
+				xlaenv(16, iacc22[0]);
+				nout << "    NB:   " << nbval[0] << '\n';
+				nout << "    NBMIN:" << nbmin[1] << '\n';
+				nout << "    NX:   " << nxval[0] << '\n';
+				nout << "    INMIN:   " << inmin[0] << '\n';
+				nout << "    INWIN: " << inwin[0] << '\n';
+				nout << "    INIBL: " << inibl[0] << '\n';
+				nout << "    ISHFTS: " << ishfts[0] << '\n';
+				nout << "    IACC22: " << iacc22[0] << std::endl;
+			}
+			else if (dgs || dgx || dgv || dxv)
+			{
+				// For the nonsymmetric generalized driver routines,
+				// only one set of parameters is allowed.
+				nin >> nbval[0] >> nbmin[1] >> nxval[0] >> nsval[0] >> mxbval[0];
+				if (nbval[0]<1)
+				{
+					nout << str9989a << "   NB =" << std::setw(6) << nbval[0] << str9989b
+					     << std::setw(6) << 1 << std::endl;
+					fatal = true;
+				}
+				else if (nbmin[1]<1)
+				{
+					nout << str9989a << "NBMIN =" << std::setw(6) << nbmin[1] << str9989b
+					     << std::setw(6) << 1 << std::endl;
+					fatal = true;
+				}
+				else if (nxval[0]<1)
+				{
+					nout << str9989a << "   NX =" << std::setw(6) << nxval[0] << str9989b
+					     << std::setw(6) << 1 << std::endl;
+					fatal = true;
+				}
+				else if (nsval[0]<2)
+				{
+					nout << str9989a << "   NS =" << std::setw(6) << nsval[0] << str9989b
+					     << std::setw(6) << 2 << std::endl;
+					fatal = true;
+				}
+				else if (mxbval[0]<1)
+				{
+					nout << str9989a << " MAXB =" << std::setw(6) << mxbval[0] << str9989b
+					     << std::setw(6) << 1 << std::endl;
+					fatal = true;
+				}
+				xlaenv(1, nbval[0]);
+				xlaenv(2, nbmin[1]);
+				xlaenv(3, nxval[0]);
+				xlaenv(4, nsval[0]);
+				xlaenv(8, mxbval[0]);
+				nout << "    NB:   " << nbval[0] << '\n';
+				nout << "    NBMIN:" << nbmin[1] << '\n';
+				nout << "    NX:   " << nxval[0] << '\n';
+				nout << "    NS:   " << nsval[0] << '\n';
+				nout << "    MAXB: " << mxbval[0] << std::endl;
+			}
+			else if (!dsb && !glm && !gqr && !gsv && !csd && !lse)
+			{
+				// For the other paths, the number of parameters can be varied from the input file.
+				// Read the number of parameter values.
+				nin >> nparms;
+				if (nparms<1)
+				{
+					nout << str9989a << "NPARMS=" << std::setw(6) << nparms << str9989b
+					     << std::setw(6) << 1 << std::endl;
+					nparms = 0;
+					fatal = true;
+				}
+				else if (nparms>maxin)
+				{
+					nout << str9988a << "NPARMS=" << std::setw(6) << nparms << str9988b
+					     << std::setw(6) << maxin << std::endl;
+					nparms = 0;
+					fatal = true;
+				}
+				// Read the values of NB
+				if (!dbb)
+				{
+					for (i=0; i<nparms; i++)
+					{
+						nin >> nbval[i];
+						if (nbval[i]<0)
+						{
+							nout << str9989a << "   NB =" << std::setw(6) << nbval[i] << str9989b
+							     << std::setw(6) << 0 << std::endl;
+							fatal = true;
+						}
+						else if (nbval[i]>nmax)
+						{
+							nout << str9988a << "   NB =" << std::setw(6) << nbval[i] << str9988b
+							     << std::setw(6) << nmax << std::endl;
+							fatal = true;
+						}
+					}
+					nout << "    NB:   ";
+					for (i=0; i<std::min(10, nparms); i++)
+					{
+						nout << std::setw(6) << nbval[i];
+					}
+					if (nparms>10)
+					{
+						nout << "\n          ";
+						for (i=10; i<std::min(20, nparms); i++)
+						{
+							nout << std::setw(6) << nbval[i];
+						}
+					}
+					nout << std::endl;
+				}
+				// Read the values of nbmin
+				if (nep || sep || svd || dgg)
+				{
+					for (i=0; i<nparms; i++)
+					{
+						nin >> nbmin[i];
+						if (nbmin[i]<0)
+						{
+							nout << str9989a << "NBMIN =" << std::setw(6) << nbmin[i] << str9989b
+							     << std::setw(6) << 0 << std::endl;
+							fatal = true;
+						}
+						else if (nbmin[i]>nmax)
+						{
+							nout << str9988a << "NBMIN =" << std::setw(6) << nbmin[i] << str9988b
+							     << std::setw(6) << nmax << std::endl;
+							fatal = true;
+						}
+					}
+					nout << "    NBMIN:";
+					for (i=0; i<std::min(10, nparms); i++)
+					{
+						nout << std::setw(6) << nbmin[i];
+					}
+					if (nparms>10)
+					{
+						nout << "\n          ";
+						for (i=10; i<std::min(20, nparms); i++)
+						{
+							nout << std::setw(6) << nbmin[i];
+						}
+					}
+					nout << std::endl;
+				}
+				else
+				{
+					for (i=0; i<nparms; i++)
+					{
+						nbmin[i] = 1;
+					}
+				}
+				// Read the values of NX
+				if (nep || sep || svd)
+				{
+					for (i=0; i<nparms; i++)
+					{
+						nin >> nxval[i];
+						if (nxval[i]<0)
+						{
+							nout << str9989a << "   NX =" << std::setw(6) << nxval[i] << str9989b
+							     << std::setw(6) << 0 << std::endl;
+							fatal = true;
+						}
+						else if (nxval[i]>nmax)
+						{
+							nout << str9988a << "   NX =" << std::setw(6) << nxval[i] << str9988b
+							     << std::setw(6) << nmax << std::endl;
+							fatal = true;
+						}
+					}
+					nout << "    NX:   ";
+					for (i=0; i<std::min(10, nparms); i++)
+					{
+						nout << std::setw(6) << nxval[i];
+					}
+					if (nparms>10)
+					{
+						nout << "\n          ";
+						for (i=10; i<std::min(20, nparms); i++)
+						{
+							nout << std::setw(6) << nxval[i];
+						}
+					}
+					nout << std::endl;
+				}
+				else
+				{
+					for (i=0; i<nparms; i++)
+					{
+						nxval[i] = 1;
+					}
+				}
+				// Read the values of NSHIFT (if dgg) or nrhs (if svd or dbb).
+				if (svd || dbb || dgg)
+				{
+					for (i=0; i<nparms; i++)
+					{
+						nin >> nsval[i];
+						if (nsval[i]<0)
+						{
+							nout << str9989a << "   NS =" << std::setw(6) << nsval[i] << str9989b
+							     << std::setw(6) << 0 << std::endl;
+							fatal = true;
+						}
+						else if (nsval[i]>nmax)
+						{
+							nout << str9988a << "   NS =" << std::setw(6) << nsval[i] << str9988b
+							     << std::setw(6) << nmax << std::endl;
+							fatal = true;
+						}
+					}
+					nout << "    NS:   ";
+					for (i=0; i<std::min(10, nparms); i++)
+					{
+						nout << std::setw(6) << nsval[i];
+					}
+					if (nparms>10)
+					{
+						nout << "\n          ";
+						for (i=10; i<std::min(20, nparms); i++)
+						{
+							nout << std::setw(6) << nsval[i];
+						}
+					}
+					nout << std::endl;
+				}
+				else
+				{
+					for (i=0; i<nparms; i++)
+					{
+						nsval[i] = 1;
+					}
+				}
+				// Read the values for MAXB.
+				if (dgg)
+				{
+					for (i=0; i<nparms; i++)
+					{
+						nin >> mxbval[i];
+						if (mxbval[i]<0)
+						{
+							nout << str9989a << " MAXB =" << std::setw(6) << mxbval[i] << str9989b
+							     << std::setw(6) << 0 << std::endl;
+							fatal = true;
+						}
+						else if (mxbval[i]>nmax)
+						{
+							nout << str9988a << " MAXB =" << std::setw(6) << mxbval[i] << str9988b
+							     << std::setw(6) << nmax << std::endl;
+							fatal = true;
+						}
+					}
+					nout << "    MAXB: ";
+					for (i=0; i<std::min(10, nparms); i++)
+					{
+						nout << std::setw(6) << mxbval[i];
+					}
+					if (nparms>10)
+					{
+						nout << "\n          ";
+						for (i=10; i<std::min(20, nparms); i++)
+						{
+							nout << std::setw(6) << mxbval[i];
+						}
+					}
+					nout << std::endl;
+				}
+				else
+				{
+					for (i=0; i<nparms; i++)
+					{
+						mxbval[i] = 1;
+					}
+				}
+				// Read the values for inmin.
+				if (nep)
+				{
+					for (i=0; i<nparms; i++)
+					{
+						nin >> inmin[i];
+						if (inmin[i]<0)
+						{
+							nout << str9989a << " INMIN =" << std::setw(6) << inmin[i] << str9989b
+							     << std::setw(6) << 0 << std::endl;
+							fatal = true;
+						}
+					}
+					nout << "    INMIN: ";
+					for (i=0; i<std::min(10, nparms); i++)
+					{
+						nout << std::setw(6) << inmin[i];
+					}
+					if (nparms>10)
+					{
+						nout << "\n          ";
+						for (i=10; i<std::min(20, nparms); i++)
+						{
+							nout << std::setw(6) << inmin[i];
+						}
+					}
+					nout << std::endl;
+				}
+				else
+				{
+					for (i=0; i<nparms; i++)
+					{
+						inmin[i] = 1;
+					}
+				}
+				// Read the values for inwin.
+				if (nep)
+				{
+					for (i=0; i<nparms; i++)
+					{
+						nin >> inwin[i];
+						if (inwin[i]<0)
+						{
+							nout << str9989a << " INWIN =" << std::setw(6) << inwin[i] << str9989b
+							     << std::setw(6) << 0 << std::endl;
+							fatal = true;
+						}
+					}
+					nout << "    INWIN: ";
+					for (i=0; i<std::min(10, nparms); i++)
+					{
+						nout << std::setw(6) << inwin[i];
+					}
+					if (nparms>10)
+					{
+						nout << "\n          ";
+						for (i=10; i<std::min(20, nparms); i++)
+						{
+							nout << std::setw(6) << inwin[i];
+						}
+					}
+					nout << std::endl;
+				}
+				else
+				{
+					for (i=0; i<nparms; i++)
+					{
+						inwin[i] = 1;
+					}
+				}
+				// Read the values for inibl.
+				if (nep)
+				{
+					for (i=0; i<nparms; i++)
+					{
+						nin >> inibl[i];
+						if (inibl[i]<0)
+						{
+							nout << str9989a << " INIBL =" << std::setw(6) << inibl[i] << str9989b
+							     << std::setw(6) << 0 << std::endl;
+							fatal = true;
+						}
+					}
+					nout << "    INIBL: ";
+					for (i=0; i<std::min(10, nparms); i++)
+					{
+						nout << std::setw(6) << inibl[i];
+					}
+					if (nparms>10)
+					{
+						nout << "\n          ";
+						for (i=10; i<std::min(20, nparms); i++)
+						{
+							nout << std::setw(6) << inibl[i];
+						}
+					}
+					nout << std::endl;
+				}
+				else
+				{
+					for (i=0; i<nparms; i++)
+					{
+						inibl[i] = 1;
+					}
+				}
+				// Read the values for ishfts.
+				if (nep)
+				{
+					for (i=0; i<nparms; i++)
+					{
+						nin >> ishfts[i];
+						if (ishfts[i]<0)
+						{
+							nout << str9989a << " ISHFTS =" << std::setw(6) << ishfts[i]
+							     << str9989b << std::setw(6) << 0 << std::endl;
+							fatal = true;
+						}
+					}
+					nout << "    ISHFTS: ";
+					for (i=0; i<std::min(10, nparms); i++)
+					{
+						nout << std::setw(6) << ishfts[i];
+					}
+					if (nparms>10)
+					{
+						nout << "\n          ";
+						for (i=10; i<std::min(20, nparms); i++)
+						{
+							nout << std::setw(6) << ishfts[i];
+						}
+					}
+					nout << std::endl;
+				}
+				else
+				{
+					for (i=0; i<nparms; i++)
+					{
+						ishfts[i] = 1;
+					}
+				}
+				// Read the values for iacc22.
+				if (nep || dgg)
+				{
+					for (i=0; i<nparms; i++)
+					{
+						nin >> iacc22[i];
+						if (iacc22[i]<0)
+						{
+							nout << str9989a << " IACC22 =" << std::setw(6) << iacc22[i]
+							     << str9989b << std::setw(6) << 0 << std::endl;
+							fatal = true;
+						}
+					}
+					nout << "    IACC22: ";
+					for (i=0; i<std::min(10, nparms); i++)
+					{
+						nout << std::setw(6) << iacc22[i];
+					}
+					if (nparms>10)
+					{
+						nout << "\n          ";
+						for (i=10; i<std::min(20, nparms); i++)
+						{
+							nout << std::setw(6) << iacc22[i];
+						}
+					}
+					nout << std::endl;
+				}
+				else
+				{
+					for (i=0; i<nparms; i++)
+					{
+						iacc22[i] = 1;
+					}
+				}
+				// Read the values for nbcol.
+				if (dgg)
+				{
+					for (i=0; i<nparms; i++)
+					{
+						nin >> nbcol[i];
+						if (nbcol[i]<0)
+						{
+							nout << str9989a << "NBCOL =" << std::setw(6) << nbcol[i] << str9989b
+							     << std::setw(6) << 0 << std::endl;
+							fatal = true;
+						}
+						else if (nbcol[i]>nmax)
+						{
+							nout << str9988a << "NBCOL =" << std::setw(6) << nbcol[i] << str9988b
+							     << std::setw(6) << nmax << std::endl;
+							fatal = true;
+						}
+					}
+					nout << "    NBCOL:";
+					for (i=0; i<std::min(10, nparms); i++)
+					{
+						nout << std::setw(6) << nbcol[i];
+					}
+					if (nparms>10)
+					{
+						nout << "\n          ";
+						for (i=10; i<std::min(20, nparms); i++)
+						{
+							nout << std::setw(6) << nbcol[i];
+						}
+					}
+					nout << std::endl;
+				}
+				else
+				{
+					for (i=0; i<nparms; i++)
+					{
+						nbcol[i] = 1;
+					}
+				}
+			}
+			// Calculate and print the machine dependent constants.
+			{
+				char const* str9981a = " Relative machine ";
+				char const* str9981b = " is taken to be";
+				nout << '\n';
+				eps = this->dlamch("Underflow threshold");
+				nout << str9981a << "underflow" << str9981b << std::setw(16)
+				     << std::setprecision(6) << eps << '\n';
+				eps = this->dlamch("Overflow threshold");
+				nout << str9981a << "overflow " << str9981b << std::setw(16)
+				     << std::setprecision(6) << eps << '\n';
+				eps = this->dlamch("Epsilon");
+				nout << str9981a << "precision" << str9981b << std::setw(16)
+				     << std::setprecision(6) << eps << '\n';
+			}
+			// Read the threshold value for the test ratios.
+			nin >> thresh;
+			nout << "\n Routines pass computational tests if test ratio is less than"
+			     << std::setw(8) << std::setprecision(2) << thresh << std::endl;
+			if (sep || svd || dgg)
+			{
+				// Read the flag that indicates whether to test LAPACK routines.
+				nin >> tstchk;
+				// Read the flag that indicates whether to test driver routines.
+				nin >> tstdrv;
+			}
+			// Read the flag that indicates whether to test the error exits.
+			nin >> tsterr;
+			// Read the code describing how to set the random number seed.
+			nin >> newsd;
+			// If newsd = 2, read another line with 4 integers for the seed.
+			if (newsd==2)
+			{
+				for (i=0; i<4; i++)
+				{
+					nin >> ioldsd[i];
+				}
+			}
+			for (i=0; i<4; i++)
+			{
+				iseed[i] = ioldsd[i];
+			}
+			if (fatal)
+			{
+				nout << "\n Execution not attempted due to input errors" << std::endl;
+				return;
+			}
+			// Read the input lines indicating the test path and its parameters. The first three
+			// characters indicate the test path, and the number of test matrix types must be the
+			// first nonblank item in columns 4-80.
+			endbreak = false;
+			do
+			{
+				if (!(dgx || dxv))
+				{
+					while (true)
+					{
+						nin.getline(line, 80);
+						if (!nin.good())
+						{
+							endbreak = true;
+							break;
+						}
+						std::strncpy(c3, line, 3);
+						c3[3] = '\0';
+						lenp = std::strlen(line);
+						i = 2;
+						itmp = 0;
+						i1 = -1;
+						errcont = false;
+						while (true)
+						{
+							i++;
+							if (i>=lenp)
+							{
+								if (i1>=0)
+								{
+									break;
+								}
+								else
+								{
+									ntypes = maxt;
+									break;
+								}
+							}
+							if (line[i]!=' ' && line[i]!=',')
+							{
+								i1 = i;
+								// Check that a valid integer was read
+								ic = line[i1] - '0';
+								if (ic<0 || ic>9)
+								{
+									nout << "\n\n *** Invalid integer value in column "
+									     << std::setw(2) << i+1 << " of input line:\n" << line
+									     << std::endl;
+									errcont = true;
+									break;
+								}
+								itmp = 10*itmp + ic;
+							}
+							else if (i1>=0)
+							{
+								break;
+							}
+						}
+						if (errcont)
+						{
+							continue;
+						}
+						ntypes = itmp;
+						// Skip the tests if ntypes is <= 0.
+						if (!(dev || des || dvx || dsx || dgv || dgs) && ntypes<=0)
+						{
+							nout << "\n\n " << c3 << str9990 << std::endl;
+							continue;
+						}
+						break;
+					}
+					if (endbreak)
+					{
+						break;
+					}
+				}
+				else
+				{
+					if (dxv)
+					{
+						std::strncpy(c3, "DXV", 4);
+					}
+					if (dgx)
+					{
+						std::strncpy(c3, "DGX", 4);
+					}
+				}
+				// Reset the random number seed.
+				if (newsd==0)
+				{
+					for (k=0; k<4; k++)
+					{
+						iseed[k] = ioldsd[k];
+					}
+				}
+				if (strncmp(c3, "DHS", 3)==0 || std::strncmp(c3, "NEP", 3)==0)
+				{
+					// -------------------------------------
+					// NEP:  Nonsymmetric Eigenvalue Problem
+					// -------------------------------------
+					// Vary the parameters
+					// NB    = block size
+					// nbmin = minimum block size
+					// NX    = crossover point
+					// NS    = number of shifts
+					// MAXB  = minimum submatrix size
+					maxtyp = 21;
+					ntypes = std::min(maxtyp, ntypes);
+					alareq(c3, ntypes, dotype, maxtyp, nin, nout);
+					xlaenv(1, 1);
+					if (tsterr)
+					{
+						//CALL DERRHS("DHSEQR", nout)
+						std::cerr << "DERRHS not yet implemented" << std::endl;
+					}
+					for (i=0; i<nparms; i++)
+					{
+						xlaenv(1,  nbval[i]);
+						xlaenv(2,  nbmin[i]);
+						xlaenv(3,  nxval[i]);
+						xlaenv(12, std::max(11, inmin[i]));
+						xlaenv(13, inwin[i]);
+						xlaenv(14, inibl[i]);
+						xlaenv(15, ishfts[i]);
+						xlaenv(16, iacc22[i]);
+						if (newsd==0)
+						{
+							for (k=0; k<4; k++)
+							{
+								iseed[k] = ioldsd[k];
+							}
+						}
+						nout << "\n\n " << c3 << ":  NB =" << std::setw(4) << nbval[i]
+						     << ", NBMIN =" << std::setw(4) << nbmin[i] << ", NX =" << std::setw(4)
+						     << nxval[i] << ", INMIN=" << std::setw(4) << std::max(11, inmin[i])
+						     << ", INWIN =" << std::setw(4) << inwin[i] << ", INIBL ="
+						     << std::setw(4) << inibl[i] << ", ISHFTS =" << std::setw(4)
+						     << ishfts[i] << ", IACC22 =" << std::setw(4) << iacc22[i]
+						     << std::endl;
+						//CALL DCHKHS(nn, nval, maxtyp, dotype, iseed, thresh, nout, A[0], nmax, A[nmax2], A[nmax2*2], A[nmax2*3], A[nmax2*4], nmax, A[nmax2*5], A[nmax2*6], D[0], D[nmax], D[nmax*2], D[nmax*3], D[nmax*4], D[nmax*5], A[nmax2*7], A[nmax2*8], A[nmax2*9], A[nmax2*10], A[nmax2*11], D[nmax*6], work, lwork, iwork, logwrk, result, info)
+						std::cerr << "DCHKHS not yet implemented" << std::endl;
+						if (info!=0)
+						{
+							nout << str9980 << "DCHKHS = " << std::setw(4) << info << std::endl;
+						}
+					}
+				}
+				else if (std::strncmp(c3, "DST", 3)==0 || std::strncmp(c3, "SEP", 3)==0
+				      || std::strncmp(c3, "SE2", 3)==0)
+				{
+					// ----------------------------------
+					// SEP:  Symmetric Eigenvalue Problem
+					// ----------------------------------
+					// Vary the parameters
+					// NB    = block size
+					// nbmin = minimum block size
+					// NX    = crossover point
+					maxtyp = 21;
+					ntypes = std::min(maxtyp, ntypes);
+					alareq(c3, ntypes, dotype, maxtyp, nin, nout);
+					xlaenv(1, 1);
+					xlaenv(9, 25);
+					if (tsterr)
+					{
+						//CALL DERRST("DST", nout)
+						std::cerr << "DERRST not yet implemented" << std::endl;
+					}
+					for (i=0; i<nparms; i++)
+					{
+						xlaenv(1, nbval[i]);
+						xlaenv(2, nbmin[i]);
+						xlaenv(3, nxval[i]);
+						if (newsd==0)
+						{
+							for (k=0; k<4; k++)
+							{
+								iseed[k] = ioldsd[k];
+							}
+						}
+						nout << "\n\n " << c3 << ":  NB =" << std::setw(4) << nbval[i]
+						     << ", NBMIN =" << std::setw(4) << nbmin[i] << ", NX =" << std::setw(4)
+						     << nxval[i] << std::endl;
+						if (tstchk)
+						{
+							if (std::strncmp(c3, "SE2", 3)==0)
+							{
+								//CALL DCHKST2STG(nn, nval, maxtyp, dotype, iseed, thresh, nout, A[0], nmax, A[nmax2], D[0], D[nmax], D[nmax*2], D[nmax*3], D[nmax*4], D[nmax*5], D[nmax*6], D[nmax*7], D[nmax*8], D[nmax*9], D[nmax*10], A[nmax2*2], nmax, A[nmax2*3], A[nmax2*4], D[nmax*11], A[nmax2*5], work, lwork, iwork, liwork, result, info)
+								std::cerr << "DCHKST2STG not yet implemented" << std::endl;
+							}
+							else
+							{
+								//CALL DCHKST(nn, nval, maxtyp, dotype, iseed, thresh, nout, A[0], nmax, A[nmax2], D[0], D[nmax], D[nmax*2], D[nmax*3], D[nmax*4], D[nmax*5], D[nmax*6], D[nmax*7], D[nmax*8], D[nmax*9], D[nmax*10], A[nmax2*2], nmax, A[nmax2*3], A[nmax2*4], D[nmax*11], A[nmax2*5], work, lwork, iwork, liwork, result, info)
+								std::cerr << "DCHKST not yet implemented" << std::endl;
+							}
+							if (info!=0)
+							{
+								nout << str9980 << "DCHKST = " << std::setw(4) << info
+								     << std::endl;
+							}
+						}
+						if (tstdrv)
+						{
+							if ((std::strncmp(c3, "SE2", 3)==0))
+							{
+								//CALL DDRVST2STG(nn, nval, 18, dotype, iseed, thresh, nout, A[0], nmax, D[nmax*2], D[nmax*3], D[nmax*4], D[nmax*5], D[nmax*7], D[nmax*8], D[nmax*9], D[nmax*10], A[nmax2], nmax, A[nmax2*2], D[nmax*11], A[nmax2*3], work, lwork, iwork, liwork, result, info)
+								std::cerr << "DDRVST2STG not yet implemented" << std::endl;
+							}
+							else
+							{
+								//CALL DDRVST(nn, nval, 18, dotype, iseed, thresh, nout, A[0], nmax, D[nmax*2], D[nmax*3], D[nmax*4], D[nmax*5], D[nmax*7], D[nmax*8], D[nmax*9], D[nmax*10], A[nmax2], nmax, A[nmax2*2], D[nmax*11], A[nmax2*3], work, lwork, iwork, liwork, result, info)
+								std::cerr << "DDRVST not yet implemented" << std::endl;
+							}
+							if (info!=0)
+							{
+								nout << str9980 << "DDRVST = " << std::setw(4) << info
+								     << std::endl;
+							}
+						}
+					}
+				}
+				else if (std::strncmp(c3, "DSG", 3)==0)
+				{
+					// ----------------------------------------------
+					// DSG:  Symmetric Generalized Eigenvalue Problem
+					// ----------------------------------------------
+					// Vary the parameters
+					// NB    = block size
+					// nbmin = minimum block size
+					// NX    = crossover point
+					maxtyp = 21;
+					ntypes = std::min(maxtyp, ntypes);
+					alareq(c3, ntypes, dotype, maxtyp, nin, nout);
+					xlaenv(9, 25);
+					for (i=0; i<nparms; i++)
+					{
+						xlaenv(1, nbval[i]);
+						xlaenv(2, nbmin[i]);
+						xlaenv(3, nxval[i]);
+						if (newsd==0)
+						{
+							for (k=0; k<4; k++)
+							{
+								iseed[k] = ioldsd[k];
+							}
+						}
+						nout << "\n\n " << c3 << ":  NB =" << std::setw(4) << nbval[i]
+						     << ", NBMIN =" << std::setw(4) << nbmin[i] << ", NX =" << std::setw(4)
+						     << nxval[i] << std::endl;
+						if (tstchk)
+						{
+							//// CALL DDRVSG(nn, nval, maxtyp, dotype, iseed, thresh, nout, A[0], nmax, A[nmax2], nmax, D[nmax*2], A[nmax2*2], nmax, A[nmax2*3], A[nmax2*4], A[nmax2*5], A[nmax2*6], work, lwork, iwork, liwork, result, info)
+							//CALL DDRVSG2STG(nn, nval, maxtyp, dotype, iseed, thresh, nout, A[0], nmax, A[nmax2], nmax, D[nmax*2], D[nmax*2], A[nmax2*2], nmax, A[nmax2*3], A[nmax2*4], A[nmax2*5], A[nmax2*6], work, lwork, iwork, liwork, result, info)
+							std::cerr << "DDRVSG2STG not yet implemented" << std::endl;
+							if (info!=0)
+							{
+								nout << str9980 << "DDRVSG = " << std::setw(4) << info
+								     << std::endl;
+							}
+						}
+					}
+				}
+				else if (std::strncmp(c3, "DBD", 3)==0 || std::strncmp(c3, "SVD", 3)==0)
+				{
+					// ----------------------------------
+					// SVD:  Singular Value Decomposition
+					// ----------------------------------
+					// Vary the parameters
+					// NB    = block size
+					// nbmin = minimum block size
+					// NX    = crossover point
+					// nrhs  = number of right hand sides
+					maxtyp = 16;
+					ntypes = std::min(maxtyp, ntypes);
+					alareq(c3, ntypes, dotype, maxtyp, nin, nout);
+					xlaenv(1, 1);
+					xlaenv(9, 25);
+					// Test the error exits
+					if (tsterr && tstchk)
+					{
+						//CALL DERRBD("DBD", nout)
+						std::cerr << "DERRBD not yet implemented" << std::endl;
+					}
+					if (tsterr && tstdrv)
+					{
+						//CALL DERRED("DBD", nout)
+						std::cerr << "DERRED not yet implemented" << std::endl;
+					}
+					for (i=0; i<nparms; i++)
+					{
+						nrhs = nsval[i];
+						xlaenv(1, nbval[i]);
+						xlaenv(2, nbmin[i]);
+						xlaenv(3, nxval[i]);
+						if (newsd==0)
+						{
+							for (k=0; k<4; k++)
+							{
+								iseed[k] = ioldsd[k];
+							}
+						}
+						nout << "\n\n " << c3 << ":  NB =" << std::setw(4) << nbval[i]
+						     << ", NBMIN =" << std::setw(4) << nbmin[i] << ", NX =" << std::setw(4)
+						     << nxval[i] << ", NRHS =" << std::setw(4) << nrhs << std::endl;
+						if (tstchk)
+						{
+							dchkbd(nn, mval, nval, maxtyp, dotype, nrhs, iseed, thresh, &A[0],
+							       nmax, &D[0], &D[nmax], &D[nmax*2], &D[nmax*3], &A[nmax2], nmax,
+							       &A[nmax2*2], &A[nmax2*3], &A[nmax2*4], nmax, &A[nmax2*5], nmax,
+							       &A[nmax2*6], &A[nmax2*7], work, lwork, iwork, nout, info);
+							if (info!=0)
+							{
+								nout << str9980 << "DCHKBD = " << std::setw(4) << info
+								     << std::endl;
+							}
+						}
+						if (tstdrv)
+						{
+							//CALL DDRVBD(nn, mval, nval, maxtyp, dotype, iseed, thresh, A[0], nmax, A[nmax2], nmax, A[nmax2*2], nmax, A[nmax2*3], A[nmax2*4], A[nmax2*5], D[0], D[nmax], D[nmax*2], work, lwork, iwork, nout, info)
+							std::cerr << "DDRVBD not yet implemented" << std::endl;
+						}
+					}
+				}
+				else if (std::strncmp(c3, "DEV", 3)==0)
+				{
+					// --------------------------------------------
+					// DEV:  Nonsymmetric Eigenvalue Problem Driver
+					// DGEEV (eigenvalues and eigenvectors)
+					// --------------------------------------------
+					maxtyp = 21;
+					ntypes = std::min(maxtyp, ntypes);
+					if (ntypes<=0)
+					{
+						nout << "\n\n " << c3 << str9990 << std::endl;
+					}
+					else
+					{
+						if (tsterr)
+						{
+							//CALL DERRED(c3, nout)
+							std::cerr << "DERRED not yet implemented" << std::endl;
+						}
+						alareq(c3, ntypes, dotype, maxtyp, nin, nout);
+						ddrvev(nn, nval, ntypes, dotype, iseed, thresh, nout, &A[0], nmax,
+						       &A[nmax2], &D[0], &D[nmax], &D[nmax*2], &D[nmax*3], &A[nmax2*2],
+						       nmax, &A[nmax2*3], nmax, &A[nmax2*4], nmax, result, work, lwork,
+						       iwork, info);
+						if (info!=0)
+						{
+							nout << str9980 << "DGEEV = " << std::setw(4) << info << std::endl;
+						}
+					}
+					nout << str9973 << std::endl;
+					break;
+				}
+				else if (std::strncmp(c3, "DES", 3)==0)
+				{
+					// --------------------------------------------
+					// DES:  Nonsymmetric Eigenvalue Problem Driver
+					// DGEES (Schur form)
+					// --------------------------------------------
+					maxtyp = 21;
+					ntypes = std::min(maxtyp, ntypes);
+					if (ntypes<=0)
+					{
+						nout << "\n\n " << c3 << str9990 << std::endl;
+					}
+					else
+					{
+						if (tsterr)
+						{
+							//CALL DERRED(c3, nout)
+							std::cerr << "DERRED not yet implemented" << std::endl;
+						}
+						alareq(c3, ntypes, dotype, maxtyp, nin, nout);
+						//CALL DDRVES(nn, nval, ntypes, dotype, iseed, thresh, nout, A[0], nmax, A[nmax2], A[nmax2*2], D[0], D[nmax], D[nmax*2], D[nmax*3], A[nmax2*3], nmax, result, work, lwork, iwork, logwrk, info)
+						std::cerr << "DDRVES not yet implemented" << std::endl;
+						if (info!=0)
+						{
+							nout << str9980 << "DGEES = " << std::setw(4) << info << std::endl;
+						}
+					}
+					nout << str9973 << std::endl;
+					break;
+				}
+				else if (std::strncmp(c3, "DVX", 3)==0)
+				{
+					// --------------------------------------------------------------
+					// DVX:  Nonsymmetric Eigenvalue Problem Expert Driver
+					// DGEEVX (eigenvalues, eigenvectors and condition numbers)
+					// --------------------------------------------------------------
+					maxtyp = 21;
+					ntypes = std::min(maxtyp, ntypes);
+					if (ntypes<0)
+					{
+						nout << "\n\n " << c3 << str9990 << std::endl;
+					}
+					else
+					{
+						if (tsterr)
+						{
+							//CALL DERRED(c3, nout)
+							std::cerr << "DERRED not yet implemented" << std::endl;
+						}
+						alareq(c3, ntypes, dotype, maxtyp, nin, nout);
+						//CALL DDRVVX(nn, nval, ntypes, dotype, iseed, thresh, nin, nout, A[0], nmax, A[nmax2], D[0], D[nmax], D[nmax*2], D[nmax*3], A[nmax2*2], nmax, A[nmax2*3], nmax, A[nmax2*4], nmax, D[nmax*4], D[nmax*5], D[nmax*6], D[nmax*7], D[nmax*8], D[nmax*9], D[nmax*10], D[nmax*11], result, work, lwork, iwork, info)
+						std::cerr << "DDRVVX not yet implemented" << std::endl;
+						if (info!=0)
+						{
+							nout << str9980 << "DGEEVX = " << std::setw(4) << info << std::endl;
+						}
+					}
+					nout << str9973 << std::endl;
+					break;
+				}
+				else if (std::strncmp(c3, "DSX", 3)==0)
+				{
+					// ---------------------------------------------------
+					// DSX:  Nonsymmetric Eigenvalue Problem Expert Driver
+					// DGEESX (Schur form and condition numbers)
+					// ---------------------------------------------------
+					maxtyp = 21;
+					ntypes = std::min(maxtyp, ntypes);
+					if (ntypes<0)
+					{
+						nout << "\n\n " << c3 << str9990 << std::endl;
+					}
+					else
+					{
+						if (tsterr)
+						{
+							//CALL DERRED(c3, nout)
+							std::cerr << "DERRED not yet implemented" << std::endl;
+						}
+						alareq(c3, ntypes, dotype, maxtyp, nin, nout);
+						// CALL DDRVSX(nn, nval, ntypes, dotype, iseed, thresh, nin, nout, A[0], nmax, A[nmax2], A[nmax2*2], D[0], D[nmax], D[nmax*2], D[nmax*3], D[nmax*4], D[nmax*5], A[nmax2*3], nmax, A[nmax2*4], result, work, lwork, iwork, logwrk, info)
+						std::cerr << "DDRVVX not yet implemented" << std::endl;
+						if (info!=0)
+						{
+							nout << str9980 << "DGEESX = " << std::setw(4) << info << std::endl;
+						}
+					}
+					nout << str9973 << std::endl;
+					break;
+				}
+				else if (std::strncmp(c3, "DGG", 3)==0)
+				{
+					// -------------------------------------------------
+					// DGG:  Generalized Nonsymmetric Eigenvalue Problem
+					// -------------------------------------------------
+					// Vary the parameters
+					// NB    = block size
+					// nbmin = minimum block size
+					// NS    = number of shifts
+					// MAXB  = minimum submatrix size
+					// iacc22: structured matrix multiply
+					// NBCOL = minimum column dimension for blocks
+					maxtyp = 26;
+					ntypes = std::min(maxtyp, ntypes);
+					alareq(c3, ntypes, dotype, maxtyp, nin, nout);
+					xlaenv(1,1);
+					if (tstchk && tsterr)
+					{
+						//CALL DERRGG(c3, nout)
+						std::cerr << "DERRGG not yet implemented" << std::endl;
+					}
+					for (i=0; i<nparms; i++)
+					{
+						xlaenv(1, nbval[i]);
+						xlaenv(2, nbmin[i]);
+						xlaenv(4, nsval[i]);
+						xlaenv(8, mxbval[i]);
+						xlaenv(16, iacc22[i]);
+						xlaenv(5, nbcol[i]);
+						if (newsd==0)
+						{
+							for (k=0; k<4; k++)
+							{
+								iseed[k] = ioldsd[k];
+							}
+						}
+						nout << "\n\n " << c3 << ":  NB =" << std::setw(4) << nbval[i]
+						     << ", NBMIN =" << std::setw(4) << nbmin[i] << ", NS =" << std::setw(4)
+						     << nsval[i] << ", MAXB =" << std::setw(4) << mxbval[i] << ", IACC22 ="
+						     << std::setw(4) << iacc22[i] << ", NBCOL =" << std::setw(4)
+						     << nbcol[i] << std::endl;
+						tstdif = false;
+						thrshn = real(10.0);
+						if (tstchk)
+						{
+							//CALL DCHKGG(nn, nval, maxtyp, dotype, iseed, thresh, tstdif, thrshn, nout, A[0], nmax, A[nmax2], A[nmax2*2], A[nmax2*3], A[nmax2*4], A[nmax2*5], A[nmax2*6], A[nmax2*7], A[nmax2*8], nmax, A[nmax2*9], A[nmax2*10], A[nmax2*11], D[0], D[nmax], D[nmax*2], D[nmax*3], D[nmax*4], D[nmax*5], A[nmax2*12], A[nmax2*13], work, lwork, logwrk, result, info)
+							std::cerr << "DCHKGG not yet implemented" << std::endl;
+							if (info!=0)
+							{
+								nout << str9980 << "DCHKGG = " << std::setw(4) << info
+								     << std::endl;
+							}
+						}
+					}
+				}
+				else if (std::strncmp(c3, "DGS", 3)==0)
+				{
+					// -------------------------------------------------
+					// DGS:  Generalized Nonsymmetric Eigenvalue Problem
+					// DGGES (Schur form)
+					// -------------------------------------------------
+					maxtyp = 26;
+					ntypes = std::min(maxtyp, ntypes);
+					if (ntypes<=0)
+					{
+						nout << "\n\n " << c3 << str9990 << std::endl;
+					}
+					else
+					{
+						if (tsterr)
+						{
+							//CALL DERRGG(c3, nout)
+							std::cerr << "DERRGG not yet implemented" << std::endl;
+						}
+						alareq(c3, ntypes, dotype, maxtyp, nin, nout);
+						//CALL DDRGES(nn, nval, maxtyp, dotype, iseed, thresh, nout, A[0], nmax, A[nmax2], A[nmax2*2], A[nmax2*3], A[nmax2*6], nmax, A[nmax2*7], D[0], D[nmax], D[nmax*2], work, lwork, result, logwrk, info)
+						std::cerr << "DERRGG not yet implemented" << std::endl;
+						if (info!=0)
+						{
+							nout << str9980 << "DDRGES = " << std::setw(4) << info << std::endl;
+						}
+						// Blocked version
+						xlaenv(16, 2);
+						//CALL DDRGES3(nn, nval, maxtyp, dotype, iseed, thresh, nout, A[0], nmax, A[nmax2], A[nmax2*2], A[nmax2*3], A[nmax2*6], nmax, A[nmax2*7], D[0], D[nmax], D[nmax*2], work, lwork, result, logwrk, info)
+						std::cerr << "DDRGES3 not yet implemented" << std::endl;
+						if (info!=0)
+						{
+							nout << str9980 << "DDRGES3 = " << std::setw(4) << info << std::endl;
+						}
+					}
+					nout << str9973 << std::endl;
+					break;
+				}
+				else if (dgx)
+				{
+					// -------------------------------------------------
+					// DGX:  Generalized Nonsymmetric Eigenvalue Problem
+					// DGGESX (Schur form and condition numbers)
+					// -------------------------------------------------
+					maxtyp = 5;
+					ntypes = maxtyp;
+					if (nn<0)
+					{
+						nout << "\n\n " << c3 << str9990 << std::endl;
+					}
+					else
+					{
+						if (tsterr)
+						{
+							//CALL DERRGG(c3, nout)
+							std::cerr << "DERRGG not yet implemented" << std::endl;
+						}
+						alareq(c3, ntypes, dotype, maxtyp, nin, nout);
+						xlaenv(5, 2);
+						// CALL DDRGSX(nn, ncmax, thresh, nin, nout, A[0], nmax, A[nmax2], A[nmax2*2], A[nmax2*3], A[nmax2*4], A[nmax2*5], D[0], D[nmax], D[nmax*2], C[0], ncmax*ncmax, A[nmax2*11], work, lwork, iwork, liwork, logwrk, info)
+						std::cerr << "DDRGSX not yet implemented" << std::endl;
+						if (info!=0)
+						{
+							nout << str9980 << "DDRGSX = " << std::setw(4) << info << std::endl;
+						}
+					}
+					nout << str9973 << std::endl;
+					break;
+				}
+				else if (std::strncmp(c3, "DGV", 3)==0)
+				{
+					// -------------------------------------------------
+					// DGV:  Generalized Nonsymmetric Eigenvalue Problem
+					// DGGEV (Eigenvalue/vector form)
+					// -------------------------------------------------
+					maxtyp = 26;
+					ntypes = std::min(maxtyp, ntypes);
+					if (ntypes<=0)
+					{
+						nout << "\n\n " << c3 << str9990 << std::endl;
+					}
+					else
+					{
+						if (tsterr)
+						{
+							//CALL DERRGG(c3, nout)
+							std::cerr << "DERRGG not yet implemented" << std::endl;
+						}
+						alareq(c3, ntypes, dotype, maxtyp, nin, nout);
+						//CALL DDRGEV(nn, nval, maxtyp, dotype, iseed, thresh, nout, A[0], nmax, A[nmax2], A[nmax2*2], A[nmax2*3], A[nmax2*6], nmax, A[nmax2*7], A[nmax2*8], nmax, D[0], D[nmax], D[nmax*2], D[nmax*3], D[nmax*4], D[nmax*5], work, lwork, result, info)
+						std::cerr << "DDRGEV not yet implemented" << std::endl;
+						if (info!=0)
+						{
+							nout << str9980 << "DDRGEV = " << std::setw(4) << info << std::endl;
+						}
+						// Blocked version
+						//CALL DDRGEV3(nn, nval, maxtyp, dotype, iseed, thresh, nout, A[0], nmax, A[nmax2], A[nmax2*2], A[nmax2*3], A[nmax2*6], nmax, A[nmax2*7], A[nmax2*8], nmax, D[0], D[nmax], D[nmax*2], D[nmax*3], D[nmax*4], D[nmax*5], work, lwork, result, info)
+						std::cerr << "DDRGEV3 not yet implemented" << std::endl;
+						if (info!=0)
+						{
+							nout << str9980 << "DDRGEV3 = " << std::setw(4) << info << std::endl;
+						}
+					}
+					nout << str9973 << std::endl;
+					break;
+				}
+				else if (dxv)
+				{
+					// -------------------------------------------------
+					// DXV:  Generalized Nonsymmetric Eigenvalue Problem
+					// DGGEVX (eigenvalue/vector with condition numbers)
+					// -------------------------------------------------
+					maxtyp = 2;
+					ntypes = maxtyp;
+					if (nn<0)
+					{
+						nout << "\n\n " << c3 << str9990 << std::endl;
+					}
+					else
+					{
+						if (tsterr)
+						{
+							//CALL DERRGG(c3, nout)
+							std::cerr << "DERRGG not yet implemented" << std::endl;
+						}
+						alareq(c3, ntypes, dotype, maxtyp, nin, nout);
+						//CALL DDRGVX(nn, thresh, nin, nout, A[0], nmax, A[nmax2], A[nmax2*2], A[nmax2*3], D[0], D[nmax], D[nmax*2], A[nmax2*4], A[nmax2*5], iwork[0], iwork[1], D[nmax*3], D[nmax*4], D[nmax*5], D[nmax*6], D[nmax*7], D[nmax*8], work, lwork, iwork[2], liwork-2, result, logwrk, info)
+						std::cerr << "DDRGVX not yet implemented" << std::endl;
+						if (info!=0)
+						{
+							nout << str9980 << "DDRGVX = " << std::setw(4) << info << std::endl;
+						}
+					}
+					nout << str9973 << std::endl;
+					break;
+				}
+				else if (std::strncmp(c3, "DSB", 3)==0)
+				{
+					// ------------------------------
+					// DSB:  Symmetric Band Reduction
+					// ------------------------------
+					maxtyp = 15;
+					ntypes = std::min(maxtyp, ntypes);
+					alareq(c3, ntypes, dotype, maxtyp, nin, nout);
+					if (tsterr)
+					{
+						//CALL DERRST("DSB", nout)
+						std::cerr << "DERRST not yet implemented" << std::endl;
+					}
+					//// CALL DCHKSB(nn, nval, nk, kval, maxtyp, dotype, iseed, thresh, nout, A[0], nmax, D[0], D[nmax], A[nmax2], nmax, work, lwork, result, info)
+					//CALL DCHKSB2STG(nn, nval, nk, kval, maxtyp, dotype, iseed, thresh, nout, A[0], nmax, D[0],  D[nmax], D[nmax*2], D[nmax*3], D[nmax*4], A[nmax2], nmax, work, lwork, result, info)
+					std::cerr << "DCHKSB2STG not yet implemented" << std::endl;
+					if (info!=0)
+					{
+						nout << str9980 << "DCHKSB = " << std::setw(4) << info << std::endl;
+					}
+				}
+				else if ((std::strncmp(c3, "DBB", 3)==0))
+				{
+					// ------------------------------
+					// DBB:  General Band Reduction
+					// ------------------------------
+					maxtyp = 15;
+					ntypes = std::min(maxtyp, ntypes);
+					alareq(c3, ntypes, dotype, maxtyp, nin, nout);
+					for (i=0; i<nparms; i++)
+					{
+						nrhs = nsval[i];
+						if (newsd==0)
+						{
+							for (k=0; k<4; k++)
+							{
+								iseed[k] = ioldsd[k];
+							}
+						}
+						nout << "\n\n " << c3 << ":  NRHS =" << std::setw(4) << nrhs << std::endl;
+						//CALL DCHKBB(nn, mval, nval, nk, kval, maxtyp, dotype, nrhs, iseed, thresh, nout, A[0], nmax, A[nmax2], 2*nmax, D[0], D[nmax], A[nmax2*3], nmax, A[nmax2*4], nmax, A[nmax2*5], nmax, A[nmax2*6], work, lwork, result, info)
+						std::cerr << "DCHKBB not yet implemented" << std::endl;
+						if (info!=0)
+						{
+							nout << str9980 << "DCHKBB = " << std::setw(4) << info << std::endl;
+						}
+					}
+				}
+				else if (std::strncmp(c3, "GLM", 3)==0)
+				{
+					// -----------------------------------------
+					// GLM:  Generalized Linear Regression Model
+					// -----------------------------------------
+					xlaenv(1, 1);
+					if (tsterr)
+					{
+						//CALL DERRGG("GLM", nout)
+						std::cerr << "DERRGG not yet implemented" << std::endl;
+					}
+					//CALL DCKGLM(nn, mval, pval, nval, ntypes, iseed, thresh, nmax, A[0], A[nmax2], B[0], B[nmax2], x, work, D[0], nin, nout, info)
+					std::cerr << "DCKGLM not yet implemented" << std::endl;
+					if (info!=0)
+					{
+						nout << str9980 << "DCKGLM = " << std::setw(4) << info << std::endl;
+					}
+				}
+				else if (std::strncmp(c3, "GQR", 3)==0)
+				{
+					// ------------------------------------------
+					// GQR:  Generalized QR and RQ factorizations
+					// ------------------------------------------
+					xlaenv(1, 1);
+					if (tsterr)
+					{
+						//CALL DERRGG("GQR", nout)
+						std::cerr << "DERRGG not yet implemented" << std::endl;
+					}
+					//CALL DCKGQR(nn, mval, nn, pval, nn, nval, ntypes, iseed, thresh, nmax, A[0], A[nmax2], A[nmax2*2], A[nmax2*3], taua, B[0], B[nmax2], B[nmax2*2], B[nmax2*3], B[nmax2*4], taub, work, D[0], nin, nout, info)
+					std::cerr << "DCKGQR not yet implemented" << std::endl;
+					if (info!=0)
+					{
+						nout << str9980 << "DCKGQR = " << std::setw(4) << info << std::endl;
+					}
+				}
+				else if (std::strncmp(c3, "GSV", 3)==0)
+				{
+					// ----------------------------------------------
+					// GSV:  Generalized Singular Value Decomposition
+					// ----------------------------------------------
+					xlaenv(1,1);
+					if (tsterr)
+					{
+						//CALL DERRGG("GSV", nout)
+						std::cerr << "DERRGG not yet implemented" << std::endl;
+					}
+					//CALL DCKGSV(nn, mval, pval, nval, ntypes, iseed, thresh, nmax, A[0], A[nmax2], B[0], B[nmax2], A[nmax2*2], B[nmax2*2], A[nmax2*3], taua, taub, B[nmax2*3], iwork, work, D[0], nin, nout, info)
+					std::cerr << "DCKGSV not yet implemented" << std::endl;
+					if (info!=0)
+					{
+						nout << str9980 << "DCKGSV = " << std::setw(4) << info << std::endl;
+					}
+				}
+				else if (std::strncmp(c3, "CSD", 3)==0)
+				{
+					// ----------------------------------------------
+					// CSD:  CS Decomposition
+					// ----------------------------------------------
+					xlaenv(1,1);
+					if (tsterr)
+					{
+						//CALL DERRGG("CSD", nout)
+						std::cerr << "DERRGG not yet implemented" << std::endl;
+					}
+					//CALL DCKCSD(nn, mval, pval, nval, ntypes, iseed, thresh, nmax, A[0], A[nmax2], A[nmax2*2], A[nmax2*3], A[nmax2*4], A[nmax2*5], A[nmax2*6], iwork, work, D[0], nin, nout, info)
+					std::cerr << "DCKCSD not yet implemented" << std::endl;
+					if (info!=0)
+					{
+						nout << str9980 << "DCKCSD = " << std::setw(4) << info << std::endl;
+					}
+				}
+				else if (std::strncmp(c3, "LSE", 3)==0)
+				{
+					// --------------------------------------
+					// LSE:  Constrained Linear Least Squares
+					// --------------------------------------
+					xlaenv(1, 1);
+					if (tsterr)
+					{
+						//CALL DERRGG("LSE", nout)
+						std::cerr << "DERRGG not yet implemented" << std::endl;
+					}
+					//CALL DCKLSE(nn, mval, pval, nval, ntypes, iseed, thresh, nmax, A[0], A[nmax2], B[0], B[nmax2], x, work, D[0], nin, nout, info)
+					std::cerr << "DCKLSE not yet implemented" << std::endl;
+					if (info!=0)
+					{
+						nout << str9980 << "DCKLSE = " << std::setw(4) << info << std::endl;
+					}
+				}
+				else
+				{
+					nout << "\n\n " << c3 << ":  Unrecognized path name" << std::endl;
+				}
+			} while (!(dgx || dxv));
+			if (endbreak)
+			{
+				break;
+			}
+		}
+		nout << "\n\n End of tests\n";
+		std::time(&s2);
+		nout << " Total time used = " << std::setw(12) << std::setprecision(2) << s2-s1
+		     << " seconds\n" << std::endl;
 	}
 
 	/*! §ddrvev
@@ -2098,25 +4773,26 @@ public:
 	 *    \n $\b{bm} w_r & w_i \\
 	 *              -w_i & w_r \e{bm}$\n
 	 *    Such a block multiplying an §n by 2 matrix $\b{bm}u_r & u_i\e{bm}$ on the right will be
-	 *    the same as multiplying $u_r+i\,u_i$ by $w_r+i\,w_i$.\n
+	 *    the same as multiplying $u_r+i\,u_i$ by $w_r+i\,w_i$.
 	 * 2. $\frac{|\{A}^H\{Vl}-\{Vl}\,\{W}^H|}{\{n}|\{A}|\,\{ulp}}$\n
 	 *    Here §Vl is the matrix of unit left eigenvectors, $\{A}^H$ is the conjugate transpose of
 	 *    §A, and §W is as above.\n
 	 * 3. $\frac{\left||\{Vr}[i]|-1\right|}{\{ulp}}$ and whether the largest component is real\n
-	 *    $\{Vr}[i]$ denotes the $i$-th column of §Vr. \n
+	 *    $\{Vr}[i]$ denotes the $i$-th column of §Vr.
 	 * 4. $\frac{\left||\{Vl}[i]|-1\right|}{\{ulp}}$ and whether the largest component is real\n
-	 *    $\{Vl}[i]$ denotes the $i$-th column of §Vl. \n
+	 *    $\{Vl}[i]$ denotes the $i$-th column of §Vl.
 	 * 5. $\{W}_\text{full} = \{W}_\text{partial}$\n
 	 *    $\{W}_\text{full}$ denotes the eigenvalues computed when both §Vr and §Vl are also
 	 *    computed, and $\{W}_\text{partial}$ denotes the eigenvalues computed when only §W, only
-	 *    §W and §Vr, or only §W and §Vl are computed.\n
+	 *    §W and §Vr, or only §W and §Vl are computed.
 	 * 6. $\{Vr}_\text{full} = \{Vr}_\text{partial}$\n
 	 *    $\{Vr}_\text{full}$ denotes the right eigenvectors computed when both §Vr and §Vl are
-	 *    computed, and $\{Vr}_\text{partial}$ denotes the result when only §Vr is computed.\n
+	 *    computed, and $\{Vr}_\text{partial}$ denotes the result when only §Vr is computed.
 	 * 7. $\{Vl}_\text{full} = \{Vl}_\text{partial}$\n
 	 *    $\{Vl}_\text{full}$ denotes the left eigenvectors computed when both §Vr and §Vl are also
-	 *    computed, and $\{Vl}_\text{partial}$ denotes the result when only §Vl is computed.\n\n
+	 *    computed, and $\{Vl}_\text{partial}$ denotes the result when only §Vl is computed.
 	 * .
+	 * \n
 	 * The "sizes" are specified by an array $\{nn}[0:\{nsizes}-1]$; the value of each element
 	 * $\{nn}[j]$ specifies one size.\n The "types" are specified by a logical array
 	 * $\{dotype}[0:\{ntypes}-1]$; if $\{dotype}[j]$ is true, then matrix type $"j"$ will be
@@ -2816,9 +5492,9 @@ public:
 						          " 18=Ill-cond., small rand. complx \n";
 						nounit << " 19=Matrix with random O(1) entries.    "
 						          " 21=Matrix with small random entries.\n"
-						          " 20=Matrix with large random entries.   \n\n";
+						          " 20=Matrix with large random entries.   \n";
 						nounit << " Tests performed with test threshold =" << std::fixed
-						       << std::setw(8) << std::setprecision(2) << thresh << "\n\n"
+						       << std::setw(8) << std::setprecision(2) << thresh << "\n"
 						       << " 1 = | A VR - VR W | / (n |A| ulp) \n"
 						          " 2 = | transpose(A) VL - VL W | / (n |A| ulp) \n"
 						          " 3 = | |VR[i]| - 1 | / ulp \n"
@@ -2827,7 +5503,7 @@ public:
 						                " 1/ulp otherwise\n"
 						          " 6 = 0 if VR same no matter if VL computed,  1/ulp otherwise\n"
 						          " 7 = 0 if VL same no matter if VR computed, "
-						                  " 1/ulp otherwise\n\n";
+						                  " 1/ulp otherwise\n";
 						ntestf = 2;
 					}
 					for (j=0; j<7; j++)
@@ -3857,7 +6533,51 @@ public:
 		}
 	}
 
-	// TODO: xlaenv (set zero byte in srnam!)
+	/*! §xlaenv
+	 *
+	 * §xlaenv sets certain machine- and problem-dependent quantities which will later be retrieved
+	 * by §ilaenv.
+	 * \param[in] ispec
+	 *     Specifies the parameter to be set in the global array §iparms. \n
+	 *     $\begin{tabular}{rl}
+	 *          1: & the optimal blocksize; if this value is 1, an unblocked algorithm will give
+	 *               the best performance. \\
+	 *          2: & the minimum block size for which the block routine should be used; if the
+	 *               usable block size is less than this value, an unblocked routine should be
+	 *               used. \\
+	 *          3: & the crossover point (in a block routine, for \{N} less than this value, an
+	 *               unblocked routine should be used) \\
+	 *          4: & the number of shifts, used in the nonsymmetric eigenvalue routines \\
+	 *          5: & the minimum column dimension for blocking to be used; rectangular blocks must
+	 *               have dimension at least \{k} by \{m}, where \{k} is given by \{ilaenv}(2,...)
+	 *               and \{m} by \{ilaenv}(5,...) \\
+	 *          6: & the crossover point for the SVD (when reducing an \{m} by \{n} matrix to
+	 *               bidiagonal form, if \(\max(\{m},\{n})/\min(\{m},\{n})\) exceeds this value, a
+	 *               QR factorization is used first to reduce the matrix to a triangular form) \\
+	 *          7: & the number of processors \\
+	 *          8: & another crossover point, for the multishift QR and QZ methods for nonsymmetric
+	 *               eigenvalue problems. \\
+	 *          9: & maximum size of the subproblems at the bottom of the computation tree in the
+	 *               divide-and-conquer algorithm (used by \{xgelsd} and \{xgesdd}) \\
+	 *         10: & IEEE NaN arithmetic can be trusted not to trap \\
+	 *         11: & infinity arithmetic can be trusted not to trap \\
+	 *         \(12\le\{ispec}\le 16\): &
+	 *               \{xhseqr} or one of its subroutines, see \{iparmq} for detailed explanation
+	 *      \end{tabular}$
+	 *
+	 * \param[in] nvalue The value of the parameter specified by §ispec.
+	 * \authors Univ. of Tennessee
+	 * \authors Univ. of California Berkeley
+	 * \authors Univ. of Colorado Denver
+	 * \authors NAG Ltd.
+	 * \date December 2016                                                                       */
+	void xlaenv(int const ispec, int const nvalue)
+	{
+		if (ispec>=1 && ispec<=16)
+		{
+			claenv.iparms[ispec-1] = nvalue;
+		}
+	}
 };
 
 #endif
