@@ -881,7 +881,7 @@ public:
 				{
 					int lenp = std::strlen(line);
 					i = -1;
-					int i1, ic=0, j, k;
+					int i1, ic=0, j;
 					char const* str9994 = " matrix types on this line or adjust NTYPES on previous"
 					                      " line";
 					for (j=0; j<nmats; j++)

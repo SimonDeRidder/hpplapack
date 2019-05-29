@@ -334,8 +334,8 @@ public:
 		int qstart = 2;
 		if (icompq==1)
 		{
-			Blas<real>::dcopy(n, d, 1, q[0], 1);
-			Blas<real>::dcopy(nm1, e, 1, q[n], 1);
+			Blas<real>::dcopy(n,   d, 1, &q[0], 1);
+			Blas<real>::dcopy(nm1, e, 1, &q[n], 1);
 		}
 		int i;
 		real r;
@@ -376,7 +376,7 @@ public:
 		{
 			// If n is smaller than the minimum divide size smlsiz,
 			// then solve the problem with another solver.
-			int iu, ivt;
+			int iu, ivt=0;
 			if (n<=smlsiz)
 			{
 				if (icompq==2)
@@ -413,7 +413,7 @@ public:
 				dlascl("G", 0, 0, orgnrm, ONE, n, 1, d, n, ierr);
 				dlascl("G", 0, 0, orgnrm, ONE, nm1, 1, e, nm1, ierr);
 				real eps = real(0.9) * dlamch("Epsilon");
-				int difl, difr, givcol, givnum, givptr, ic, is, k, perm, poles, z;
+				int difl=0, difr=0, givcol=0, givnum=0, givptr, ic=0, is=0, k, perm, poles=0, z=0;
 				if (icompq==1)
 				{
 					int mlvl = int(std::log(real(n)/real(smlsiz+1)) / std::log(TWO)) + 1;
@@ -1378,11 +1378,11 @@ public:
 	 *     ='V': all singular values in the half-open interval $[\{vl},\{vu}[$ will be found.\n
 	 *     ='I': the §il -th through §iu -th singular values will be found.
 	 *
-	 * \param[in] n The order of the bidiagonal matrix. $\{n}\ge 0$.
-	 * \param[in] d
+	 * \param[in]      n The order of the bidiagonal matrix. $\{n}\ge 0$.
+	 * \param[in, out] d
 	 *     an array, dimension (§n)\n The §n diagonal elements of the bidiagonal matrix $B$.
 	 *
-	 * \param[in] e
+	 * \param[in, out] e
 	 *     an array, dimension ($\max(1,\{n}-1)$)\n
 	 *     The $\{n}-1$ superdiagonal elements of the bidiagonal matrix $B$ in elements 0 to
 	 *     $\{n}-2$.
@@ -1450,10 +1450,9 @@ public:
 	 * \authors NAG Ltd.
 	 * \date June 2016                                                                           */
 	static void dbdsvdx(char const* const uplo, char const* const jobz, char const* const range,
-	                    int const n, real const* const d, real const* const e, real const vl,
-	                    real const vu, int const il, int const iu, int& ns, real* const s,
-	                    real* const Z, int const ldz, real* const work, int* const iwork,
-	                    int& info) /*const*/
+	                    int const n, real* const d, real* const e, real const vl, real const vu,
+	                    int const il, int const iu, int& ns, real* const s, real* const Z,
+	                    int const ldz, real* const work, int* const iwork, int& info) /*const*/
 	{
 		real const FUDGE = real(2.0);
 		// Test the input parameters.
@@ -1711,7 +1710,7 @@ public:
 		Blas<real>::dcopy(n,   d, 1, &work[ietgk],   2);
 		Blas<real>::dcopy(n-1, e, 1, &work[ietgk+1], 2);
 		// Check for splits in two levels, outer level in e and inner level in d.
-		int idend, idptr, ieptr, isplt, j, ntgk, nsl, zind1, zind2;
+		int idend, idptr, ieptr, isplt, j, ntgk=0, nsl, zind1, zind2;
 		real emin, nrmu, nrmv, zjtji;
 		for (ieptr=1; ieptr<n*2; ieptr+=2)
 		{
@@ -3175,8 +3174,8 @@ public:
 			{
 				// Compute left and/or right eigenvectors
 				// (Workspace: need 4*n, prefer n + n + 2*n*NB)
-				dtrevc3(&side, "B", nullptr, n, A, lda, Vl, ldvl, Vr, ldvr, n, nout, &work[iwrk],
-						lwork-iwrk, ierr);
+				dtrevc3(side, "B", nullptr, n, A, lda, Vl, ldvl, Vr, ldvr, n, nout, &work[iwrk],
+				        lwork-iwrk, ierr);
 			}
 			int i, k, vi, vip;
 			real cs, r, scl, sn, temp1, temp2;
@@ -3480,7 +3479,7 @@ public:
 		{
 			info = -8;
 		}
-		int lwkopt, nb;
+		int lwkopt=0, nb;
 		if (info==0)
 		{
 			// Compute the workspace requirements
@@ -4572,6 +4571,8 @@ public:
 					ldaip  = lda * ip;
 					ldxi   = ldx * i;
 					ldyi   = ldy * i;
+					ipldxi = ip  + ldxi;
+					ipldyi = ip  + ldyi;
 					mmip   = mm  - i;
 					nmip   = nm  - i;
 					A[ildai] = ONE;
@@ -4697,8 +4698,7 @@ public:
 	 * \authors Univ. of Colorado Denver
 	 * \authors NAG Ltd.
 	 * \date January 2013                                                                        */
-	static void dladiv(real const a, real const b, real const c, real const d, real& p, real& q)
-	                   /*const*/
+	static void dladiv(real a, real b, real c, real d, real& p, real& q) /*const*/
 	{
 		const real BS = TWO;
 		real ab = std::max(std::fabs(a), std::fabs(b));
@@ -5935,22 +5935,24 @@ public:
 					u[2] = scale;
 					dlarfg(3, u[0], &u[1], 1, tau);
 					u[0] = ONE;
-					real t33 = T[j2+tj2];
-					// Perform swap provisionally on diagonal block in D.
-					dlarfx("L", 3, 3, u, tau, D, LDD, work);
-					dlarfx("R", 3, 3, u, tau, D, LDD, work);
-					// Test whether to reject swap.
-					if (std::max(std::max(std::fabs(D[1]), std::fabs(D[2])), std::fabs(D[0]-t33))
-					    > thresh)
 					{
-						// Exit with info = 1 if swap was rejected.
-						info = 1;
-						return;
+						real t33 = T[j2+tj2];
+						// Perform swap provisionally on diagonal block in D.
+						dlarfx("L", 3, 3, u, tau, D, LDD, work);
+						dlarfx("R", 3, 3, u, tau, D, LDD, work);
+						// Test whether to reject swap.
+						if (std::max(std::max(std::fabs(D[1]), std::fabs(D[2])),
+						             std::fabs(D[0]-t33)) > thresh)
+						{
+							// Exit with info = 1 if swap was rejected.
+							info = 1;
+							return;
+						}
+						// Accept swap: apply transformation to the entire matrix T.
+						dlarfx("R", j3, 3,    u, tau, &T[tj0],    ldt, work);
+						dlarfx("L", 3,  n-j1, u, tau, &T[j0+tj1], ldt, work);
+						T[j0+tj0] = t33;
 					}
-					// Accept swap: apply transformation to the entire matrix T.
-					dlarfx("R", j3, 3,    u, tau, &T[tj0],    ldt, work);
-					dlarfx("L", 3,  n-j1, u, tau, &T[j0+tj1], ldt, work);
-					T[j0+tj0] = t33;
 					T[j1+tj0] = ZERO;
 					T[j2+tj0] = ZERO;
 					if (wantq)
@@ -6312,7 +6314,7 @@ public:
 				tol = std::fabs(a[0]);
 				if (n>1)
 				{
-					tol = std::max(tol, std::fabs(a[1]), std::fabs(b[0]));
+					tol = std::max(tol, std::max(std::fabs(a[1]), std::fabs(b[0])));
 				}
 				for (k=2; k<n; k++)
 				{
@@ -6662,7 +6664,7 @@ public:
 		// i1 and i2 are the indices of the first row and last column of H to which transformations
 		// must be applied. If eigenvalues only are being computed, i1 and i2 are set inside the
 		// main loop.
-		int i1, i2;
+		int i1, i2=-1;
 		if (wantt)
 		{
 			i1 = 0;
@@ -7063,7 +7065,7 @@ public:
 		{
 			return;
 		}
-		real ei;
+		real ei=ZERO;
 		int nbm = nb - 1;
 		int tnbm = ldt * nbm;
 		int nmk = n - k;
@@ -7208,11 +7210,10 @@ public:
 	 * \authors Univ. of Colorado Denver
 	 * \authors NAG Ltd.
 	 * \date December 2016                                                                       */
-	static void dlaln2(bool const ltrans, int const na, int const nw, real const smin,
-	                   real const ca, real const* const A, int const lda, real const d1,
-	                   real const d2, real const* const B, int const ldb, real const wr,
-	                   real const wi, real* const X, int const ldx, real& scale, real& xnorm,
-	                   int& info) /*const*/
+	static void dlaln2(bool const ltrans, int const na, int const nw, real smin, real const ca,
+	                   real const* const A, int const lda, real const d1, real const d2,
+	                   real const* const B, int const ldb, real const wr, real const wi,
+	                   real* const X, int const ldx, real& scale, real& xnorm, int& info) /*const*/
 	{
 		const bool ZSWAP[4] = {false, false, true,  true};
 		const bool RSWAP[4] = {false, true,  false, true};
@@ -7691,8 +7692,8 @@ public:
 	static real dlangb(char const* const norm, int const n, int const kl, int const ku,
 	                   real const* const Ab, int const ldab, real* const work) /*const*/
 	{
-		int i, j, k, abj, stop;
-		real sum, value, temp;
+		int i, j, abj, stop;
+		real sum, value=ZERO, temp;
 		char upnorm = std::toupper(norm[0]);
 		if (n==0)
 		{
@@ -7742,10 +7743,9 @@ public:
 			{
 				work[i] = ZERO;
 			}
-			abj = k + ldab*j;
 			for (j=0; j<n; j++)
 			{
-				k = ku - j;
+				abj = ku - j + ldab*j;
 				stop = std::min(n, j+kl+1);
 				for (i=std::max(0, j-ku); i<stop; i++)
 				{
@@ -7771,8 +7771,7 @@ public:
 			for (j=0; j<n; j++)
 			{
 				l = std::max(0, j-ku);
-				k = ku - j + l;
-				dlassq(std::min(n, j+kl+1)-l, &Ab[k+ldab*j], 1, scale, sum);
+				dlassq(std::min(n, j+kl+1)-l, &Ab[ku-j+l+ldab*j], 1, scale, sum);
 			}
 			value = scale * std::sqrt(sum);
 		}
@@ -7951,7 +7950,7 @@ public:
 	                   real const* const Ab, int const ldab, real* const work) /*const*/
 	{
 		int i, j, l, abj, stop;
-		real sum, value;
+		real sum, value=ZERO;
 		char upnorm = std::toupper(norm[0]);
 		char upuplo = std::toupper(uplo[0]);
 		if (n==0)
@@ -8132,7 +8131,7 @@ public:
 	                   real const* const ap, real* const work) /*const*/
 	{
 		int i, j, k, stop;
-		real absa, sum, value;
+		real absa, sum, value=ZERO;
 		char upnorm = std::toupper(norm[0]);
 		char upuplo = std::toupper(uplo[0]);
 		if (n==0)
@@ -8320,7 +8319,7 @@ public:
 	                   real const* const e) /*const*/
 	{
 		int i;
-		real anorm, sum;
+		real anorm=ZERO, sum;
 		char upnorm = std::toupper(norm[0]);
 		if (n<=0)
 		{
@@ -8437,7 +8436,7 @@ public:
 	                   real const* const A, int const lda, real* const work) /*const*/
 	{
 		int i, j, aj;
-		real sum, value;
+		real sum, value=ZERO;
 		char upnorm = std::toupper(norm[0]);
 		char upuplo = std::toupper(uplo[0]);
 		if (n==0)
@@ -9383,7 +9382,7 @@ public:
 				{
 					// ns = nominal number of simultaneous shifts.
 					// This may be lowered (slightly) if dlaqr3 did not provide that many shifts.
-					ns = std::min(nsmax, nsr, std::max(2, kbot-ktop));
+					ns = std::min(std::min(nsmax, nsr), std::max(2, kbot-ktop));
 					ns -= ns % 2;
 					/* If there have been no deflations in a multiple of KEXSH iterations, then try
 					 * exceptional shifts. Otherwise use shifts provided by DLAQR3 above or from
@@ -12948,25 +12947,33 @@ public:
 		}
 		else
 		{
-			int c1, c2, c3, c4, c5, c6, c7, c8, c9;
+			int c1=0, c2=0, c3, c4, c5, c6, c7, c8, c9;
 			switch (n)
 			{
 				case 10:
 					c9 = ldc * 9;
+					[[fallthrough]];
 				case 9:
 					c8 = ldc * 8;
+					[[fallthrough]];
 				case 8:
 					c7 = ldc * 7;
+					[[fallthrough]];
 				case 7:
 					c6 = ldc * 6;
+					[[fallthrough]];
 				case 6:
 					c5 = ldc * 5;
+					[[fallthrough]];
 				case 5:
 					c4 = ldc * 4;
+					[[fallthrough]];
 				case 4:
 					c3 = ldc * 3;
+					[[fallthrough]];
 				case 3:
 					c2 = ldc * 2;
+					[[fallthrough]];
 				case 2:
 					c1 = ldc;
 			}
@@ -14578,7 +14585,7 @@ public:
 		k = 1;
 		int k2 = n;
 		bool skip_deflation = false;
-		int j, jprev;
+		int j, jprev=-1;
 		for (j=1; j<n; j++)
 		{
 			if (std::fabs(z[j])<=tol)
@@ -14782,7 +14789,7 @@ public:
 		// and V respectively.
 		if (n>k)
 		{
-			Blas<real>::dcopy(n-k, dsigma[k], 1, d[k], 1);
+			Blas<real>::dcopy(n-k, &dsigma[k], 1, &d[k], 1);
 			dlacpy("A", n, n-k, &U2[ldu2*k], ldu2, &U[ldu*k], ldu);
 			dlacpy("A", n-k, m, &Vt2[k], ldvt2, &Vt[k], ldvt);
 		}
@@ -14946,7 +14953,7 @@ public:
 			{
 				for (i=0; i<n; i++)
 				{
-					&U[i] = -U2[i];
+					U[i] = -U2[i];
 				}
 			}
 			return;
@@ -14976,7 +14983,7 @@ public:
 		int j;
 		for (j=0; j<k; j++)
 		{
-			dlasd4(k, j, dsigma, z, &U[ldu*j], rho, &d[j], &Vt[ldvt*j], info);
+			dlasd4(k, j, dsigma, z, &U[ldu*j], rho, d[j], &Vt[ldvt*j], info);
 			// If the zero finder fails, report the convergence failure.
 			if (info!=0)
 			{
@@ -15060,7 +15067,7 @@ public:
 		for (i=0; i<k; i++)
 		{
 			ldvti = ldvt*i;
-			temp = dnrm2(k, &Vt[ldvti], 1);
+			temp = Blas<real>::dnrm2(k, &Vt[ldvti], 1);
 			Q[i] = Vt[ldvti] / temp;
 			for (j=1; j<k; j++)
 			{
@@ -15079,8 +15086,8 @@ public:
 		ktempm1 = 1 + ctot[0] + ctot[1];
 		if (ktempm1<ldvt2)
 		{
-			Blas<real>::dgem("N", "N", k, nlp1, ctot[2], ONE, &Q[ldq*ktempm1], ldq, &Vt2[ktempm1],
-			                 ldvt2, ONE, Vt, ldvt);
+			Blas<real>::dgemm("N", "N", k, nlp1, ctot[2], ONE, &Q[ldq*ktempm1], ldq, &Vt2[ktempm1],
+			                  ldvt2, ONE, Vt, ldvt);
 		}
 		ktempm1 = ctot[0];
 		int nrp1 = nr + sqre;
@@ -15097,8 +15104,8 @@ public:
 			}
 		}
 		ctemp = 1 + ctot[1] + ctot[2];
-		Blas<real>::dgem("N", "N", k, nrp1, ctemp, ONE, &Q[qind], ldq, &Vt2[ktempm1+ldvt2*nlp1],
-		                 ldvt2, ZERO, &Vt[ldvt*nlp1], ldvt);
+		Blas<real>::dgemm("N", "N", k, nrp1, ctemp, ONE, &Q[qind], ldq, &Vt2[ktempm1+ldvt2*nlp1],
+		                  ldvt2, ZERO, &Vt[ldvt*nlp1], ldvt);
 	}
 
 	/*! §dlasd4 computes the square root of the §i -th updated eigenvalue of a positive symmetric
@@ -16557,7 +16564,7 @@ public:
 	                   real* const vfw, real* const vl, real* const vlw, real const alpha,
 	                   real const beta, real* const dsigma, int* const idx, int* const idxp,
 	                   int* const idxq, int* const perm, int& givptr, int* const Givcol,
-	                   int const ldgcol, real* const Givnum, int const ldgnum, int& c, int& s,
+	                   int const ldgcol, real* const Givnum, int const ldgnum, real& c, real& s,
 	                   int& info) /*const*/
 	{
 		// Test the input parameters.
@@ -16660,7 +16667,7 @@ public:
 		k = 1;
 		int k2 = n;
 		bool deflate = true;
-		int j, jprev, km1;
+		int j, jprev=-1, km1;
 		for (j=1; j<n; j++)
 		{
 			if (std::fabs(z[j])<=tol)
@@ -16984,7 +16991,7 @@ public:
 			z[i] = std::copysign(std::sqrt(std::fabs(work[iwk3+i])), z[i]);
 		}
 		// Update vf and vl.
-		real diflj, difrj, dj, dsigj, dsigjp, temp;
+		real diflj, difrj=ZERO, dj, dsigj, dsigjp=ZERO, temp;
 		for (j=0; j<k; j++)
 		{
 			diflj = difl[j];
@@ -17466,7 +17473,7 @@ public:
 	 *     Contributors:\n
 	 *     Ming Gu and Huan Ren, Computer Science Division,
 	 *     University of California at Berkeley, USA                                             */
-	static void dlasdq(char const* const uplo, int const sqre, int const n, int const ncvt,
+	static void dlasdq(char const* const uplo, int sqre, int const n, int const ncvt,
 	                   int const nru, int const ncc, real* const d, real* const e, real* const Vt,
 	                   int const ldvt, real* const U, int const ldu, real* const C, int const ldc,
 	                   real* const work, int& info) /*const*/
@@ -20586,7 +20593,7 @@ public:
 		btmp[2] = B[ldb];
 		btmp[3] = B[1+ldb];
 		// Perform elimination
-		int i, ip, ipsv, j, jp, jpsv;
+		int i, ip, ipsv, j, jp, jpsv=0;
 		real xmax;
 		int jpiv[4];
 		for (i=0; i<3; i++)
@@ -21071,7 +21078,7 @@ public:
 		{
 			info = -8;
 		}
-		int lwkopt, nb;
+		int lwkopt=0, nb;
 		if (info==0)
 		{
 			nb = ilaenv(1, "DORGQR", " ", nh, nh, nh, -1);
@@ -21339,7 +21346,7 @@ public:
 		int nbmin = 2;
 		int nx = 0;
 		int iws = m;
-		int ldwork;
+		int ldwork=0;
 		if (nb>1 && nb<k)
 		{
 			// Determine when to cross over from blocked to unblocked code.
@@ -21784,7 +21791,8 @@ public:
 	 * \param[in] A
 	 *     an array, dimension\n (§lda,§m) if §side = 'L'\n
 	 *                           (§lda,§n) if §side = 'R'\n
-	 *     The vectors which define the elementary reflectors, as returned by §dgehrd.
+	 *     The vectors which define the elementary reflectors, as returned by §dgehrd. \n
+	 *     §A may be modified by the routine but is restored on exit.
 	 *
 	 * \param[in] lda
 	 *     The leading dimension of the array §A.\n
@@ -21825,7 +21833,7 @@ public:
 	 * \authors NAG Ltd.
 	 * \date December 2016                                                                       */
 	static void dormhr(char const* const side, char const* const trans, int const m, int const n,
-	                   int const ilo, int const ihi, real const* const A, int const lda,
+	                   int const ilo, int const ihi, real* const A, int const lda,
 	                   real const* const tau, real* const C, int const ldc, real* const work,
 	                   int const lwork, int& info) /*const*/
 	{
@@ -21882,7 +21890,7 @@ public:
 		{
 			info = -13;
 		}
-		int lwkopt, nb;
+		int lwkopt=0, nb;
 		if (info==0)
 		{
 			char concat[3];
@@ -22915,8 +22923,8 @@ public:
 		int indrv5 = indrv4 + n;
 		// Compute eigenvectors of matrix blocks.
 		int j1 = 0;
-		int b1, blksiz, bn, gpind, iinfo, its, jblk, jmax, nblk, nrmchk, zind;
-		real dtpcrt, eps1, nrm, onenrm, ortol, pertol, scl, sep, tol, xj, xjm, ztr;
+		int b1, blksiz, bn, gpind=-1, iinfo, its, jblk, jmax, nblk, nrmchk, zind;
+		real dtpcrt, eps1, nrm, onenrm, ortol, pertol, scl, sep, tol, xj, xjm=ZERO, ztr;
 		for (nblk=0; nblk<=iblock[m-1]; nblk++)
 		{
 			// Find starting and ending indices of block nblk.
@@ -22944,7 +22952,7 @@ public:
 				dtpcrt = std::sqrt(ODM1/blksiz);
 			}
 			// Loop through eigenvalues of block nblk.
-			jblk = 0;
+			jblk = -1;
 			for (j=j1; j<m; j++)
 			{
 				if (iblock[j]!=nblk)
@@ -22962,7 +22970,7 @@ public:
 				else
 				{
 					// If eigenvalues j and j-1 are too close, add a relatively small perturbation.
-					if (jblk>1)
+					if (jblk>0)
 					{
 						eps1 = std::fabs(eps*xj);
 						pertol = TEN * eps1;
@@ -22975,7 +22983,7 @@ public:
 					its = 0;
 					nrmchk = 0;
 					// Get random starting vector.
-					dlarnv(2, iseed, blksiz, work[indrv1]);
+					dlarnv(2, iseed, blksiz, &work[indrv1]);
 					// Copy the matrix T so it won't be destroyed in factorization.
 					Blas<real>::dcopy(blksiz,   &d[b1], 1, &work[indrv4],   1);
 					Blas<real>::dcopy(blksiz-1, &e[b1], 1, &work[indrv2+1], 1);
@@ -23005,7 +23013,7 @@ public:
 						dlagts(-1, blksiz, &work[indrv4], &work[indrv2+1], &work[indrv3],
 							   &work[indrv5], iwork, &work[indrv1], tol, iinfo);
 						//Reorthogonalize by modified Gram-Schmidt if eigenvalues are close enough.
-						if (jblk!=1)
+						if (jblk!=0)
 						{
 							if (std::fabs(xj-xjm)>ortol)
 							{
@@ -23181,7 +23189,7 @@ public:
 		// according to whether top or bottom diagonal element is smaller.
 		int l1 = 0;
 		int nm1 = n - 1;
-		int i, ii, iscale, j, k, l, lend, lendp1, lendsv, lsv, m, mm, mm1;
+		int i, ii, iscale, j, k, l, lend, lendp1, lendsv, lsv, m, mm1;
 		real anorm, b, c, f, g, p, r, rt1, rt2, s, tst;
 		do
 		{
@@ -23211,9 +23219,9 @@ public:
 						}
 						if (k!=i)
 						{
-							d[k] = d[i].
-							d[i] = p.
-							dswap(n, &Z[ldz*i], 1, &Z[ldz*k], 1);
+							d[k] = d[i];
+							d[i] = p;
+							Blas<real>::dswap(n, &Z[ldz*i], 1, &Z[ldz*k], 1);
 						}
 					}
 				}
@@ -24450,7 +24458,7 @@ public:
 		 *     -1, second of conjugate complex pair: (wr,wi)
 		 * iscomplex array stores ip for each column in current block.                           */
 		int ierr, ii, ip, is, iv, ivpn, j1, j2, jnxt, k, ki, kip1, ki2, tcolj, tcol3, workcol;
-		real emax, rec, remax, scale, smin, wi, wr, xnorm;
+		real emax, rec, remax=ONE, scale, smin, wi, wr, xnorm;
 		real X[2*2];
 		int iscomplex[NBMAX];
 		if (rightv)
@@ -24573,7 +24581,7 @@ public:
 							// Scale if necessary
 							if (scale!=ONE)
 							{
-								dscal(kip1, scale, &work[ivpn], 1);
+								Blas<real>::dscal(kip1, scale, &work[ivpn], 1);
 							}
 							work[j+ivpn] = X[0];
 							// Update right-hand side
@@ -24598,7 +24606,7 @@ public:
 							// Scale if necessary
 							if (scale!=ONE)
 							{
-								dscal(kip1, scale, &work[ivpn], 1);
+								Blas<real>::dscal(kip1, scale, &work[ivpn], 1);
 							}
 							work[jm1+ivpn] = X[0];
 							work[j  +ivpn] = X[1];
@@ -24628,7 +24636,7 @@ public:
 						if (ki>0)
 						{
 							Blas<real>::dgemv("N", n, ki, ONE, Vr, ldvr, &work[ivpn], 1,
-							                  &work[ki+ivpn], &Vr[vrcol], 1);
+							                  work[ki+ivpn], &Vr[vrcol], 1);
 						}
 						ii = Blas<real>::idamax(n, &Vr[vrcol], 1);
 						remax = ONE / std::fabs(Vr[ii+vrcol]);
@@ -24712,8 +24720,8 @@ public:
 							// Scale if necessary
 							if (scale!=ONE)
 							{
-								Blas<real>::dscal(kip1, scale, work[ivn],  1);
-								Blas<real>::dscal(kip1, scale, work[ivpn], 1);
+								Blas<real>::dscal(kip1, scale, &work[ivn],  1);
+								Blas<real>::dscal(kip1, scale, &work[ivpn], 1);
 							}
 							work[j+ivn]  = X[0];
 							work[j+ivpn] = X[2];
@@ -24742,8 +24750,8 @@ public:
 							// Scale if necessary
 							if (scale!=ONE)
 							{
-								Blas<real>::dscal(kip1, scale, work[ivn], 1);
-								Blas<real>::dscal(kip1, scale, work[ivpn], 1);
+								Blas<real>::dscal(kip1, scale, &work[ivn], 1);
+								Blas<real>::dscal(kip1, scale, &work[ivpn], 1);
 							}
 							work[jm1+ivn]  = X[0];
 							work[j  +ivn]  = X[1];
@@ -24865,8 +24873,7 @@ public:
 							}
 							Blas<real>::dscal(n, remax, &work[workcol], 1);
 						}
-						Blas<real>::dlacpy("F", n, nb-iv, &work[(nb+iv+1)*n], n, &Vr[ldvr*ki2],
-						                   ldvr);
+						dlacpy("F", n, nb-iv, &work[(nb+iv+1)*n], n, &Vr[ldvr*ki2], ldvr);
 						iv = nb - 1;
 					}
 					else

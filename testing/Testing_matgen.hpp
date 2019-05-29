@@ -1068,7 +1068,7 @@ public:
 	real dlatm2(int const m, int const n, int const i, int const j, int const kl, int const ku,
 	            int const idist, int* const iseed, real const* const d, int const igrade,
 	            real const* const dl, real const* const dr, int const ipvtng, int* const iwork,
-	            real const sparse)
+	            real const sparse) const
 	{
 		// Check for i and j in range
 		if (i<0 || i>=m || j<0 || j>=n)
@@ -1089,7 +1089,7 @@ public:
 			}
 		}
 		// Compute subscripts depending on ipvtng
-		int isub, jsub;
+		int isub=0, jsub=0;
 		if (ipvtng==0)
 		{
 			isub = i;
@@ -1474,7 +1474,7 @@ public:
 	            int const mode, real const cond, real const dmax, char const* const ei,
 	            char const* const rsign, char const* const upper, char const* const sim,
 	            real* const ds, int const modes, real const conds, int const kl, int const ku,
-	            real const* anorm, real* const A, int const lda, real* const work, int& info) const
+	            real const anorm, real* const A, int const lda, real* const work, int& info) const
 	{
 		// 1)      Decode and Test the input parameters.
 		// Initialize flags & seed.
@@ -1797,27 +1797,26 @@ public:
 		if (kl<n-1)
 		{
 			// Reduce bandwidth -- kill column
-			int ic, aind2, aind3;
-			aind = lda * ic;
+			int ic, aind, aind2;
 			for (jcr=kl; jcr<n-1; jcr++)
 			{
-				aind2 = jcr + aind;
-				aind3 = lda * jcr;
 				ic    = jcr - kl;
+				aind = jcr + lda*ic;
+				aind2 = lda * jcr;
 				irows = n - jcr;
 				icols = n - 1 + kl - jcr;
-				Blas<real>::dcopy(irows, &A[aind2], 1, work, 1);
+				Blas<real>::dcopy(irows, &A[aind], 1, work, 1);
 				xnorms = work[0];
 				this->dlarfg(irows, xnorms, &work[1], 1, tau);
 				work[0] = ONE;
-				Blas<real>::dgemv("T", irows, icols, ONE, &A[aind2+lda], lda, work, 1, ZERO,
+				Blas<real>::dgemv("T", irows, icols, ONE, &A[aind+lda], lda, work, 1, ZERO,
 				                  &work[irows], 1);
-				Blas<real>::dger(irows, icols, -tau, work, 1, &work[irows], 1, &A[aind2+lda], lda);
-				Blas<real>::dgemv("N", n, irows, ONE, &A[aind3], lda, work, 1, ZERO, &work[irows],
+				Blas<real>::dger(irows, icols, -tau, work, 1, &work[irows], 1, &A[aind+lda], lda);
+				Blas<real>::dgemv("N", n, irows, ONE, &A[aind2], lda, work, 1, ZERO, &work[irows],
 				                  1);
-				Blas<real>::dger(n, irows, -tau, &work[irows], 1, work, 1, &A[aind3], lda);
-				A[aind2] = xnorms;
-				this->dlaset("Full", irows-1, 1, ZERO, ZERO, &A[aind2+1], lda);
+				Blas<real>::dger(n, irows, -tau, &work[irows], 1, work, 1, &A[aind2], lda);
+				A[aind] = xnorms;
+				this->dlaset("Full", irows-1, 1, ZERO, ZERO, &A[aind+1], lda);
 			}
 		}
 		else if (ku<n-1)
@@ -1826,8 +1825,8 @@ public:
 			int ir;
 			for (jcr=ku; jcr<n-1; jcr++)
 			{
-				aind  = ir + lda*jcr;
 				ir    = jcr - ku;
+				aind  = ir + lda*jcr;
 				irows = n - 1 + ku - jcr;
 				icols = n - jcr;
 				Blas<real>::dcopy(icols, &A[aind], lda, work, 1);
@@ -1847,7 +1846,7 @@ public:
 		// Scale the matrix to have norm anorm
 		if (anorm>=ZERO)
 		{
-			temp = dlange("M", n, n, A, lda, nullptr);
+			temp = this->dlange("M", n, n, A, lda, nullptr);
 			if (temp>ZERO)
 			{
 				alpha = anorm / temp;
@@ -2190,7 +2189,7 @@ public:
 			irsign = -1;
 		}
 		// Decode pivtng
-		int ipvtng, npvts;
+		int ipvtng, npvts=0;
 		if (std::toupper(pivtng[0])=='N')
 		{
 			ipvtng = 0;
@@ -2880,7 +2879,7 @@ public:
 			}
 		}
 		// 5)    Scaling the norm
-		real onorm;
+		real onorm=ZERO;
 		if (ipack==0)
 		{
 			onorm = this->dlange("M", m,   n,      A, lda, nullptr);

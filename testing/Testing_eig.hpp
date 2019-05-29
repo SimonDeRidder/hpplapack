@@ -1051,7 +1051,7 @@ public:
 	            real* const s2, real* const X, int const ldx, real* const Y, real* const Z,
 	            real* const Q, int const ldq, real* const Pt, int const ldpt, real* const U,
 	            real* const Vt, real* const work, int const lwork, int* const iwork,
-	            std::ostream& nout, int& info) const
+	            std::ostream& nout, int& info)
 	{
 		real const HALF = real(0.5);
 		int const MAXTYP = 16;
@@ -1150,12 +1150,12 @@ public:
 		char const* str9998b = " returned INFO=";
 		char const* str9998c = ".\n         M=";
 		// Loop over sizes, types
-		bool bidiag;
+		bool bidiag = false;
 		char uplo[2];
 		uplo[1] = '\0';
-		int i, iinfo, il, imode, itemp, itype, iu, iwbd, iwbe, iwbs, iwbz, iwwork, jsize, jtype, m,
-		    mnmin, mnminm, mnmin2, mq, mtypes, n, ns1, ns2;
-		real amninv, anorm, cond, temp1, temp2, vl, vu;
+		int i, iinfo, il=0, imode, itemp, itype, iu=0, iwbd=0, iwbe=0, iwbs, iwbz=0, iwwork=0,
+		    jsize, jtype, m, mnmin, mnminm, mnmin2=0, mq=0, mtypes, n, ns1, ns2;
+		real amninv, anorm=ZERO, cond, temp1, temp2, vl, vu;
 		int ioldsd[4], iseed2[4];
 		real result[40];
 		bool skiptoend = false;
@@ -2311,7 +2311,7 @@ public:
 	 *     DES          & 21    & \{DDRVES}            \\
 	 *     DVX          & 21    & \{DDRVVX}            \\
 	 *     DSX          & 21    & \{DDRVSX}            \\
-	 *     DGG          & 26    & \{DCHKGG} (routines)\\
+	 *     DGG          & 26    & \{DCHKGG} (routines) \\
 	 *     DGS          & 26    & \{DDRGES}            \\
 	 *     DGX          &  5    & \{DDRGSX}            \\
 	 *     DGV          & 26    & \{DDRGEV}            \\
@@ -3003,12 +3003,12 @@ public:
 		    nbmin[maxin], nbval[maxin], nsval[maxin],   nval[maxin],  nxval[maxin],  pval[maxin],
 		    inmin[maxin], inwin[maxin], inibl[maxin], ishfts[maxin], iacc22[maxin];
 		int nmax2 = nmax * nmax;
-		real A[nmax2 * need]=ZERO, B[nmax2 * 5]=ZERO, C[ncmax*ncmax * ncmax*ncmax]=ZERO,
-		     D[nmax * 12]=ZERO, result[500], taua[nmax], taub[nmax], work[lwork], x[5*nmax];
+		real A[nmax2 * need]={ZERO}, B[nmax2 * 5]={ZERO}, C[ncmax*ncmax * ncmax*ncmax]={ZERO},
+		     D[nmax * 12]={ZERO}, result[500], taua[nmax], taub[nmax], work[lwork], x[5*nmax];
 		// initialise
 		std::time(&s1);
 		bool fatal = false;
-		infoc.nout = nout;
+		infoc.nout.rdbuf(nout.rdbuf());
 		char const* str9989a = " Invalid input value: ";
 		char const* str9989b = "; must be >=";
 		char const* str9988a = str9989a;
@@ -4972,7 +4972,7 @@ public:
 	            int const lda, real* const H, real* const wr, real* const wi, real* const wr1,
 	            real* const wi1, real* const Vl, int const ldvl, real* const Vr, int const ldvr,
 	            real* const Lre, int const ldlre, real* const result, real* const work,
-	            int const nwork, int* const iwork, int& info) const
+	            int const nwork, int* const iwork, int& info)
 	{
 		int const MAXTYP = 21;
 		int const  KTYPE[MAXTYP] = {1, 2, 3, 4, 4, 4, 4, 4, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 9, 9, 9};
@@ -5492,9 +5492,9 @@ public:
 						          " 18=Ill-cond., small rand. complx \n";
 						nounit << " 19=Matrix with random O(1) entries.    "
 						          " 21=Matrix with small random entries.\n"
-						          " 20=Matrix with large random entries.   \n";
+						          " 20=Matrix with large random entries.   \n\n";
 						nounit << " Tests performed with test threshold =" << std::fixed
-						       << std::setw(8) << std::setprecision(2) << thresh << "\n"
+						       << std::setw(8) << std::setprecision(2) << thresh << "\n\n"
 						       << " 1 = | A VR - VR W | / (n |A| ulp) \n"
 						          " 2 = | transpose(A) VL - VL W | / (n |A| ulp) \n"
 						          " 3 = | |VR[i]| - 1 | / ulp \n"
@@ -5503,7 +5503,7 @@ public:
 						                " 1/ulp otherwise\n"
 						          " 6 = 0 if VR same no matter if VL computed,  1/ulp otherwise\n"
 						          " 7 = 0 if VL same no matter if VR computed, "
-						                  " 1/ulp otherwise\n";
+						                  " 1/ulp otherwise\n\n";
 						ntestf = 2;
 					}
 					for (j=0; j<7; j++)
@@ -5737,10 +5737,10 @@ public:
 			}
 			if (ipair==1)
 			{
-				Wmat[0,0] =  wr[jcol];
-				Wmat[1,0] = -wi[jcol];
-				Wmat[0,1] =  wi[jcol];
-				Wmat[1,1] =  wr[jcol];
+				Wmat[0] =  wr[jcol];
+				Wmat[1] = -wi[jcol];
+				Wmat[2] =  wi[jcol];
+				Wmat[3] =  wr[jcol];
 				Blas<real>::dgemm(transe, transw, n, 2, 2, ONE, &E[ierow+lde*iecol], lde, Wmat, 2,
 				                  ZERO, &work[n*jcol], n);
 				ipair = 2;
@@ -6256,7 +6256,7 @@ public:
 			this->dlaset("Upper", mnmin, mnmin, ZERO, ONE, work, ldwork);
 			Blas<real>::dsyrk("Upper", transu, mnmin, k, -ONE, U, ldu, ONE, work, ldwork);
 			// Compute norm(I - U*U^T) / (k * eps) .
-			resid = dlansy("1", "Upper", mnmin, work, ldwork, &work[ldwork*mnmin]);
+			resid = this->dlansy("1", "Upper", mnmin, work, ldwork, &work[ldwork*mnmin]);
 			resid = (resid/real(k)) / eps;
 		}
 		else if (transu[0]=='T')
