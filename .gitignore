@@ -2,3 +2,4 @@ doc
 testing/Lapack_dyn.hpp
 testing/objs
 testing/test*
+nbproject/*

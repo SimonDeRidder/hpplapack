@@ -620,8 +620,8 @@ public:
 	 *     On exit, §U is overwritten by $U Q$.\n
 	 *     Not referenced if §nru = 0.
 	 *
-	 * \param[in] ldu The leading dimension of the array §U. $\{ldu} \ge \max(1,\{nru})$.
-	 * \param[in] C
+	 * \param[in]     ldu The leading dimension of the array §U. $\{ldu} \ge \max(1,\{nru})$.
+	 * \param[in,out] C
 	 *     an array, dimension (§ldc, §ncc)\n
 	 *     On entry, an §n by §ncc matrix $C$.\n
 	 *     On exit, §C is overwritten by $Q^T C$.\n
@@ -707,15 +707,15 @@ public:
 		{
 			info = -5;
 		}
-		else if ((ncvt==0 && ldvt<1) || (ncvt>0 && (ldvt<1 || ldvt<n)))
+		else if ((ncvt==0 && ldvt<1) || (ncvt>0 && ldvt<std::max(1, n)))
 		{
 			info = -9;
 		}
-		else if (ldu<1 || ldu<nru)
+		else if (ldu<std::max(1, nru))
 		{
 			info = -11;
 		}
-		else if ((ncc==0 && ldc<1) || (ncc>0 && (ldc<1 || ldc<n)))
+		else if ((ncc==0 && ldc<1) || (ncc>0 && ldc<std::max(1, n)))
 		{
 			info = -13;
 		}
@@ -730,12 +730,11 @@ public:
 		}
 		int i;
 		real smin;
+		int nm1 = n - 1;
 		if (n!=1)
 		{
-			// rotate is true if any singular vectors desired, false otherwise
-			bool rotate = ((ncvt>0) || (nru>0) || (ncc>0));
 			// If no singular vectors desired, use qd algorithm
-			if (!rotate)
+			if (!(ncvt>0 || nru>0 || ncc>0))
 			{
 				dlasq1(n, d, e, work, info);
 				// If info equals 2, dqds didn't finish, try to finish
@@ -745,59 +744,49 @@ public:
 				}
 				info = 0;
 			}
-			int nm1 = n - 1;
 			int nm12 = nm1 + nm1;
 			int nm13 = nm12 + nm1;
-			int IDIR = 0;
+			int idir = 0;
 			// Get machine constants
 			real eps = dlamch("Epsilon");
 			real unfl = dlamch("Safe minimum");
-			// If matrix lower bidiagonal, rotate to be upper bidiagonal by applying
-			// Givens rotations on the left
+			// If matrix lower bidiagonal, rotate to be upper bidiagonal by applying Givens
+			// rotations on the left
 			real cs, sn, r;
 			if (lower)
 			{
-				for (i=0; i<n-1; i++)
+				for (i=0; i<nm1; i++)
 				{
 					dlartg(d[i], e[i], cs, sn, r);
 					d[i] = r;
-					e[i] = sn*d[i+1];
-					d[i+1] = cs*d[i+1];
-					work[i] = cs;
+					e[i]   = sn * d[i+1];
+					d[i+1] = cs * d[i+1];
+					work[i]     = cs;
 					work[nm1+i] = sn;
 				}
 				// Update singular vectors if desired
 				if (nru>0)
 				{
-					dlasr("R", "V", "F", nru, n, &work[0], &work[n-1], U, ldu);
+					dlasr("R", "V", "F", nru, n, &work[0], &work[nm1], U, ldu);
 				}
 				if (ncc>0)
 				{
-					dlasr("L", "V", "F", n, ncc, &work[0], &work[n-1], C, ldc);
+					dlasr("L", "V", "F", n, ncc, &work[0], &work[nm1], C, ldc);
 				}
 			}
 			// Compute singular values to relative accuracy tol (By setting tol to be negative,
-			// algorithm will compute singular values to absolute accuracy
-			// abs(tol)*norm(input matrix))
+			// algorithm will compute singular values to absolute accuracy |tol|*||input matrix||
 			tolmul = std::max(TEN, std::min(HNDRD, std::pow(eps, MEIGTH)));
 			real tol = tolmul * eps;
 			// Compute approximate maximum, minimum singular values
-			real smax = ZERO, temp;
+			real smax = ZERO;
 			for (i=0; i<n; i++)
 			{
-				temp = std::fabs(d[i]);
-				if (temp>smax)
-				{
-					smax = temp;
-				}
+				smax = std::max(smax, std::fabs(d[i]));
 			}
-			for (i=0; i<n-1; i++)
+			for (i=0; i<nm1; i++)
 			{
-				temp = std::fabs(e[i]);
-				if (temp>smax)
-				{
-					smax = temp;
-				}
+				smax = std::max(smax, std::fabs(e[i]));
 			}
 			real sminl = ZERO, sminoa, mu, thresh;
 			if (tol>=ZERO)
@@ -820,53 +809,47 @@ public:
 						}
 					}
 				}
-				sminoa = sminoa / std::sqrt(real(n));
-				temp = MAXITR * (n*(n*unfl));
-				thresh = tol * sminoa;
-				if (temp>thresh)
-				{
-					thresh = temp;
-				}
+				sminoa /= std::sqrt(real(n));
+				thresh = std::max(tol*sminoa, MAXITR*(n*(n*unfl)));
 			}
 			else
 			{
 				// Absolute accuracy desired
-				temp = MAXITR * (n*(n*unfl));
-				thresh = std::fabs(tol) * smax;
-				if (temp>thresh)
-				{
-					thresh = temp;
-				}
+				thresh = std::max(std::fabs(tol)*smax, MAXITR*(n*(n*unfl)));
 			}
 			// Prepare for main iteration loop for the singular values (MAXIT is the maximum number
 			// of passes through the inner loop permitted before nonconvergence signalled.)
-			int maxitdivn = MAXITR*n;
+			int maxitdivn = MAXITR * n;
 			int iterdivn = 0;
 			int iter = -1;
-			int oldll = -1;
-			int oldm = -1;
+			int oldll = -2;
+			int oldm = -2;
 			// m points to last element of unconverged part of matrix
-			int m = n-1;
+			int m = nm1;
 			// Begin main iteration loop
 			int ll, lll;
 			real abse, abss, cosl, cosr, f, g, h, oldcs, oldsn, shift, sigmn, sigmx, sinl, sinr,
-			     sll;
-			bool breakloop1 = false, breakloop2;
-			while (true)
+			     sll, temp;
+			bool breakloop;
+			while (m>0)
 			{
-				// Check for convergence or exceeding iteration count
-				if (m<=0)
-				{
-					break;
-				}
+				// Check for exceeding iteration count
 				if (iter>=n)
 				{
 					iter -= n;
 					iterdivn++;
 					if (iterdivn>=maxitdivn)
 					{
-						breakloop1 = true;
-						break;
+						// Maximum number of iterations exceeded, failure to converge
+						info = 0;
+						for (i=0; i<nm1; i++)
+						{
+							if (e[i]!=ZERO)
+							{
+								info++;
+							}
+						}
+						return;
 					}
 				}
 				// Find diagonal block of matrix to work on
@@ -876,10 +859,10 @@ public:
 				}
 				smax = std::fabs(d[m]);
 				smin = smax;
-				breakloop2 = false;
+				breakloop = false;
 				for (lll=0; lll<m; lll++)
 				{
-					ll = m - lll + 1;
+					ll = m - lll - 1;
 					abss = std::fabs(d[ll]);
 					abse = std::fabs(e[ll]);
 					if (tol<ZERO && abss<=thresh)
@@ -888,7 +871,7 @@ public:
 					}
 					if (abse<=thresh)
 					{
-						breakloop2 = true;
+						breakloop = true;
 						break;
 					}
 					if (abss<smin)
@@ -901,7 +884,7 @@ public:
 						smax = temp;
 					}
 				}
-				if (breakloop2)
+				if (breakloop)
 				{
 					e[ll] = ZERO;
 					// Matrix splits since e[ll] = 0
@@ -928,18 +911,15 @@ public:
 					// Compute singular vectors, if desired
 					if (ncvt>0)
 					{
-						Blas<real>::drot(ncvt, &Vt[m-1/*ldvt*0*/], ldvt, &Vt[m/*+ldvt*0*/], ldvt,
-						                 cosr, sinr);
+						Blas<real>::drot(ncvt, &Vt[m-1], ldvt, &Vt[m], ldvt, cosr, sinr);
 					}
 					if (nru>0)
 					{
-						Blas<real>::drot(nru, &U[/*0+*/ldu*(m-1)], 1, &U[/*0+*/ldu*m], 1, cosl,
-						                 sinl);
+						Blas<real>::drot(nru, &U[ldu*(m-1)], 1, &U[ldu*m], 1, cosl, sinl);
 					}
 					if (ncc>0)
 					{
-						Blas<real>::drot(ncc, &C[m-1/*+ldc*0*/], ldc, &C[m/*+ldc*0*/], ldc, cosl,
-						                 sinl);
+						Blas<real>::drot(ncc, &C[m-1], ldc, &C[m], ldc, cosl, sinl);
 					}
 					m -= 2;
 					continue;
@@ -951,16 +931,16 @@ public:
 					if (std::fabs(d[ll]) >= std::fabs(d[m]))
 					{
 						// Chase bulge from top (big end) to bottom (small end)
-						IDIR = 1;
+						idir = 1;
 					}
 					else
 					{
 						// Chase bulge from bottom (big end) to top (small end)
-						IDIR = 2;
+						idir = 2;
 					}
 				}
 				// Apply convergence tests
-				if (IDIR==1)
+				if (idir==1)
 				{
 					// Run convergence test in forward direction
 					// First apply standard test to bottom of matrix
@@ -975,13 +955,13 @@ public:
 						// If relative accuracy desired, apply convergence criterion forward
 						mu = std::fabs(d[ll]);
 						sminl = mu;
-						breakloop2 = false;
+						breakloop = false;
 						for (lll=ll; lll<m; lll++)
 						{
-							if (std::fabs(e[lll]<=tol*mu))
+							if (std::fabs(e[lll])<=tol*mu)
 							{
 								e[lll] = ZERO;
-								breakloop2 = true;
+								breakloop = true;
 								break;
 							}
 							mu = std::fabs(d[lll+1]) * (mu/(mu+std::fabs(e[lll])));
@@ -990,7 +970,7 @@ public:
 								sminl = mu;
 							}
 						}
-						if (breakloop2)
+						if (breakloop)
 						{
 							continue;
 						}
@@ -1011,22 +991,22 @@ public:
 						// If relative accuracy desired, apply convergence criterion backward
 						mu = std::fabs(d[m]);
 						sminl = mu;
-						breakloop2 = false;
+						breakloop = false;
 						for (lll=m-1; lll>=ll; lll--)
 						{
 							if (std::fabs(e[lll])<=tol*mu)
 							{
 								e[lll] = ZERO;
-								breakloop2 = true;
+								breakloop = true;
 								break;
 							}
-							mu = std::fabs(d[lll]) * (mu / (mu+std::fabs(e[lll])));
+							mu = std::fabs(d[lll]) * (mu/(mu+std::fabs(e[lll])));
 							if (mu<sminl)
 							{
 								sminl = mu;
 							}
 						}
-						if (breakloop2)
+						if (breakloop)
 						{
 							continue;
 						}
@@ -1036,8 +1016,7 @@ public:
 				oldm = m;
 				// Compute shift. First, test if shifting would ruin relative accuracy,
 				// and if so set the shift to zero.
-				temp = HNDRTH*tol;
-				if (tol>=ZERO && n*tol*(sminl/smax)<=((eps>temp)?eps:temp))
+				if (tol>=ZERO && n*tol*(sminl/smax)<=std::max(eps, HNDRTH*tol))
 				{
 					// Use a zero shift to avoid loss of relative accuracy
 					shift = ZERO;
@@ -1045,7 +1024,7 @@ public:
 				else
 				{
 					// Compute the shift from 2-by-2 block at end of matrix
-					if (IDIR==1)
+					if (idir==1)
 					{
 						sll = std::fabs(d[ll]);
 						dlas2(d[m-1], e[m-1], d[m], shift, r);
@@ -1070,7 +1049,7 @@ public:
 				// If SHIFT = 0, do simplified QR iteration
 				if (shift==ZERO)
 				{
-					if (IDIR==1)
+					if (idir==1)
 					{
 						// Chase bulge from top to bottom
 						// Save cosines and sines for later singular vector updates
@@ -1081,7 +1060,7 @@ public:
 							dlartg(d[i]*cs, e[i], cs, sn, r);
 							if (i>ll)
 							{
-								e[i-1] = oldsn*r;
+								e[i-1] = oldsn * r;
 							}
 							dlartg(oldcs*r, d[i+1]*sn, oldcs, oldsn, d[i]);
 							work[i-ll] = cs;
@@ -1095,17 +1074,17 @@ public:
 						// Update singular vectors
 						if (ncvt>0)
 						{
-							dlasr("L", "V", "F", m-ll+1, ncvt, &work[0], &work[n-1], &Vt[ll],
+							dlasr("L", "V", "F", m-ll+1, ncvt, &work[0], &work[nm1], &Vt[ll],
 							      ldvt);
 						}
 						if (nru>0)
 						{
-							dlasr("R", "V", "F", nru, m-ll+1, &work[nm12], &work[nm13],
-							      &U[ldu*ll], ldu);
+							dlasr("R", "V", "F", nru, m-ll+1, &work[nm12], &work[nm13], &U[ldu*ll],
+							      ldu);
 						}
 						if (ncc>0)
 						{
-							dlasr("L", "V", "F", m-ll+1, ncc, &work[nm12], &work[nm13+1], &C[ll],
+							dlasr("L", "V", "F", m-ll+1, ncc, &work[nm12], &work[nm13], &C[ll],
 							      ldc);
 						}
 						// Test convergence
@@ -1125,7 +1104,7 @@ public:
 							dlartg(d[i]*cs, e[i-1], cs, sn, r);
 							if (i<m)
 							{
-								e[i] = oldsn*r;
+								e[i] = oldsn * r;
 							}
 							dlartg(oldcs*r, d[i-1]*sn, oldcs, oldsn, d[i]);
 							work[i-ll-1] = cs;
@@ -1133,9 +1112,9 @@ public:
 							work[i-ll-1+nm12] = oldcs;
 							work[i-ll-1+nm13] = -oldsn;
 						}
-						h = d[ll]*cs;
-						d[ll] = h*oldcs;
-						e[ll] = h*oldsn;
+						h     = d[ll] * cs;
+						d[ll] = h * oldcs;
+						e[ll] = h * oldsn;
 						// Update singular vectors
 						if (ncvt>0)
 						{
@@ -1144,12 +1123,12 @@ public:
 						}
 						if (nru>0)
 						{
-							dlasr("R", "V", "B", nru, m-ll+1, &work[0], &work[n-1], &U[ldu*ll],
+							dlasr("R", "V", "B", nru, m-ll+1, &work[0], &work[nm1], &U[ldu*ll],
 							      ldu);
 						}
 						if (ncc>0)
 						{
-							dlasr("L", "V", "B", m-ll+1, ncc, &work[0], &work[n-1], &C[ll], ldc);
+							dlasr("L", "V", "B", m-ll+1, ncc, &work[0], &work[nm1], &C[ll], ldc);
 						}
 						// Test convergence
 						if (std::fabs(e[ll])<=thresh)
@@ -1161,12 +1140,11 @@ public:
 				else
 				{
 					// Use nonzero shift
-					if (IDIR==1)
+					if (idir==1)
 					{
 						// Chase bulge from top to bottom
 						// Save cosines and sines for later singular vector updates
-						f = (std::fabs(d[ll]) - shift)
-						    * ((real(ZERO<=d[ll])-real(ZERO>d[ll])) + shift/d[ll]);
+						f = (std::fabs(d[ll])-shift) * (std::copysign(ONE, d[ll])+shift/d[ll]);
 						g = e[ll];
 						for (i=ll; i<m; i++)
 						{
@@ -1177,19 +1155,19 @@ public:
 							}
 							f    = cosr*d[i] + sinr*e[i];
 							e[i] = cosr*e[i] - sinr*d[i];
-							g      = sinr*d[i+1];
-							d[i+1] = cosr*d[i+1];
+							g      = sinr * d[i+1];
+							d[i+1] = cosr * d[i+1];
 							dlartg(f, g, cosl, sinl, r);
 							d[i] = r;
 							f      = cosl*e[i]   + sinl*d[i+1];
 							d[i+1] = cosl*d[i+1] - sinl*e[i];
-							if (i+1<m)
+							if (i<m-1)
 							{
-								g = sinl*e[i+1];
-								e[i+1] = cosl*e[i+1];
+								g      = sinl * e[i+1];
+								e[i+1] = cosl * e[i+1];
 							}
-							work[i-ll] = cosr;
-							work[i-ll+nm1] = sinr;
+							work[i-ll]      = cosr;
+							work[i-ll+nm1]  = sinr;
 							work[i-ll+nm12] = cosl;
 							work[i-ll+nm13] = sinl;
 						}
@@ -1197,13 +1175,13 @@ public:
 						// Update singular vectors
 						if (ncvt>0)
 						{
-							dlasr("L", "V", "F", m-ll+1, ncvt, &work[0], &work[n-1], &Vt[ll],
+							dlasr("L", "V", "F", m-ll+1, ncvt, &work[0], &work[nm1], &Vt[ll],
 							      ldvt);
 						}
 						if (nru>0)
 						{
-							dlasr("R", "V", "F", nru, m-ll+1, &work[nm12], &work[nm13],
-							      &U[ldu*ll], ldu);
+							dlasr("R", "V", "F", nru, m-ll+1, &work[nm12], &work[nm13], &U[ldu*ll],
+							      ldu);
 						}
 						if (ncc>0)
 						{
@@ -1213,14 +1191,14 @@ public:
 						// Test convergence
 						if (std::fabs(e[m-1])<=thresh)
 						{
-							e[m-2] = ZERO;
+							e[m-1] = ZERO;
 						}
 					}
 					else
 					{
 						// Chase bulge from bottom to top
 						// Save cosines and sines for later singular vector updates
-						f = (std::fabs(d[m])-shift) * ((real(ZERO<=d[m])-real(ZERO>d[m]))+shift/d[m]);
+						f = (std::fabs(d[m])-shift) * (std::copysign(ONE, d[m])+shift/d[m]);
 						g = e[m-1];
 						for (i=m; i>ll; i--)
 						{
@@ -1229,22 +1207,22 @@ public:
 							{
 								e[i] = r;
 							}
-							f      = cosr*d[i] + sinr*e[i-1];
+							f      = cosr*d[i]   + sinr*e[i-1];
 							e[i-1] = cosr*e[i-1] - sinr*d[i];
-							g      = sinr*d[i-1];
-							d[i-1] = cosr*d[i-1];
+							g      = sinr * d[i-1];
+							d[i-1] = cosr * d[i-1];
 							dlartg(f, g, cosl, sinl, r);
 							d[i] = r;
 							f      = cosl*e[i-1] + sinl*d[i-1];
 							d[i-1] = cosl*d[i-1] - sinl*e[i-1];
 							if (i>ll+1)
 							{
-								g = sinl*e[i-2];
-								e[i-2] = cosl*e[i-2];
+								g      = sinl * e[i-2];
+								e[i-2] = cosl * e[i-2];
 							}
-							work[i-ll-1] = cosr;
-							work[i-ll-1+nm1] = -sinr;
-							work[i-ll-1+nm12] = cosl;
+							work[i-ll-1]      =  cosr;
+							work[i-ll-1+nm1]  = -sinr;
+							work[i-ll-1+nm12] =  cosl;
 							work[i-ll-1+nm13] = -sinl;
 						}
 						e[ll] = f;
@@ -1261,29 +1239,16 @@ public:
 						}
 						if (nru>0)
 						{
-							dlasr("R", "V", "B", nru, m-ll+1, &work[0], &work[n-1], &U[ldu*ll],
+							dlasr("R", "V", "B", nru, m-ll+1, &work[0], &work[nm1], &U[ldu*ll],
 							      ldu);
 						}
 						if (ncc>0)
 						{
-							dlasr("L", "V", "B", m-ll+1, ncc, &work[0], &work[n-1], &C[ll], ldc);
+							dlasr("L", "V", "B", m-ll+1, ncc, &work[0], &work[nm1], &C[ll], ldc);
 						}
 					}
 				}
 				// QR iteration finished, go back and check convergence
-			}
-			if (breakloop1)
-			{
-				// Maximum number of iterations exceeded, failure to converge
-				info = 0;
-				for (i=0; i<n-1; i++)
-				{
-					if (e[i]!=ZERO)
-					{
-						info++;
-					}
-				}
-				return;
 			}
 		}
 		// All singular values converged, so make them positive
@@ -1302,7 +1267,7 @@ public:
 		// Sort the singular values into decreasing order (insertion sort on singular values,
 		// but only one transposition per singular vector)
 		int isub, j;
-		for (i=0; i<n-1; i++)
+		for (i=0; i<nm1; i++)
 		{
 			// Scan for smallest d[i]
 			isub = 0;
@@ -1315,22 +1280,22 @@ public:
 					smin = d[j];
 				}
 			}
-			if (isub!=n-i-1)
+			if (isub!=nm1-i)
 			{
 				// Swap singular values and vectors
-				d[isub] = d[n-i-1];
-				d[n-i-1] = smin;
+				d[isub] = d[nm1-i];
+				d[nm1-i] = smin;
 				if (ncvt>0)
 				{
-					Blas<real>::dswap(ncvt, &Vt[isub], ldvt, &Vt[n-i-1], ldvt);
+					Blas<real>::dswap(ncvt, &Vt[isub], ldvt, &Vt[nm1-i], ldvt);
 				}
 				if (nru>0)
 				{
-					Blas<real>::dswap(nru, &U[ldu*isub], 1, &U[ldu*(n-i-1)], 1);
+					Blas<real>::dswap(nru, &U[ldu*isub], 1, &U[ldu*(nm1-i)], 1);
 				}
 				if (ncc>0)
 				{
-					Blas<real>::dswap(ncc, &C[isub], ldc, &C[n-i-1], ldc);
+					Blas<real>::dswap(ncc, &C[isub], ldc, &C[nm1-i], ldc);
 				}
 			}
 		}
@@ -6415,20 +6380,22 @@ public:
 								{
 									ak += pert;
 									pert *= 2;
+									continue;
 								}
 								else
 								{
 									temp *= bignum;
 									ak  *= bignum;
-									break;
 								}
 							}
 							else if (std::fabs(temp)>absak*bignum)
 							{
 								ak   += pert;
 								pert *= 2;
+								continue;
 							}
 						}
+						break;
 					}
 					y[k] = temp / ak;
 				}
@@ -6508,20 +6475,22 @@ public:
 								{
 									ak   += pert;
 									pert *= 2;
+									continue;
 								}
 								else
 								{
 									temp *= bignum;
 									ak   *= bignum;
-									break;
 								}
 							}
 							else if (std::fabs(temp)>absak*bignum)
 							{
 								ak   += pert;
 								pert *= 2;
+								continue;
 							}
 						}
+						break;
 					}
 					y[k] = temp / ak;
 				}
@@ -7508,8 +7477,8 @@ public:
 					bi1 = B[ldb];
 					bi2 = B[1+ldb];
 				}
-				br2 -= lr21*br1 + li21*bi1;
-				bi2 -= li21*br1 - lr21*bi1;
+				br2 = br2 - lr21*br1 + li21*bi1;
+				bi2 = bi2 - li21*br1 - lr21*bi1;
 				bbnd = std::max((std::fabs(br1)+std::fabs(bi1))
 				                * (u22abs*(std::fabs(ur11r)+std::fabs(ui11r))),
 				                std::fabs(br2)+std::fabs(bi2));
@@ -11757,8 +11726,8 @@ public:
 	 *     On exit, §C is overwritten by the matrix\n $H C$ if §side = 'L',
 	 *                                           or\n $C H$ if §side = 'R'.
 	 *
-	 * \param[in] ldc  The leading dimension of the array §C. $\{ldc}\ge\max(1,\{m})$.
-	 * \param[in] work
+	 * \param[in]  ldc  The leading dimension of the array §C. $\{ldc}\ge\max(1,\{m})$.
+	 * \param[out] work
 	 *     an array, dimension (§n) if §side = 'L'\n
 	 *     &emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;or (§m) if §side = 'R'
 	 * \authors Univ.of Tennessee
@@ -17881,7 +17850,7 @@ public:
 			}
 		}
 		d[n-1] = fabs(d[n-1]);
-		// Early return if SIGMX is zero (matrix is already diagonal).
+		// Early return if sigmx is zero (matrix is already diagonal).
 		if (sigmx==ZERO)
 		{
 			dlasrt("D", n, d, iinfo);

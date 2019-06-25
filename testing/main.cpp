@@ -12,6 +12,7 @@ int main(int argc, char* argv[])
 	// TEST EIG ROUTINES
 	Testing_eig<double>* te = new Testing_eig<double>();
 	ifstream f;
+	f.clear();
 	int const ENMAX   = 132;
 	int const ENCMAX  = 20;
 	int const ENEED   = 14;
@@ -39,6 +40,7 @@ int main(int argc, char* argv[])
 	f.open("data/svd.in");
 	te->dchkee(ENMAX, ENCMAX, ENEED, ELWORK, ELIWORK, EMAXIN, EMAXT, f, cout);
 	f.close();
+	f.clear();
 	//// DEC
 	//cout << "DEC: Testing DOUBLE PRECISION Eigen Condition Routines" << endl;
 	//f.open("data/dec.in");
@@ -49,6 +51,7 @@ int main(int argc, char* argv[])
 	f.open("data/ded.in");
 	te->dchkee(ENMAX, ENCMAX, ENEED, ELWORK, ELIWORK, EMAXIN, EMAXT, f, cout);
 	f.close();
+	f.clear();
 	//// DGG
 	//cout << "DGG: Testing DOUBLE PRECISION Nonsymmetric Generalized Eigenvalue Problem routines"
 	//     << endl;
@@ -77,6 +80,7 @@ int main(int argc, char* argv[])
 	f.open("data/dbal.in");
 	te->dchkee(ENMAX, ENCMAX, ENEED, ELWORK, ELIWORK, EMAXIN, EMAXT, f, cout);
 	f.close();
+	f.clear();
 	//// DBK
 	//cout << "DGEBAK: Testing the back transformation of a DOUBLE PRECISION balanced matrix"
 	//     << endl;
@@ -136,6 +140,7 @@ int main(int argc, char* argv[])
 	f.open("data/dtest.in");
 	tl->dchkaa(LNMAX, LMAXIN, LMAXRHS, LMATMAX, f, cout);
 	f.close();
+	f.clear();
 	// TODO: add all other tests
 	delete tl;
 }

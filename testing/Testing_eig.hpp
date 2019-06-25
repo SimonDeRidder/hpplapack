@@ -1164,7 +1164,7 @@ public:
 			m = mval[jsize];
 			n = nval[jsize];
 			mnmin = std::min(m, n);
-			mnminm = mnmin + 1;
+			mnminm = mnmin - 1;
 			amninv = ONE / std::max(std::max(m, n), 1);
 			if (nsizes!=1)
 			{
@@ -2992,19 +2992,41 @@ public:
 		// allocate variables
 		int ioldsd[4]  = {0, 0, 0, 1};
 		bool csd, dbb, dgg, dsb, glm, gqr, gsv, lse, nep, dbk, dbl, sep, des, dev, dgk, dgl, dgs,
-		     dgv, dgx, dsx, svd, dvx, dxv, tstchk, tstdif, tstdrv, tsterr;
-		char c3[4], path[4], vname[32], line[80];
+		     dgv, dgx, dsx, svd, dvx, dxv, tstchk=false, tstdif, tstdrv=false, tsterr;
+		char c1, c3[4], path[4], vname[32], line[80];
 		int i, i1, ic, info, itmp, k, lenp, maxtyp, newsd, nk, nn, nparms, nrhs, ntypes,
 		    vers_major, vers_minor, vers_patch;
 		real eps, thresh, thrshn;
 		std::time_t s1, s2;
-		bool dotype[maxt], logwrk[nmax];
-		int iseed[4],    iwork[liwork],  kval[maxin],   mval[maxin], mxbval[maxin], nbcol[maxin],
-		    nbmin[maxin], nbval[maxin], nsval[maxin],   nval[maxin],  nxval[maxin],  pval[maxin],
-		    inmin[maxin], inwin[maxin], inibl[maxin], ishfts[maxin], iacc22[maxin];
+		bool* dotype = new bool[maxt];
+		bool* logwrk = new bool[nmax];
+		int iseed[4];
+		int* iwork = new int[liwork];
+		int* kval = new int[maxin];
+		int* mval = new int[maxin];
+		int* mxbval = new int[maxin];
+		int* nbcol = new int[maxin];
+		int* nbmin = new int[maxin];
+		int* nbval = new int[maxin];
+		int* nsval = new int[maxin];
+		int* nval = new int[maxin];
+		int* nxval = new int[maxin];
+		int* pval = new int[maxin];
+		int* inmin = new int[maxin];
+		int* inwin = new int[maxin];
+		int* inibl = new int[maxin];
+		int* ishfts = new int[maxin];
+		int* iacc22 = new int[maxin];
 		int nmax2 = nmax * nmax;
-		real A[nmax2 * need]={ZERO}, B[nmax2 * 5]={ZERO}, C[ncmax*ncmax * ncmax*ncmax]={ZERO},
-		     D[nmax * 12]={ZERO}, result[500], taua[nmax], taub[nmax], work[lwork], x[5*nmax];
+		real* A = new real[nmax2 * need];
+		real* B = new real[nmax2 * 5];
+		real* C = new real[ncmax*ncmax * ncmax*ncmax];
+		real* D = new real[nmax * 12];
+		real* result = new real[500];
+		real* taua = new real[nmax];
+		real* taub = new real[nmax];
+		real* work = new real[lwork];
+		real* x = new real[5*nmax];
 		// initialise
 		std::time(&s1);
 		bool fatal = false;
@@ -3019,16 +3041,16 @@ public:
 		    "\n -----------------------------------------------------------------------";
 		bool errcont, endbreak;
 		// Return to here to read multiple sets of data
-		while (!nin.eof())
+		while (nin.good())
 		{
 			// Read the first line and set the 3-character test path
-			nin.getline(line, 80);
+			nin.read(path, 3);
+			path[3] = '\0';
+			nin.ignore(100, '\n');
 			if (!nin.good())
 			{
 				break;
 			}
-			std::strncpy(path, line, 3);
-			path[3] = '\0';
 			nep = (std::strncmp(path, "NEP", 3)==0 || std::strncmp(path, "DHS", 3)==0);
 			sep = (std::strncmp(path, "SEP", 3)==0 || std::strncmp(path, "DST", 3)==0
 			    || std::strncmp(path, "DSG", 3)==0 || std::strncmp(path, "SE2", 3)==0);
@@ -3175,6 +3197,7 @@ public:
 			{
 				// DEC:  Eigencondition estimation
 				nin >> thresh;
+				nin.ignore(100, '\n');
 				xlaenv(1, 1);
 				xlaenv(12, 11);
 				xlaenv(13, 2);
@@ -3197,6 +3220,7 @@ public:
 			nout << "\n The following parameter values will be used:" << std::endl;
 			// Read the number of values of M, P, and N.
 			nin >> nn;
+			nin.ignore(100, '\n');
 			if (nn<0)
 			{
 				nout << str9989a << "   NN =" << std::setw(6) << nn << str9989b << std::setw(6)
@@ -3214,10 +3238,6 @@ public:
 			// Read the values of M
 			if (!(dgx || dxv))
 			{
-				for (i=0; i<nn; i++)
-				{
-					nin >> mval[i];
-				}
 				if (svd)
 				{
 					std::strcpy(vname, "    M ");
@@ -3228,6 +3248,7 @@ public:
 				}
 				for (i=0; i<nn; i++)
 				{
+					nin >> mval[i];
 					if (mval[i]<0)
 					{
 						nout << str9989a << vname << '=' << std::setw(6) << mval[i] << str9989b
@@ -3241,6 +3262,7 @@ public:
 						fatal = true;
 					}
 				}
+				nin.ignore(100, '\n');
 				nout << "    M:    ";
 				for (i=0; i<std::min(10, nn); i++)
 				{
@@ -3275,6 +3297,7 @@ public:
 						fatal = true;
 					}
 				}
+				nin.ignore(100, '\n');
 				nout << "    P:    ";
 				for (i=0; i<std::min(10, nn); i++)
 				{
@@ -3309,6 +3332,7 @@ public:
 						fatal = true;
 					}
 				}
+				nin.ignore(100, '\n');
 			}
 			else
 			{
@@ -3342,6 +3366,7 @@ public:
 			if (dsb || dbb)
 			{
 				nin >> nk;
+				nin.ignore(100, '\n');
 				for (i=0; i<nk; i++)
 				{
 					nin >> kval[i];
@@ -3358,6 +3383,7 @@ public:
 						fatal = true;
 					}
 				}
+				nin.ignore(100, '\n');
 				nout << "    K:    ";
 				for (i=0; i<std::min(10, nk); i++)
 				{
@@ -3376,17 +3402,18 @@ public:
 			if (dev || des || dvx || dsx)
 			{
 				// For the nonsymmetric QR driver routines, only one set of parameters is allowed.
-				nin >> nbval[0] >> nbmin[1] >> nxval[0] >> inmin[0] >> inwin[0] >> inibl[0]
+				nin >> nbval[0] >> nbmin[0] >> nxval[0] >> inmin[0] >> inwin[0] >> inibl[0]
 				    >> ishfts[0] >> iacc22[0];
+				nin.ignore(100, '\n');
 				if (nbval[0]<1)
 				{
 					nout << str9989a << "   NB =" << std::setw(6) << nbval[0] << str9989b
 					     << std::setw(6) << 1 << std::endl;
 					fatal = true;
 				}
-				else if (nbmin[1]<1)
+				else if (nbmin[0]<1)
 				{
-					nout << str9989a << "NBMIN =" << std::setw(6) << nbmin[1] << str9989b
+					nout << str9989a << "NBMIN =" << std::setw(6) << nbmin[0] << str9989b
 					     << std::setw(6) << 1 << std::endl;
 					fatal = true;
 				}
@@ -3427,7 +3454,7 @@ public:
 					fatal = true;
 				}
 				xlaenv(1,  nbval[0]);
-				xlaenv(2,  nbmin[1]);
+				xlaenv(2,  nbmin[0]);
 				xlaenv(3,  nxval[0]);
 				xlaenv(12, std::max(11, inmin[0]));
 				xlaenv(13, inwin[0]);
@@ -3435,7 +3462,7 @@ public:
 				xlaenv(15, ishfts[0]);
 				xlaenv(16, iacc22[0]);
 				nout << "    NB:   " << nbval[0] << '\n';
-				nout << "    NBMIN:" << nbmin[1] << '\n';
+				nout << "    NBMIN:" << nbmin[0] << '\n';
 				nout << "    NX:   " << nxval[0] << '\n';
 				nout << "    INMIN:   " << inmin[0] << '\n';
 				nout << "    INWIN: " << inwin[0] << '\n';
@@ -3447,16 +3474,17 @@ public:
 			{
 				// For the nonsymmetric generalized driver routines,
 				// only one set of parameters is allowed.
-				nin >> nbval[0] >> nbmin[1] >> nxval[0] >> nsval[0] >> mxbval[0];
+				nin >> nbval[0] >> nbmin[0] >> nxval[0] >> nsval[0] >> mxbval[0];
+				nin.ignore(100, '\n');
 				if (nbval[0]<1)
 				{
 					nout << str9989a << "   NB =" << std::setw(6) << nbval[0] << str9989b
 					     << std::setw(6) << 1 << std::endl;
 					fatal = true;
 				}
-				else if (nbmin[1]<1)
+				else if (nbmin[0]<1)
 				{
-					nout << str9989a << "NBMIN =" << std::setw(6) << nbmin[1] << str9989b
+					nout << str9989a << "NBMIN =" << std::setw(6) << nbmin[0] << str9989b
 					     << std::setw(6) << 1 << std::endl;
 					fatal = true;
 				}
@@ -3479,12 +3507,12 @@ public:
 					fatal = true;
 				}
 				xlaenv(1, nbval[0]);
-				xlaenv(2, nbmin[1]);
+				xlaenv(2, nbmin[0]);
 				xlaenv(3, nxval[0]);
 				xlaenv(4, nsval[0]);
 				xlaenv(8, mxbval[0]);
 				nout << "    NB:   " << nbval[0] << '\n';
-				nout << "    NBMIN:" << nbmin[1] << '\n';
+				nout << "    NBMIN:" << nbmin[0] << '\n';
 				nout << "    NX:   " << nxval[0] << '\n';
 				nout << "    NS:   " << nsval[0] << '\n';
 				nout << "    MAXB: " << mxbval[0] << std::endl;
@@ -3494,6 +3522,7 @@ public:
 				// For the other paths, the number of parameters can be varied from the input file.
 				// Read the number of parameter values.
 				nin >> nparms;
+				nin.ignore(100, '\n');
 				if (nparms<1)
 				{
 					nout << str9989a << "NPARMS=" << std::setw(6) << nparms << str9989b
@@ -3527,6 +3556,7 @@ public:
 							fatal = true;
 						}
 					}
+					nin.ignore(100, '\n');
 					nout << "    NB:   ";
 					for (i=0; i<std::min(10, nparms); i++)
 					{
@@ -3561,6 +3591,7 @@ public:
 							fatal = true;
 						}
 					}
+					nin.ignore(100, '\n');
 					nout << "    NBMIN:";
 					for (i=0; i<std::min(10, nparms); i++)
 					{
@@ -3602,6 +3633,7 @@ public:
 							fatal = true;
 						}
 					}
+					nin.ignore(100, '\n');
 					nout << "    NX:   ";
 					for (i=0; i<std::min(10, nparms); i++)
 					{
@@ -3643,6 +3675,7 @@ public:
 							fatal = true;
 						}
 					}
+					nin.ignore(100, '\n');
 					nout << "    NS:   ";
 					for (i=0; i<std::min(10, nparms); i++)
 					{
@@ -3684,6 +3717,7 @@ public:
 							fatal = true;
 						}
 					}
+					nin.ignore(100, '\n');
 					nout << "    MAXB: ";
 					for (i=0; i<std::min(10, nparms); i++)
 					{
@@ -3719,6 +3753,7 @@ public:
 							fatal = true;
 						}
 					}
+					nin.ignore(100, '\n');
 					nout << "    INMIN: ";
 					for (i=0; i<std::min(10, nparms); i++)
 					{
@@ -3754,6 +3789,7 @@ public:
 							fatal = true;
 						}
 					}
+					nin.ignore(100, '\n');
 					nout << "    INWIN: ";
 					for (i=0; i<std::min(10, nparms); i++)
 					{
@@ -3789,6 +3825,7 @@ public:
 							fatal = true;
 						}
 					}
+					nin.ignore(100, '\n');
 					nout << "    INIBL: ";
 					for (i=0; i<std::min(10, nparms); i++)
 					{
@@ -3824,6 +3861,7 @@ public:
 							fatal = true;
 						}
 					}
+					nin.ignore(100, '\n');
 					nout << "    ISHFTS: ";
 					for (i=0; i<std::min(10, nparms); i++)
 					{
@@ -3859,6 +3897,7 @@ public:
 							fatal = true;
 						}
 					}
+					nin.ignore(100, '\n');
 					nout << "    IACC22: ";
 					for (i=0; i<std::min(10, nparms); i++)
 					{
@@ -3900,6 +3939,7 @@ public:
 							fatal = true;
 						}
 					}
+					nin.ignore(100, '\n');
 					nout << "    NBCOL:";
 					for (i=0; i<std::min(10, nparms); i++)
 					{
@@ -3930,29 +3970,38 @@ public:
 				nout << '\n';
 				eps = this->dlamch("Underflow threshold");
 				nout << str9981a << "underflow" << str9981b << std::setw(16)
-				     << std::setprecision(6) << eps << '\n';
+				     << std::setprecision(6) << std::scientific << eps << '\n';
 				eps = this->dlamch("Overflow threshold");
 				nout << str9981a << "overflow " << str9981b << std::setw(16)
-				     << std::setprecision(6) << eps << '\n';
+				     << std::setprecision(6) << std::scientific << eps << '\n';
 				eps = this->dlamch("Epsilon");
 				nout << str9981a << "precision" << str9981b << std::setw(16)
-				     << std::setprecision(6) << eps << '\n';
+				     << std::setprecision(6) << std::scientific << eps << '\n'
+				     << std::defaultfloat;
 			}
 			// Read the threshold value for the test ratios.
 			nin >> thresh;
+			nin.ignore(100, '\n');
 			nout << "\n Routines pass computational tests if test ratio is less than"
 			     << std::setw(8) << std::setprecision(2) << thresh << std::endl;
 			if (sep || svd || dgg)
 			{
 				// Read the flag that indicates whether to test LAPACK routines.
-				nin >> tstchk;
+				nin >> c1;
+				nin.ignore(100, '\n');
+				tstchk = (std::toupper(c1)=='T');
 				// Read the flag that indicates whether to test driver routines.
-				nin >> tstdrv;
+				nin >> c1;
+				nin.ignore(100, '\n');
+				tstdrv = (std::toupper(c1)=='T');
 			}
 			// Read the flag that indicates whether to test the error exits.
-			nin >> tsterr;
+			nin >> c1;
+			nin.ignore(100, '\n');
+			tsterr = (std::toupper(c1)=='T');
 			// Read the code describing how to set the random number seed.
 			nin >> newsd;
+			nin.ignore(100, '\n');
 			// If newsd = 2, read another line with 4 integers for the seed.
 			if (newsd==2)
 			{
@@ -3960,6 +4009,7 @@ public:
 				{
 					nin >> ioldsd[i];
 				}
+				nin.ignore(100, '\n');
 			}
 			for (i=0; i<4; i++)
 			{
@@ -3968,6 +4018,33 @@ public:
 			if (fatal)
 			{
 				nout << "\n Execution not attempted due to input errors" << std::endl;
+				delete[] dotype;
+				delete[] logwrk;
+				delete[] iwork;
+				delete[] kval;
+				delete[] mval;
+				delete[] mxbval;
+				delete[] nbcol;
+				delete[] nbmin;
+				delete[] nbval;
+				delete[] nsval;
+				delete[] nval;
+				delete[] nxval;
+				delete[] pval;
+				delete[] inmin;
+				delete[] inwin;
+				delete[] inibl;
+				delete[] ishfts;
+				delete[] iacc22;
+				delete[] A;
+				delete[] B;
+				delete[] C;
+				delete[] D;
+				delete[] result;
+				delete[] taua;
+				delete[] taub;
+				delete[] work;
+				delete[] x;
 				return;
 			}
 			// Read the input lines indicating the test path and its parameters. The first three
@@ -4375,6 +4452,23 @@ public:
 						}
 						alareq(c3, ntypes, dotype, maxtyp, nin, nout);
 						//CALL DDRVVX(nn, nval, ntypes, dotype, iseed, thresh, nin, nout, A[0], nmax, A[nmax2], D[0], D[nmax], D[nmax*2], D[nmax*3], A[nmax2*2], nmax, A[nmax2*3], nmax, A[nmax2*4], nmax, D[nmax*4], D[nmax*5], D[nmax*6], D[nmax*7], D[nmax*8], D[nmax*9], D[nmax*10], D[nmax*11], result, work, lwork, iwork, info)
+						int _i, _n;// TODO remove substitute code from here------------------------
+						while (nin.good())
+						{
+							nin >> _n;
+							nin.ignore(100, '\n');
+							if (!nin.good()) break;
+							// Read input data until N=0
+							if (_n==0) break;
+							for (_i=0; _i<(_n*(((_n-1)/6)+1)); _i++)
+							{
+								nin.ignore(100, '\n');
+							}
+							for (_i=0; _i<_n; _i++)
+							{
+								nin.ignore(100, '\n');
+							}
+						}//           untill here -------------------------------------------------
 						std::cerr << "DDRVVX not yet implemented" << std::endl;
 						if (info!=0)
 						{
@@ -4405,6 +4499,26 @@ public:
 						}
 						alareq(c3, ntypes, dotype, maxtyp, nin, nout);
 						// CALL DDRVSX(nn, nval, ntypes, dotype, iseed, thresh, nin, nout, A[0], nmax, A[nmax2], A[nmax2*2], D[0], D[nmax], D[nmax*2], D[nmax*3], D[nmax*4], D[nmax*5], A[nmax2*3], nmax, A[nmax2*4], result, work, lwork, iwork, logwrk, info)
+						int _i, _n, _ns;// TODO remove substitute code from here-------------------
+						while (nin.good())
+						{
+							nin >> _n >> _ns;
+							nin.ignore(100, '\n');
+							if (!nin.good()) break;
+							if (_n==0) break;
+							if (_ns>0)
+							{
+								for (_i=0; _i<((_ns-1)/6)+1; _i++)
+								{
+									nin.ignore(100, '\n');
+								}
+							}
+							for (_i=0; _i<(_n*(((_n-1)/6)+1)); _i++)
+							{
+								nin.ignore(100, '\n');
+							}
+							nin.ignore(100, '\n');
+						}//           untill here -------------------------------------------------
 						std::cerr << "DDRVVX not yet implemented" << std::endl;
 						if (info!=0)
 						{
@@ -4753,6 +4867,33 @@ public:
 				break;
 			}
 		}
+		delete[] dotype;
+		delete[] logwrk;
+		delete[] iwork;
+		delete[] kval;
+		delete[] mval;
+		delete[] mxbval;
+		delete[] nbcol;
+		delete[] nbmin;
+		delete[] nbval;
+		delete[] nsval;
+		delete[] nval;
+		delete[] nxval;
+		delete[] pval;
+		delete[] inmin;
+		delete[] inwin;
+		delete[] inibl;
+		delete[] ishfts;
+		delete[] iacc22;
+		delete[] A;
+		delete[] B;
+		delete[] C;
+		delete[] D;
+		delete[] result;
+		delete[] taua;
+		delete[] taub;
+		delete[] work;
+		delete[] x;
 		nout << "\n\n End of tests\n";
 		std::time(&s2);
 		nout << " Total time used = " << std::setw(12) << std::setprecision(2) << s2-s1
@@ -5493,8 +5634,8 @@ public:
 						nounit << " 19=Matrix with random O(1) entries.    "
 						          " 21=Matrix with small random entries.\n"
 						          " 20=Matrix with large random entries.   \n\n";
-						nounit << " Tests performed with test threshold =" << std::fixed
-						       << std::setw(8) << std::setprecision(2) << thresh << "\n\n"
+						nounit << " Tests performed with test threshold =" << std::setw(8)
+						       << std::setprecision(2) << thresh << "\n\n"
 						       << " 1 = | A VR - VR W | / (n |A| ulp) \n"
 						          " 2 = | transpose(A) VL - VL W | / (n |A| ulp) \n"
 						          " 3 = | |VR[i]| - 1 | / ulp \n"
@@ -5515,7 +5656,7 @@ public:
 							       << std::setw(2) <<  ioldsd[1] << ',' << std::setw(2)
 							       << ioldsd[2] << ',' << std::setw(2) <<  ioldsd[3] << ','
 							       << " type " << std::setw(2) << jtype+1 << ", test("
-							       << std::setw(2) << j+1 << ")=" << std::fixed << std::setw(10)
+							       << std::setw(2) << j+1 << ")=" << std::setw(10)
 							       << std::setprecision(3) << result[j] << std::endl;
 						}
 					}

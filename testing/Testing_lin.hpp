@@ -1092,10 +1092,7 @@ public:
 		std::time_t s1, s2;
 		std::time(&s1);
 		// Read a dummy line.
-		{
-			char dummy[100];
-			nin.getline(dummy, 100);
-		}
+		nin.ignore(100, '\n');
 		// Report values of parameters.
 		int vers_major, vers_minor, vers_patch;
 		this->ilaver(vers_major, vers_minor, vers_patch);
@@ -1108,9 +1105,8 @@ public:
 		char const* str9996b = "; must be >=";
 		bool fatal = false;
 		int nm;
-		std::string dummy;
 		nin >> nm;
-		std::getline(nin, dummy);
+		nin.ignore(100, '\n');
 		if (nm<1)
 		{
 			nout << str99965 <<  " NM =" << std::setw(6) << nm << str9996b << std::setw(6) << 1
@@ -1131,7 +1127,7 @@ public:
 		{
 			nin >> mval[i];
 		}
-		std::getline(nin, dummy);
+		nin.ignore(100, '\n');
 		for (i=0; i<nm; i++)
 		{
 			if (mval[i]<0)
@@ -1163,7 +1159,7 @@ public:
 		// Read the values of N
 		int nn;
 		nin >> nn;
-		std::getline(nin, dummy);
+		nin.ignore(100, '\n');
 		if (nn<1)
 		{
 			nout << str99965 << " NN =" << std::setw(6) << nn << str9996b << std::setw(6) << 1
@@ -1183,7 +1179,7 @@ public:
 		{
 			nin >> nval[i];
 		}
-		std::getline(nin, dummy);
+		nin.ignore(100, '\n');
 		for (i=0; i<nn; i++)
 		{
 			if (nval[i]<0)
@@ -1215,7 +1211,7 @@ public:
 		// Read the values of NRHS
 		int nns;
 		nin >> nns;
-		std::getline(nin, dummy);
+		nin.ignore(100, '\n');
 		if (nns<1)
 		{
 			nout << str99965 << " NNS=" << std::setw(6) << nns << str9996b << std::setw(6) << 1
@@ -1235,7 +1231,7 @@ public:
 		{
 			nin >> nsval[i];
 		}
-		std::getline(nin, dummy);
+		nin.ignore(100, '\n');
 		for (i=0; i<nns; i++)
 		{
 			if (nsval[i]<0)
@@ -1267,7 +1263,7 @@ public:
 		// Read the values of NB
 		int nnb;
 		nin >> nnb;
-		std::getline(nin, dummy);
+		nin.ignore(100, '\n');
 		if (nnb<1)
 		{
 			nout << str99965 << "NNB =" << std::setw(6) << nnb << str9996b << std::setw(6) << 1
@@ -1287,7 +1283,7 @@ public:
 		{
 			nin >> nbval[i];
 		}
-		std::getline(nin, dummy);
+		nin.ignore(100, '\n');
 		for (i=0; i<nnb; i++)
 		{
 			if (nbval[i]<0)
@@ -1338,7 +1334,7 @@ public:
 		{
 			nin >> nxval[i];
 		}
-		std::getline(nin, dummy);
+		nin.ignore(100, '\n');
 		for (i=0; i<nnb; i++)
 		{
 			if (nxval[i]<0)
@@ -1364,7 +1360,7 @@ public:
 		// Read the values of rankval
 		int nrank;
 		nin >> nrank;
-		std::getline(nin, dummy);
+		nin.ignore(100, '\n');
 		if (nn<1)
 		{
 			nout << str99965 << " NRA=" << std::setw(6) << nrank << str9996b << std::setw(6) << 1
@@ -1384,7 +1380,7 @@ public:
 		{
 			nin >> rankval[i];
 		}
-		std::getline(nin, dummy);
+		nin.ignore(100, '\n');
 		for (i=0; i<nrank; i++)
 		{
 			if (rankval[i]<0)
@@ -1418,21 +1414,21 @@ public:
 		real thresh;
 		char c1;
 		nin >> thresh;
-		std::getline(nin, dummy);
+		nin.ignore(100, '\n');
 		nout << "\n Routines pass computational tests if test ratio is less than" << std::setw(8)
 		     << std::setprecision(2) << thresh << '\n' << std::endl;
 		// Read the flag that indicates whether to test the LAPACK routines.
 		nin >> c1;
 		tstchk = (std::toupper(c1)=='T');
-		std::getline(nin, dummy);
+		nin.ignore(100, '\n');
 		// Read the flag that indicates whether to test the driver routines.
 		nin >> c1;
 		tstdrv = (std::toupper(c1)=='T');
-		std::getline(nin, dummy);
+		nin.ignore(100, '\n');
 		// Read the flag that indicates whether to test the error exits.
 		nin >> c1;
 		tsterr = (std::toupper(c1)=='T');
-		std::getline(nin, dummy);
+		nin.ignore(100, '\n');
 		if (fatal)
 		{
 			nout << "\n Execution not attempted due to input errors" << std::endl;
