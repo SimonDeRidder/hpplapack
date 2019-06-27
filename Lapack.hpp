@@ -6835,7 +6835,7 @@ public:
 					{
 						H[hind1]   = v[0];
 						H[hind1+1] = ZERO;
-						if (k<=i)
+						if (k<i-1)
 						{
 							H[hind1+2] = ZERO;
 						}
